@@ -66,7 +66,7 @@ function getProfile(name) {
       postprocess: "stretchOpaqueHeight",
     },
     play: {
-      getSourceBox: getWorkFigureBounds,
+      getSourceBox: primaryOpaqueBounds,
       fitMode: "matchHeight",
       postprocess: "stretchOpaqueHeight",
     },
