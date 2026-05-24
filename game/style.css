@@ -336,6 +336,10 @@ p {
   text-align: left;
 }
 
+.game-action-item[hidden] {
+  display: none;
+}
+
 .game-action-item:disabled {
   color: rgba(236, 242, 237, 0.32);
   cursor: default;

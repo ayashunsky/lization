@@ -27,8 +27,9 @@ const terrainMenuOptions = document.querySelector("#terrainMenuOptions");
 const variantMenu = document.querySelector("#variantMenu");
 const variantMenuOptions = document.querySelector("#variantMenuOptions");
 const zoomControlGroups = [...document.querySelectorAll(".zoom-controls")];
-const mainMenuButtons = [...document.querySelectorAll('.top-bar [data-action="open-menu"]')];
 const gameMenuToggleButtons = [...document.querySelectorAll('[data-action="toggle-game-menu"]')];
+const newRandomMapButtons = [...document.querySelectorAll('[data-action="new-random-map"]')];
+const newEmptyMapButtons = [...document.querySelectorAll('[data-action="new-empty-map"]')];
 const loadStateButtons = [...document.querySelectorAll('[data-action="load-state"]')];
 const saveStateButtons = [...document.querySelectorAll('[data-action="save-state"]')];
 const saveStateAsButtons = [...document.querySelectorAll('[data-action="save-state-as"]')];
@@ -247,7 +248,7 @@ let slotPanelState = null;
 const tileImages = {};
 const shoreOverlayImages = {};
 const unitImages = {};
-const saveVersion = 1;
+const saveVersion = 2;
 const storageKeys = {
   filePrefix: "schtroumpfilization:save-file:v1:",
   currentFile: {
@@ -296,8 +297,9 @@ function applyStaticText() {
   mainMenuOverlay?.setAttribute("aria-label", strings.aria.mainMenu);
   setTextContent(appTitleElements, strings.app.title);
   setTextContent(inspectorTitleElements, strings.play.inspectorTitle);
-  setTextContent(mainMenuButtons, strings.actions.menu);
-  setTextContent(gameMenuToggleButtons, strings.actions.game);
+  setTextContent(gameMenuToggleButtons, strings.actions.menu);
+  setTextContent(newRandomMapButtons, strings.actions.newRandomMap);
+  setTextContent(newEmptyMapButtons, strings.actions.newEmptyMap);
   setTextContent(loadStateButtons, strings.actions.load);
   setTextContent(saveStateButtons, strings.actions.save);
   setTextContent(saveStateAsButtons, strings.actions.saveAs);
@@ -490,7 +492,7 @@ function openGameActionMenu(button) {
     toggleButton.setAttribute("aria-expanded", toggleButton === button ? "true" : "false");
   }
 
-  gameActionMenu.querySelector(".game-action-item:not(:disabled)")?.focus({ preventScroll: true });
+  gameActionMenu.querySelector('.game-action-item:not([hidden]):not(:disabled)')?.focus({ preventScroll: true });
 }
 
 function toggleGameActionMenu(button) {
@@ -588,8 +590,15 @@ function commitSaveSlotPanel() {
   }
 
   if (slotPanelState.mode === "load") {
-    if (!readSaveFile(fileName)) {
+    const existingState = readSaveFile(fileName);
+
+    if (!existingState) {
       window.alert(strings.messages.saveNotFound(fileName));
+      return false;
+    }
+
+    if (!isCompatibleSaveState(existingState)) {
+      window.alert(strings.messages.obsoleteSave(fileName));
       return false;
     }
 
@@ -598,7 +607,7 @@ function commitSaveSlotPanel() {
     }
 
     if (!loadFileIntoMode(fileName, targetMode)) {
-      window.alert(strings.messages.saveNotFound(fileName));
+      window.alert(strings.messages.obsoleteSave(fileName));
       return false;
     }
   } else {
@@ -633,6 +642,7 @@ function serializeCell(cell) {
   return {
     type: cell.type,
     variant: ensureCellVariant(cell),
+    visited: Boolean(cell.visited),
   };
 }
 
@@ -739,6 +749,10 @@ function readSaveFile(fileName) {
   }
 }
 
+function isCompatibleSaveState(state) {
+  return Boolean(state) && state.version === saveVersion;
+}
+
 function buildGeneratedMapCells(
   width = defaultMapConfig.width,
   height = defaultMapConfig.height,
@@ -776,6 +790,39 @@ function buildGeneratedMapCells(
   return cells;
 }
 
+function buildEmptyMapCells(
+  width = defaultMapConfig.width,
+  height = defaultMapConfig.height,
+) {
+  const cells = [];
+
+  for (let y = 0; y < height; y += 1) {
+    const row = [];
+
+    for (let x = 0; x < width; x += 1) {
+      row.push(createCell(x, y, "grass"));
+    }
+
+    cells.push(row);
+  }
+
+  return cells;
+}
+
+function markCellsVisitedByUnits(cells, units) {
+  if (!Array.isArray(cells) || !Array.isArray(units)) return;
+
+  for (const currentUnit of units) {
+    if (!currentUnit) continue;
+
+    const cell = cells[currentUnit.y]?.[currentUnit.x];
+
+    if (cell) {
+      cell.visited = true;
+    }
+  }
+}
+
 function createDefaultUnitState(cells, width, height) {
   const spawn = findNearestPassableCellInCells(
     cells,
@@ -799,11 +846,14 @@ function createDefaultUnitState(cells, width, height) {
     : null;
 }
 
-function createDefaultState(mode) {
+function createGeneratedState(mode, buildCells = buildGeneratedMapCells) {
   const width = defaultMapConfig.width;
   const height = defaultMapConfig.height;
-  const cells = buildGeneratedMapCells(width, height);
+  const cells = buildCells(width, height);
   const defaultUnit = createDefaultUnitState(cells, width, height);
+  const units = defaultUnit ? [defaultUnit] : [];
+
+  markCellsVisitedByUnits(cells, units);
 
   return {
     version: saveVersion,
@@ -812,10 +862,14 @@ function createDefaultState(mode) {
       height,
       cells: serializeCells(cells),
     },
-    units: mode === interactionModes.play && defaultUnit ? [defaultUnit] : [],
+    units,
     turn: 1,
     autoAdvanceTurns: true,
   };
+}
+
+function createDefaultState(mode) {
+  return createGeneratedState(mode, buildGeneratedMapCells);
 }
 
 function normalizeMapState(rawMap) {
@@ -824,11 +878,7 @@ function normalizeMapState(rawMap) {
   const generatedCells = buildGeneratedMapCells(width, height);
 
   if (!Array.isArray(rawMap?.cells)) {
-    return {
-      width,
-      height,
-      cells: generatedCells,
-    };
+    throw new Error("Missing map cell data.");
   }
 
   for (let y = 0; y < height; y += 1) {
@@ -841,6 +891,10 @@ function normalizeMapState(rawMap) {
 
       const cell = generatedCells[y][x];
       cell.type = sourceCell.type;
+      if (typeof sourceCell.visited !== "boolean") {
+        throw new Error("Missing explored state in map cell.");
+      }
+      cell.visited = sourceCell.visited;
 
       const variants = getTerrainVariants(cell.type);
       cell.variant = variants.some((variant) => variant.id === sourceCell.variant)
@@ -1033,10 +1087,19 @@ function loadFileIntoMode(fileName, mode, options) {
   const state = readSaveFile(normalizedName);
 
   if (!state) return false;
+  if (!isCompatibleSaveState(state)) {
+    console.warn(`Save slot ${normalizedName} is obsolete and cannot be loaded.`);
+    return false;
+  }
 
-  writeCurrentFileName(mode, normalizedName);
-  applyStateSnapshot(state, mode, options);
-  return true;
+  try {
+    applyStateSnapshot(state, mode, options);
+    writeCurrentFileName(mode, normalizedName);
+    return true;
+  } catch (error) {
+    console.warn(`Could not apply save slot ${normalizedName}.`, error);
+    return false;
+  }
 }
 
 function loadCurrentFileForMode(mode, options) {
@@ -1307,6 +1370,7 @@ function createCell(x, y, type) {
     y,
     type,
     variant: chooseTerrainVariant(type),
+    visited: false,
   };
 }
 
@@ -1453,12 +1517,16 @@ function updateInteractionModeUi() {
     playInspector.hidden = visibleTopBarMode !== interactionModes.play;
   }
 
+  for (const button of newRandomMapButtons) {
+    button.hidden = !isEditMode();
+  }
+
+  for (const button of newEmptyMapButtons) {
+    button.hidden = !isEditMode();
+  }
+
   setTextContent(appSubtitleElements, getAppSubtitleText());
   canvas.dataset.mode = interactionMode || "";
-
-  for (const button of mainMenuButtons) {
-    button.setAttribute("aria-expanded", mainMenuOpen ? "true" : "false");
-  }
 
   updateTurnControls();
   updatePersistenceControls();
@@ -1535,6 +1603,22 @@ function activateMode(nextMode) {
   loadCurrentFileForMode(nextMode);
 }
 
+function startNewGeneratedState(mode, buildCells = buildGeneratedMapCells) {
+  if (!mode) return false;
+
+  setInteractionMode(mode);
+  applyStateSnapshot(createGeneratedState(mode, buildCells), mode);
+
+  if (mode === interactionModes.play) {
+    saveStateToFile(autosaveSlotName, interactionModes.play);
+    return true;
+  }
+
+  writeCurrentFileName(mode, null);
+  updatePersistenceControls();
+  return true;
+}
+
 function getUnitMoveTargets() {
   if (!unit || !unit.task) return [];
 
@@ -1543,6 +1627,22 @@ function getUnitMoveTargets() {
   if (!destinationCell) return [];
 
   return [destinationCell];
+}
+
+function isCellVisibleToPlayer(cell) {
+  if (!cell) return false;
+  if (!isPlayMode()) return true;
+  if (cell.visited) return true;
+
+  for (const direction of getMovementDirections()) {
+    const neighbor = getNeighborByDirection(cell, direction);
+
+    if (neighbor?.visited) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function getNeighborByDirection(cell, direction) {
@@ -1774,6 +1874,12 @@ function stepAnimations(now) {
       unit.lastStepFromX = moveFromX;
       unit.lastStepFromY = moveFromY;
       unit.move = null;
+      const destinationCell = getCell(unit.x, unit.y);
+
+      if (destinationCell && !destinationCell.visited) {
+        destinationCell.visited = true;
+        invalidateStaticLayer();
+      }
 
       if (unit.task?.type === "move" && unit.task.toX === moveToX && unit.task.toY === moveToY) {
         unit.task = null;
@@ -2192,12 +2298,17 @@ function drawDiamondPath(cx, cy, lift = 0) {
 }
 
 function drawTile(cell) {
+  if (!isCellVisibleToPlayer(cell)) {
+    return;
+  }
+
   const screen = isoToScreen(cell.x, cell.y);
   const spec = terrain[cell.type];
   const lift = 0;
 
   drawTileBase(cell, screen, lift, spec);
   drawTerrainTransitions(cell, screen, lift);
+  drawFogBorders(cell, screen, lift);
   recordTileHitArea(cell, screen, lift);
 }
 
@@ -2263,6 +2374,28 @@ function drawTileBase(cell, screen, lift, spec) {
   }
 
   drawProceduralTile(cell, screen, lift, spec);
+}
+
+function drawFogBorders(cell, screen, lift) {
+  if (!isPlayMode()) return;
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(9, 12, 11, 0.52)";
+  ctx.lineWidth = Math.max(10, tile.width * 0.19);
+  ctx.lineCap = "round";
+
+  for (const edge of getTileEdges(screen, lift)) {
+    const neighbor = getEdgeNeighbor(cell, edge.direction);
+
+    if (!neighbor || isCellVisibleToPlayer(neighbor)) continue;
+
+    ctx.beginPath();
+    ctx.moveTo(edge.start.x, edge.start.y);
+    ctx.lineTo(edge.end.x, edge.end.y);
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }
 
 function drawProceduralTile(cell, screen, lift, spec) {
@@ -3116,6 +3249,11 @@ mainMenuOverlay.addEventListener("click", (event) => {
     return;
   }
 
+  if (action === "start-new-game") {
+    startNewGeneratedState(interactionModes.play);
+    return;
+  }
+
   if (action === "load-game") {
     openSaveSlotPanel("load", { targetMode: interactionModes.play });
     return;
@@ -3126,15 +3264,27 @@ mainMenuOverlay.addEventListener("click", (event) => {
   }
 });
 
-for (const button of mainMenuButtons) {
-  button.addEventListener("click", () => {
-    openMainMenu();
-  });
-}
-
 for (const button of gameMenuToggleButtons) {
   button.addEventListener("click", () => {
     toggleGameActionMenu(button);
+  });
+}
+
+for (const button of newRandomMapButtons) {
+  button.addEventListener("click", () => {
+    if (!isEditMode()) return;
+
+    closeGameActionMenu();
+    startNewGeneratedState(interactionModes.edit, buildGeneratedMapCells);
+  });
+}
+
+for (const button of newEmptyMapButtons) {
+  button.addEventListener("click", () => {
+    if (!isEditMode()) return;
+
+    closeGameActionMenu();
+    startNewGeneratedState(interactionModes.edit, buildEmptyMapCells);
   });
 }
 

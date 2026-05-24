@@ -7,9 +7,10 @@ window.APP_LOCALIZATION = {
         editorSubtitle: "Editor",
       },
       actions: {
-        game: "Game",
         menu: "Menu",
         mainMenu: "Main menu",
+        newRandomMap: "New random map",
+        newEmptyMap: "New empty map",
         load: "Load",
         save: "Save",
         saveAs: "Save as...",
@@ -89,6 +90,7 @@ window.APP_LOCALIZATION = {
       messages: {
         missingSaveName: "Please provide a save slot name.",
         saveNotFound: (fileName) => `No save slot named \"${fileName}\" was found.`,
+        obsoleteSave: (fileName) => `Save slot \"${fileName}\" is obsolete and cannot be loaded.`,
       },
       aria: {
         viewport: "Isometric map canvas",

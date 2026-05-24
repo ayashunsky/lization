@@ -16,8 +16,6 @@
           </div>
           <div class="readouts" aria-live="polite">
             <span data-role="map-size"></span>
-            <button class="menu-button" data-action="open-menu" type="button" aria-haspopup="dialog" aria-expanded="true">
-            </button>
             <div class="zoom-controls">
               <button data-action="zoom-out" type="button">-</button>
               <span data-role="zoom-level"></span>
@@ -89,6 +87,8 @@
       </aside>
 
       <div id="gameActionMenu" class="game-action-menu" role="menu" hidden>
+        <button class="game-action-item" data-action="new-random-map" type="button" role="menuitem" hidden></button>
+        <button class="game-action-item" data-action="new-empty-map" type="button" role="menuitem" hidden></button>
         <button class="game-action-item" data-action="load-state" type="button" role="menuitem"></button>
         <button class="game-action-item" data-action="save-state" type="button" role="menuitem"></button>
         <button class="game-action-item" data-action="save-state-as" type="button" role="menuitem"></button>
@@ -121,7 +121,7 @@
         <div class="main-menu">
           <ul class="main-menu-list">
             <li><button class="main-menu-item" type="button" data-menu-action="watch-intro" disabled></button></li>
-            <li><button class="main-menu-item" type="button" data-menu-action="start-new-game" disabled></button></li>
+            <li><button class="main-menu-item" type="button" data-menu-action="start-new-game"></button></li>
             <li><button class="main-menu-item" type="button" data-menu-action="play"></button></li>
             <li><button class="main-menu-item" type="button" data-menu-action="load-game"></button></li>
             <li><button class="main-menu-item" type="button" data-menu-action="edit"></button></li>
