@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title></title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <div class="top-bars">
+        <header class="top-bar" data-bar-mode="menu">
+          <div class="top-bar-primary">
+            <h1 data-role="app-title"></h1>
+            <p data-role="app-subtitle"></p>
+          </div>
+          <div class="readouts" aria-live="polite">
+            <span data-role="map-size"></span>
+            <button class="menu-button" data-action="open-menu" type="button" aria-haspopup="dialog" aria-expanded="true">
+            </button>
+            <div class="zoom-controls">
+              <button data-action="zoom-out" type="button">-</button>
+              <span data-role="zoom-level"></span>
+              <button data-action="zoom-in" type="button">+</button>
+            </div>
+          </div>
+        </header>
+
+        <header class="top-bar" data-bar-mode="play" hidden>
+          <div class="top-bar-primary">
+            <div>
+              <h1 data-role="app-title"></h1>
+              <p data-role="app-subtitle"></p>
+            </div>
+            <button class="menu-button" data-action="toggle-game-menu" type="button" aria-haspopup="menu" aria-expanded="false"></button>
+            <span data-role="file-readout"></span>
+          </div>
+          <div class="readouts" aria-live="polite">
+            <span data-role="turn-readout"></span>
+            <label class="toggle-control">
+              <input data-action="auto-pass" type="checkbox">
+              <span data-role="auto-pass-label"></span>
+            </label>
+            <div class="zoom-controls">
+              <button data-action="zoom-out" type="button">-</button>
+              <span data-role="zoom-level"></span>
+              <button data-action="zoom-in" type="button">+</button>
+            </div>
+          </div>
+        </header>
+
+        <header class="top-bar" data-bar-mode="edit" hidden>
+          <div class="top-bar-primary">
+            <div>
+              <h1 data-role="app-title"></h1>
+              <p data-role="app-subtitle"></p>
+            </div>
+            <button class="menu-button" data-action="toggle-game-menu" type="button" aria-haspopup="menu" aria-expanded="false"></button>
+            <span data-role="file-readout"></span>
+          </div>
+          <div class="readouts" aria-live="polite">
+            <span data-role="map-size"></span>
+            <span data-role="hover-readout"></span>
+            <div class="zoom-controls">
+              <button data-action="zoom-out" type="button">-</button>
+              <span data-role="zoom-level"></span>
+              <button data-action="zoom-in" type="button">+</button>
+            </div>
+          </div>
+        </header>
+      </div>
+
+      <section class="viewport">
+        <canvas id="mapCanvas"></canvas>
+        <div id="tileMenu" class="tile-menu" hidden>
+          <p id="tileMenuTitle" class="tile-menu-title"></p>
+          <div id="terrainMenuOptions" class="terrain-options" role="menu"></div>
+          <div id="variantMenu" class="variant-menu" hidden>
+            <p id="variantMenuTitle" class="tile-menu-title"></p>
+            <div id="variantMenuOptions" class="terrain-options" role="menu"></div>
+          </div>
+        </div>
+      </section>
+
+      <aside id="playInspector" class="play-inspector" hidden>
+        <p class="play-inspector-title" data-role="inspector-title"></p>
+        <span class="panel-readout" data-role="unit-readout"></span>
+        <button class="menu-button" data-action="next-turn" type="button"></button>
+      </aside>
+
+      <div id="gameActionMenu" class="game-action-menu" role="menu" hidden>
+        <button class="game-action-item" data-action="load-state" type="button" role="menuitem"></button>
+        <button class="game-action-item" data-action="save-state" type="button" role="menuitem"></button>
+        <button class="game-action-item" data-action="save-state-as" type="button" role="menuitem"></button>
+        <button class="game-action-item" data-action="main-menu" type="button" role="menuitem"></button>
+      </div>
+
+      <div id="saveSlotOverlay" class="slot-overlay" hidden>
+        <section id="saveSlotPanel" class="slot-panel" role="dialog" aria-modal="true" aria-labelledby="saveSlotTitle">
+          <div class="slot-panel-header">
+            <p id="saveSlotTitle" class="slot-panel-title"></p>
+            <button class="menu-button slot-panel-close" data-action="close-slot-panel" type="button" aria-label="Close">×</button>
+          </div>
+          <label class="slot-panel-field">
+            <span data-role="slot-name-label"></span>
+            <input id="saveSlotInput" class="slot-panel-input" data-role="slot-name-input" type="text" autocomplete="off" spellcheck="false">
+          </label>
+          <div class="slot-panel-actions">
+            <button class="menu-button" data-action="confirm-slot-panel" type="button"></button>
+            <button class="menu-button" data-action="cancel-slot-panel" type="button"></button>
+          </div>
+          <div class="slot-panel-list-wrap">
+            <p class="slot-panel-subtitle" data-role="slot-list-title"></p>
+            <div id="saveSlotList" class="slot-panel-list" role="listbox"></div>
+            <p id="saveSlotEmpty" class="slot-panel-empty" hidden></p>
+          </div>
+        </section>
+      </div>
+
+      <div id="mainMenuOverlay" class="main-menu-overlay" role="dialog" aria-modal="true">
+        <div class="main-menu">
+          <ul class="main-menu-list">
+            <li><button class="main-menu-item" type="button" data-menu-action="watch-intro" disabled></button></li>
+            <li><button class="main-menu-item" type="button" data-menu-action="start-new-game" disabled></button></li>
+            <li><button class="main-menu-item" type="button" data-menu-action="play"></button></li>
+            <li><button class="main-menu-item" type="button" data-menu-action="load-game"></button></li>
+            <li><button class="main-menu-item" type="button" data-menu-action="edit"></button></li>
+            <li><button class="main-menu-item" type="button" data-menu-action="import-export" disabled></button></li>
+          </ul>
+        </div>
+      </div>
+    </main>
+
+    <script src="rules.js"></script>
+    <script src="strings.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
