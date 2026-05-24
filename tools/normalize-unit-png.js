@@ -3,7 +3,7 @@ const { readPng, writePng } = require("./normalize-tile-png");
 const [, , sourcePath, outputPath, profileName = "default"] = process.argv;
 
 if (!sourcePath || !outputPath) {
-  console.error("Usage: node tools/normalize-unit-png.js <source.png> <output.png> [default|work]");
+  console.error("Usage: node tools/normalize-unit-png.js <source.png> <output.png> [default|work|play]");
   process.exit(1);
 }
 
@@ -61,6 +61,11 @@ function getProfile(name) {
       fitMode: "contain",
     },
     work: {
+      getSourceBox: getWorkFigureBounds,
+      fitMode: "matchHeight",
+      postprocess: "stretchOpaqueHeight",
+    },
+    play: {
       getSourceBox: getWorkFigureBounds,
       fitMode: "matchHeight",
       postprocess: "stretchOpaqueHeight",

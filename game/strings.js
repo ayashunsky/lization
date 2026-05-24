@@ -11,7 +11,9 @@ window.APP_LOCALIZATION = {
         mainMenu: "Main menu",
         newRandomMap: "New random map",
         newEmptyMap: "New empty map",
+        wait: "Wait",
         walk: "Walk",
+        play: "Play",
         buildHouse: "Build house",
         demolish: "Demolish",
         load: "Load",
@@ -76,6 +78,7 @@ window.APP_LOCALIZATION = {
       },
       tasks: {
         move: "moving",
+        play: "playing",
         buildHouse: "building house",
         demolish: "demolishing",
       },
@@ -89,16 +92,20 @@ window.APP_LOCALIZATION = {
           `Tile: ${x}, ${y} | ${terrainLabel}${variantLabel ? ` | ${variantLabel}` : ""}`,
         tileMenuTitle: (x, y) => `Tile ${x}, ${y}`,
         unitNone: "Unit: none",
-        unitMoving: (x, y, stamina, staminaMax) =>
-          `Unit: moving to ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
-        unitTaskMove: (x, y, stamina, staminaMax) =>
-          `Unit: moving to ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
-        unitTaskBuildHouse: (x, y, stamina, staminaMax) =>
-          `Unit: building at ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
-        unitTaskDemolish: (x, y, stamina, staminaMax) =>
-          `Unit: demolishing at ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
-        unitState: (stateLabel, x, y, stamina, staminaMax) =>
-          `Unit: ${stateLabel} | ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
+        unitUnselected: (count) =>
+          count > 1 ? `Units: ${count} | none selected` : "Unit: none selected",
+        unitMoving: (name, x, y, stamina, staminaMax) =>
+          `Unit: ${name} | moving to ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
+        unitTaskMove: (name, x, y, stamina, staminaMax) =>
+          `Unit: ${name} | moving to ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
+        unitTaskPlay: (name, stamina, staminaMax) =>
+          `Unit: ${name} | playing | stamina ${stamina}/${staminaMax}`,
+        unitTaskBuildHouse: (name, x, y, stamina, staminaMax) =>
+          `Unit: ${name} | building at ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
+        unitTaskDemolish: (name, x, y, stamina, staminaMax) =>
+          `Unit: ${name} | demolishing at ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
+        unitState: (name, stateLabel, x, y, stamina, staminaMax) =>
+          `Unit: ${name} | ${stateLabel} | ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
         zoomLevel: (percent) => `${percent}%`,
       },
       messages: {

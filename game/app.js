@@ -94,7 +94,9 @@ const interactionModes = {
   play: "play",
 };
 const unitActions = {
+  wait: "wait",
   walk: "walk",
+  play: "play",
   buildHouse: "buildHouse",
   demolish: "demolish",
 };
@@ -105,6 +107,10 @@ const unitSprite = {
   workFrames: [
     "assets/units/unit_work_sprite.png",
     "assets/units/unit_work_sprite_1.png",
+  ],
+  playFrames: [
+    "assets/units/unit_play_sprite.png",
+    "assets/units/unit_play_sprite_1.png",
   ],
   workFrameDuration: 180,
   northMoveFrames: [
@@ -263,6 +269,7 @@ let didCenterInitialView = false;
 let zoomIndex = 1;
 let interactionMode = null;
 let mainMenuOpen = true;
+let units = [];
 let unit = null;
 let buildings = [];
 let animationFrameId = 0;
@@ -284,7 +291,7 @@ const tileImages = {};
 const buildingImages = {};
 const shoreOverlayImages = {};
 const unitImages = {};
-const saveVersion = 3;
+const saveVersion = 4;
 const storageKeys = {
   filePrefix: "schtroumpfilization:save-file:v1:",
   currentFile: {
@@ -323,18 +330,22 @@ function setAttributeForElements(elements, name, value) {
   }
 }
 
-function clearPendingAutoAdvance() {
+function clearQueuedAutoAdvanceFrame() {
   if (autoAdvanceFrameId) {
     cancelAnimationFrame(autoAdvanceFrameId);
     autoAdvanceFrameId = 0;
   }
 
+  autoAdvanceQueued = false;
+}
+
+function clearPendingAutoAdvance() {
+  clearQueuedAutoAdvanceFrame();
+
   if (turnResolutionPauseTimeoutId) {
     window.clearTimeout(turnResolutionPauseTimeoutId);
     turnResolutionPauseTimeoutId = 0;
   }
-
-  autoAdvanceQueued = false;
 }
 
 function normalizeUnitAction(action) {
@@ -342,6 +353,14 @@ function normalizeUnitAction(action) {
 }
 
 function getUnitActionLabel(action) {
+  if (action === unitActions.wait) {
+    return strings.actions.wait;
+  }
+
+  if (action === unitActions.play) {
+    return strings.actions.play;
+  }
+
   if (action === unitActions.buildHouse) {
     return strings.actions.buildHouse;
   }
@@ -490,6 +509,22 @@ function getDefaultUnitStamina() {
   return Math.max(1, clampInteger(rules.units?.default?.stamina, 1, 999, 2));
 }
 
+function getDefaultUnitName() {
+  const configured = typeof rules.units?.default?.name === "string" ? rules.units.default.name.trim() : "";
+  return configured || "Schtroumpf";
+}
+
+function normalizeUnitName(name) {
+  const normalized = typeof name === "string" ? name.trim() : "";
+  return normalized || getDefaultUnitName();
+}
+
+function getUnitHomeBuildingId(currentUnit) {
+  return typeof currentUnit?.homeBuildingId === "string" && currentUnit.homeBuildingId
+    ? currentUnit.homeBuildingId
+    : null;
+}
+
 function getUnitMaxStamina(currentUnit = unit) {
   return Math.max(1, clampInteger(currentUnit?.staminaMax, 1, 999, getDefaultUnitStamina()));
 }
@@ -518,6 +553,48 @@ function getUnitWorkPointsPerTurn(taskType) {
   }
 
   return Math.max(0, configured);
+}
+
+function getSelectedUnit() {
+  return units.find((currentUnit) => currentUnit?.selected) || null;
+}
+
+function syncActiveUnit(preferredUnitId = unit?.id || null) {
+  const selectedUnit = getSelectedUnit();
+
+  if (selectedUnit) {
+    unit = selectedUnit;
+    return unit;
+  }
+
+  if (preferredUnitId) {
+    const preferredUnit = units.find((currentUnit) => currentUnit?.id === preferredUnitId) || null;
+
+    if (preferredUnit) {
+      unit = preferredUnit;
+      return unit;
+    }
+  }
+
+  unit = units[0] || null;
+  return unit;
+}
+
+function getUnitById(unitId) {
+  return units.find((currentUnit) => currentUnit?.id === unitId) || null;
+}
+
+function createUnitId(items = units) {
+  let maxIndex = 0;
+
+  for (const currentUnit of items) {
+    const match = /^unit_(\d+)$/.exec(currentUnit?.id || "");
+
+    if (!match) continue;
+    maxIndex = Math.max(maxIndex, Number.parseInt(match[1], 10) || 0);
+  }
+
+  return `unit_${String(maxIndex + 1).padStart(2, "0")}`;
 }
 
 function getBuildingRules(type) {
@@ -891,8 +968,12 @@ function serializeBuilding(building, width = map.width, height = map.height) {
 function serializeTask(task) {
   if (!task) return null;
 
-  if (![ "move", "buildHouse", "demolish" ].includes(task.type)) {
+  if (![ "move", "play", "buildHouse", "demolish" ].includes(task.type)) {
     return null;
+  }
+
+  if (task.type === "play") {
+    return { type: task.type };
   }
 
   return {
@@ -913,9 +994,11 @@ function serializeUnit(currentUnit) {
 
     return {
       id: currentUnit.id || "unit_01",
+      name: normalizeUnitName(currentUnit.name),
       x: currentUnit.move.toX,
       y: currentUnit.move.toY,
       facing: currentUnit.move.direction || currentUnit.facing || "west",
+      homeBuildingId: getUnitHomeBuildingId(currentUnit),
       staminaMax: getUnitMaxStamina(currentUnit),
       stamina: getUnitStamina(currentUnit),
       task: didReachDestination ? null : serializeTask(currentUnit.task),
@@ -924,9 +1007,11 @@ function serializeUnit(currentUnit) {
 
   return {
     id: currentUnit.id || "unit_01",
+    name: normalizeUnitName(currentUnit.name),
     x: currentUnit.x,
     y: currentUnit.y,
     facing: currentUnit.facing || "west",
+    homeBuildingId: getUnitHomeBuildingId(currentUnit),
     staminaMax: getUnitMaxStamina(currentUnit),
     stamina: getUnitStamina(currentUnit),
     task: serializeTask(currentUnit.task),
@@ -950,7 +1035,7 @@ function serializeCurrentState() {
       cells: serializeCells(),
     },
     buildings: serializeBuildings(),
-    units: unit ? [serializeUnit(unit)] : [],
+    units: getUnits().map((currentUnit) => serializeUnit(currentUnit)).filter(Boolean),
     turn: currentTurn,
     autoAdvanceTurns,
   };
@@ -1313,16 +1398,18 @@ function createDefaultUnitState(cells, width, height) {
   );
 
   return spawn
-    ? {
-        id: "unit_01",
-        x: spawn.x,
-        y: spawn.y,
-        facing: "west",
-        staminaMax: getDefaultUnitStamina(),
-        stamina: getDefaultUnitStamina(),
-        task: null,
-        turnRoute: null,
-      }
+      ? {
+          id: "unit_01",
+          name: getDefaultUnitName(),
+          x: spawn.x,
+          y: spawn.y,
+          facing: "west",
+          homeBuildingId: null,
+          staminaMax: getDefaultUnitStamina(),
+          stamina: getDefaultUnitStamina(),
+          task: null,
+          turnRoute: null,
+        }
     : null;
 }
 
@@ -1449,6 +1536,10 @@ function createGeneratedState(mode, buildCells = buildGeneratedMapCells) {
   const units = defaultUnit ? [defaultUnit] : [];
   const defaultBuildings = createDefaultBuildingsState(cells, width, height, units);
 
+  if (units[0] && defaultBuildings[0]) {
+    units[0].homeBuildingId = defaultBuildings[0].id;
+  }
+
   markCellsVisitedByUnits(cells, units);
   markCellsVisitedByBuildings(cells, defaultBuildings);
 
@@ -1516,7 +1607,7 @@ function findNearestPassableCellInCells(cells, width, height, startX, startY) {
     for (let x = 0; x < width; x += 1) {
       const cell = cells[y]?.[x];
 
-      if (!canUnitEnter(cell)) continue;
+      if (!canEnterUnoccupiedCell(cell)) continue;
 
       const cellDistance = distance(x, y, startX, startY);
 
@@ -1550,8 +1641,12 @@ function normalizeTask(task, currentX, currentY) {
 
   const type = task.type;
 
-  if (![ "move", "buildHouse", "demolish" ].includes(type)) {
+  if (![ "move", "play", "buildHouse", "demolish" ].includes(type)) {
     return null;
+  }
+
+  if (type === "play") {
+    return { type };
   }
 
   const toX = clampInteger(task.toX, 0, map.width - 1, currentX);
@@ -1571,15 +1666,23 @@ function normalizeTask(task, currentX, currentY) {
     if (!building || building.type !== "house") {
       return null;
     }
-  } else if (type === "demolish" && !getBuildingAtCell(toX, toY)) {
-    return null;
+  } else {
+    const building = getBuildingAtCell(toX, toY);
+
+    if (!building || building.state !== "abandoned") {
+      return null;
+    }
   }
 
   return { type, toX, toY };
 }
 
 function preserveTask(task) {
-  if (!task || !["move", "buildHouse", "demolish"].includes(task.type)) return null;
+  if (!task || !["move", "play", "buildHouse", "demolish"].includes(task.type)) return null;
+
+  if (task.type === "play") {
+    return { type: task.type };
+  }
 
   return {
     type: task.type,
@@ -1652,70 +1755,78 @@ function normalizeBuildingsState(rawBuildings) {
 }
 
 function normalizeUnitsState(rawUnits, mode) {
-  const sourceUnit = Array.isArray(rawUnits) ? rawUnits[0] : null;
+  const sourceUnits = Array.isArray(rawUnits) ? rawUnits : [];
 
-  if (!sourceUnit) {
+  if (sourceUnits.length === 0) {
     if (mode !== interactionModes.play) return [];
 
     const fallbackUnit = createDefaultUnitState(map.cells, map.width, map.height);
-    return fallbackUnit ? [{ ...fallbackUnit, selected: false, move: null, turnRoute: null }] : [];
+    return fallbackUnit
+      ? [
+          {
+            ...fallbackUnit,
+            selected: false,
+            move: null,
+            turnRoute: null,
+            lastStepFromX: null,
+            lastStepFromY: null,
+          },
+        ]
+      : [];
   }
+  const normalizedUnits = [];
+  const occupiedKeys = new Set();
 
-  if (mode !== interactionModes.play) {
-    return [
-      {
-        id: typeof sourceUnit.id === "string" ? sourceUnit.id : "unit_01",
-        x: clampInteger(sourceUnit.x, 0, map.width - 1, Math.floor(map.width / 2)),
-        y: clampInteger(sourceUnit.y, 0, map.height - 1, Math.floor(map.height / 2)),
-        facing: normalizeDirection(sourceUnit.facing),
-        staminaMax: Math.max(1, clampInteger(sourceUnit.staminaMax, 1, 999, getDefaultUnitStamina())),
-        stamina: Math.max(
-          0,
-          clampInteger(sourceUnit.stamina, 0, 999, clampInteger(sourceUnit.staminaMax, 1, 999, getDefaultUnitStamina())),
-        ),
-        selected: false,
-        task: preserveTask(sourceUnit.task),
-        move: null,
-        turnRoute: null,
-        lastStepFromX: null,
-        lastStepFromY: null,
-      },
-    ];
-  }
+  for (let index = 0; index < sourceUnits.length; index += 1) {
+    const sourceUnit = sourceUnits[index];
+    let x = clampInteger(sourceUnit?.x, 0, map.width - 1, Math.floor(map.width / 2));
+    let y = clampInteger(sourceUnit?.y, 0, map.height - 1, Math.floor(map.height / 2));
+    let cell = getCell(x, y);
 
-  let x = clampInteger(sourceUnit.x, 0, map.width - 1, Math.floor(map.width / 2));
-  let y = clampInteger(sourceUnit.y, 0, map.height - 1, Math.floor(map.height / 2));
-  let cell = getCell(x, y);
+    if (!canUnitEnter(cell, null, occupiedKeys)) {
+      const fallbackCell = findNearestPassableCell(x, y, null, occupiedKeys);
 
-  if (!canUnitEnter(cell)) {
-    const fallbackCell = findNearestPassableCell(x, y);
+      if (!fallbackCell) {
+        continue;
+      }
 
-    if (!fallbackCell) return [];
+      x = fallbackCell.x;
+      y = fallbackCell.y;
+      cell = fallbackCell;
+    }
 
-    x = fallbackCell.x;
-    y = fallbackCell.y;
-    cell = fallbackCell;
-  }
+    occupiedKeys.add(createCellKey(cell.x, cell.y));
 
-  return [
-    {
-      id: typeof sourceUnit.id === "string" ? sourceUnit.id : "unit_01",
+    const staminaMax = Math.max(
+      1,
+      clampInteger(sourceUnit?.staminaMax, 1, 999, getDefaultUnitStamina()),
+    );
+
+    normalizedUnits.push({
+      id: typeof sourceUnit?.id === "string" ? sourceUnit.id : `unit_${index + 1}`,
+      name: normalizeUnitName(sourceUnit?.name),
       x: cell.x,
       y: cell.y,
-      facing: normalizeDirection(sourceUnit.facing),
-      staminaMax: Math.max(1, clampInteger(sourceUnit.staminaMax, 1, 999, getDefaultUnitStamina())),
-      stamina: Math.max(
-        0,
-        clampInteger(sourceUnit.stamina, 0, 999, clampInteger(sourceUnit.staminaMax, 1, 999, getDefaultUnitStamina())),
-      ),
+      facing: normalizeDirection(sourceUnit?.facing),
+      homeBuildingId:
+        typeof sourceUnit?.homeBuildingId === "string" && sourceUnit.homeBuildingId
+          ? sourceUnit.homeBuildingId
+          : null,
+      staminaMax,
+      stamina: Math.max(0, clampInteger(sourceUnit?.stamina, 0, 999, staminaMax)),
       selected: false,
-      task: normalizeTask(sourceUnit.task, cell.x, cell.y),
+      task:
+        mode !== interactionModes.play
+          ? preserveTask(sourceUnit?.task)
+          : normalizeTask(sourceUnit?.task, cell.x, cell.y),
       move: null,
       turnRoute: null,
       lastStepFromX: null,
       lastStepFromY: null,
-    },
-  ];
+    });
+  }
+
+  return normalizedUnits;
 }
 
 function applyStateSnapshot(state, mode, { recenter = true } = {}) {
@@ -1735,7 +1846,8 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   map.height = nextMap.height;
   map.cells = nextMap.cells;
   buildings = normalizeBuildingsState(nextState.buildings);
-  unit = normalizeUnitsState(nextState.units, mode)[0] || null;
+  units = normalizeUnitsState(nextState.units, mode);
+  syncActiveUnit();
   selectedUnitAction = unitActions.walk;
   currentTurn = Math.max(1, clampInteger(nextState.turn, 1, 999999, 1));
   autoAdvanceTurns =
@@ -1755,6 +1867,9 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   }
 
   draw();
+  if (shouldAnimateWorkingUnits()) {
+    scheduleAnimation();
+  }
   maybeAutoAdvanceTurn();
 }
 
@@ -1827,7 +1942,7 @@ function autosavePlayState() {
 }
 
 function getUnits() {
-  return unit ? [unit] : [];
+  return units;
 }
 
 function hasAssignedTask(currentUnit) {
@@ -1835,6 +1950,10 @@ function hasAssignedTask(currentUnit) {
 }
 
 function getActionForTask(task) {
+  if (task?.type === "play") {
+    return unitActions.play;
+  }
+
   if (task?.type === "buildHouse") {
     return unitActions.buildHouse;
   }
@@ -1846,16 +1965,32 @@ function getActionForTask(task) {
   return unitActions.walk;
 }
 
+function getDefaultActionForCompletedTask(taskType) {
+  return taskType === "move" ? unitActions.walk : unitActions.wait;
+}
+
+function applyCompletedTaskDefaultAction(taskType, currentUnit) {
+  const selectedUnit = getSelectedUnit();
+
+  if (selectedUnit && selectedUnit !== currentUnit) {
+    return;
+  }
+
+  selectedUnitAction = getDefaultActionForCompletedTask(taskType);
+}
+
 function getCurrentSelectedUnitAction() {
-  if (unit?.task) {
-    return getActionForTask(unit.task);
+  const selectedUnit = getSelectedUnit();
+
+  if (selectedUnit?.task && selectedUnit.task.type !== "play") {
+    return getActionForTask(selectedUnit.task);
   }
 
   return normalizeUnitAction(selectedUnitAction);
 }
 
 function isWorkingTask(task) {
-  return task?.type === "buildHouse" || task?.type === "demolish";
+  return task?.type === "buildHouse" || task?.type === "demolish" || task?.type === "play";
 }
 
 function isUnitWorking(currentUnit) {
@@ -1875,12 +2010,21 @@ function getWorkingUnitFrameIndex(now = performance.now()) {
 }
 
 function shouldAnimateWorkingUnits() {
-  return hasWorkingUnits() && (turnResolutionActive || autoAdvanceQueued);
+  return isPlayMode() && !mainMenuOpen && hasWorkingUnits();
+}
+
+function shouldAnimateSelectionMarker() {
+  return isPlayMode() && !mainMenuOpen && Boolean(getSelectedUnit());
 }
 
 function getUnitTaskDirection(currentUnit) {
   if (!isWorkingTask(currentUnit?.task)) {
     return currentUnit?.facing || "west";
+  }
+
+  if (currentUnit.task?.type === "play") {
+    const direction = currentUnit?.facing || "west";
+    return direction === "south" ? "southEast" : direction;
   }
 
   const direction = getMoveDirection(
@@ -1903,6 +2047,45 @@ function isUnitAnimating(currentUnit) {
 
 function isUnitIdle(currentUnit) {
   return Boolean(currentUnit) && !hasAssignedTask(currentUnit) && !isUnitAnimating(currentUnit);
+}
+
+function getIdleUnits() {
+  return getUnits().filter((currentUnit) => isUnitIdle(currentUnit));
+}
+
+function getFirstIdleUnit() {
+  return getIdleUnits()[0] || null;
+}
+
+function getNextIdleUnit(fromUnit = getSelectedUnit()) {
+  const idleUnits = getIdleUnits();
+
+  if (idleUnits.length <= 1) {
+    return null;
+  }
+
+  const currentIndex = idleUnits.findIndex((currentUnit) => currentUnit === fromUnit);
+
+  if (currentIndex < 0) {
+    return idleUnits[0];
+  }
+
+  return idleUnits[(currentIndex + 1) % idleUnits.length] || null;
+}
+
+function selectNextIdleUnit({
+  fromUnit = getSelectedUnit(),
+  defaultAction = unitActions.walk,
+  scrollIntoView = true,
+} = {}) {
+  const nextIdleUnit = getNextIdleUnit(fromUnit);
+
+  if (!nextIdleUnit) {
+    return false;
+  }
+
+  selectUnit(nextIdleUnit, { scrollIntoView, defaultAction });
+  return true;
 }
 
 function everyUnitHasOngoingTask() {
@@ -1928,6 +2111,12 @@ function updateTurnControls() {
   updateTurnReadout();
   setCheckedState(autoPassInputs, autoAdvanceTurns);
   setDisabledState(nextTurnButtons, !canAdvanceTurn());
+  const shouldHighlight = canAdvanceTurn() && everyUnitHasOngoingTask();
+
+  for (const button of nextTurnButtons) {
+    button.classList.toggle("is-highlighted", shouldHighlight);
+  }
+
   updatePersistenceControls();
 }
 
@@ -1936,6 +2125,12 @@ function createMoveTask(destinationCell) {
     type: "move",
     toX: destinationCell.x,
     toY: destinationCell.y,
+  };
+}
+
+function createPlayTask() {
+  return {
+    type: "play",
   };
 }
 
@@ -1955,33 +2150,63 @@ function createDemolishTask(destinationCell) {
   };
 }
 
-function assignUnitTask(task) {
-  if (!unit || unit.move || !task) return false;
+function assignUnitTask(task, currentUnit = getSelectedUnit()) {
+  if (!currentUnit || currentUnit.move || !task) return false;
 
-  unit.task = task;
-  unit.turnRoute = null;
-  unit.lastStepFromX = null;
-  unit.lastStepFromY = null;
-  selectedUnitAction = getActionForTask(task);
+  const previousTaskType = currentUnit.task?.type || null;
+
+  currentUnit.task = task;
+  currentUnit.turnRoute = null;
+  currentUnit.lastStepFromX = null;
+  currentUnit.lastStepFromY = null;
+  unit = currentUnit;
+  selectedUnitAction = task.type === "play" ? unitActions.play : getActionForTask(task);
   invalidateStaticUnitsLayer();
   updateUnitReadout();
   updateTurnControls();
+  if (shouldAnimateWorkingUnits()) {
+    scheduleAnimation();
+  }
   draw();
+
+  if (!turnResolutionActive && previousTaskType === "play") {
+    clearQueuedAutoAdvanceFrame();
+  }
+
+  if (
+    !turnResolutionActive &&
+    previousTaskType === "play" &&
+    task.type !== "play" &&
+    autoAdvanceTurns &&
+    canAdvanceTurn() &&
+    getIdleUnits().length === 0 &&
+    everyUnitHasOngoingTask()
+  ) {
+    advanceTurn();
+    return true;
+  }
+
   maybeAutoAdvanceTurn();
   return true;
 }
 
-function queueUnitMoveTask(destinationCell) {
-  if (!unit || unit.move) return;
-  if (!canUnitEnter(destinationCell)) return;
-  if (destinationCell.x === unit.x && destinationCell.y === unit.y) return;
+function queueUnitMoveTask(destinationCell, currentUnit = getSelectedUnit()) {
+  if (!currentUnit || currentUnit.move) return;
+  if (!canUnitEnter(destinationCell, currentUnit)) return;
+  if (destinationCell.x === currentUnit.x && destinationCell.y === currentUnit.y) return;
 
-  assignUnitTask(createMoveTask(destinationCell));
+  assignUnitTask(createMoveTask(destinationCell), currentUnit);
 }
 
-function queueUnitBuildHouseTask(destinationCell) {
-  if (!unit || unit.move || !canBuildHouseOnCell(destinationCell)) return;
-  if (!areCellsAdjacent(unit.x, unit.y, destinationCell.x, destinationCell.y)) return;
+function queueUnitPlayTask(currentUnit = getSelectedUnit()) {
+  if (!currentUnit || currentUnit.move) return;
+
+  assignUnitTask(createPlayTask(), currentUnit);
+}
+
+function queueUnitBuildHouseTask(destinationCell, currentUnit = getSelectedUnit()) {
+  if (!currentUnit || currentUnit.move || !canBuildHouseOnCell(destinationCell)) return;
+  if (!areCellsAdjacent(currentUnit.x, currentUnit.y, destinationCell.x, destinationCell.y)) return;
 
   const building = createHouseConstructionAtCell(destinationCell);
 
@@ -1994,27 +2219,30 @@ function queueUnitBuildHouseTask(destinationCell) {
   }
 
   invalidateStaticLayer();
-  assignUnitTask(createBuildHouseTask(destinationCell));
+  assignUnitTask(createBuildHouseTask(destinationCell), currentUnit);
 }
 
-function queueUnitDemolishTask(destinationCell) {
-  if (!unit || unit.move || !areCellsAdjacent(unit.x, unit.y, destinationCell.x, destinationCell.y)) {
+function queueUnitDemolishTask(destinationCell, currentUnit = getSelectedUnit()) {
+  if (
+    !currentUnit ||
+    currentUnit.move ||
+    !areCellsAdjacent(currentUnit.x, currentUnit.y, destinationCell.x, destinationCell.y)
+  ) {
     return;
   }
 
   const building = getBuildingAtCell(destinationCell.x, destinationCell.y);
 
-  if (!building) return;
+  if (!building || building.state !== "abandoned") return;
 
-  building.state = "abandoned";
-  invalidateStaticLayer();
-  assignUnitTask(createDemolishTask(destinationCell));
+  assignUnitTask(createDemolishTask(destinationCell), currentUnit);
 }
 
 function resolveBuildHouseTask(currentUnit) {
   const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
 
   if (!targetCell || !areCellsAdjacent(currentUnit.x, currentUnit.y, targetCell.x, targetCell.y)) {
+    applyCompletedTaskDefaultAction("buildHouse", currentUnit);
     currentUnit.task = null;
     currentUnit.turnRoute = null;
     invalidateStaticUnitsLayer();
@@ -2024,6 +2252,7 @@ function resolveBuildHouseTask(currentUnit) {
   const building = getBuildingAtCell(targetCell.x, targetCell.y);
 
   if (!building || building.type !== "house") {
+    applyCompletedTaskDefaultAction("buildHouse", currentUnit);
     currentUnit.task = null;
     currentUnit.turnRoute = null;
     invalidateStaticUnitsLayer();
@@ -2044,6 +2273,8 @@ function resolveBuildHouseTask(currentUnit) {
   invalidateStaticLayer();
 
   if (nextCompleteness >= 1) {
+    spawnUnitFromHouse(building);
+    applyCompletedTaskDefaultAction("buildHouse", currentUnit);
     currentUnit.task = null;
     currentUnit.turnRoute = null;
     invalidateStaticUnitsLayer();
@@ -2054,6 +2285,7 @@ function resolveDemolishTask(currentUnit) {
   const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
 
   if (!targetCell || !areCellsAdjacent(currentUnit.x, currentUnit.y, targetCell.x, targetCell.y)) {
+    applyCompletedTaskDefaultAction("demolish", currentUnit);
     currentUnit.task = null;
     currentUnit.turnRoute = null;
     invalidateStaticUnitsLayer();
@@ -2062,7 +2294,8 @@ function resolveDemolishTask(currentUnit) {
 
   const building = getBuildingAtCell(targetCell.x, targetCell.y);
 
-  if (!building) {
+  if (!building || building.state !== "abandoned") {
+    applyCompletedTaskDefaultAction("demolish", currentUnit);
     currentUnit.task = null;
     currentUnit.turnRoute = null;
     invalidateStaticUnitsLayer();
@@ -2084,6 +2317,7 @@ function resolveDemolishTask(currentUnit) {
 
   if (nextCompleteness <= 0) {
     buildings = buildings.filter((candidate) => candidate !== building);
+    applyCompletedTaskDefaultAction("demolish", currentUnit);
     currentUnit.task = null;
     currentUnit.turnRoute = null;
     invalidateStaticUnitsLayer();
@@ -2092,6 +2326,12 @@ function resolveDemolishTask(currentUnit) {
 
 function resolveUnitTask(currentUnit) {
   if (!currentUnit?.task) return false;
+
+  if (currentUnit.task.type === "play") {
+    turnResolutionHadWork = true;
+    currentUnit.stamina = 0;
+    return false;
+  }
 
   if (currentUnit.task.type === "buildHouse") {
     resolveBuildHouseTask(currentUnit);
@@ -2104,12 +2344,14 @@ function resolveUnitTask(currentUnit) {
   }
 
   if (currentUnit.task.type !== "move") {
+    applyCompletedTaskDefaultAction(currentUnit.task.type, currentUnit);
     currentUnit.task = null;
     currentUnit.turnRoute = null;
     return false;
   }
 
   if (currentUnit.x === currentUnit.task.toX && currentUnit.y === currentUnit.task.toY) {
+    applyCompletedTaskDefaultAction("move", currentUnit);
     currentUnit.task = null;
     currentUnit.turnRoute = null;
     return false;
@@ -2118,6 +2360,7 @@ function resolveUnitTask(currentUnit) {
   const nextMove = getNextMoveStep(currentUnit, currentUnit.task);
 
   if (!nextMove) {
+    applyCompletedTaskDefaultAction("move", currentUnit);
     currentUnit.task = null;
     currentUnit.turnRoute = null;
     return false;
@@ -2127,7 +2370,7 @@ function resolveUnitTask(currentUnit) {
   currentUnit.stamina = Math.max(0, getUnitStamina(currentUnit) - moveCost);
 
   turnResolutionHadAnimation = true;
-  startUnitMove(nextMove.cell, nextMove.direction);
+  startUnitMove(nextMove.cell, nextMove.direction, currentUnit);
   return true;
 }
 
@@ -2243,7 +2486,29 @@ function advanceTurn() {
 }
 
 function maybeAutoAdvanceTurn() {
-  if (!autoAdvanceTurns || !canAdvanceTurn() || !everyUnitHasOngoingTask()) {
+  if (!canAdvanceTurn()) {
+    if (turnResolutionActive) {
+      clearQueuedAutoAdvanceFrame();
+      updateTurnControls();
+      return;
+    }
+
+    clearPendingAutoAdvance();
+    updateTurnControls();
+    return;
+  }
+
+  if (getIdleUnits().length > 0) {
+    ensureIdleUnitSelection({ scrollIntoView: true });
+    if (shouldAnimateWorkingUnits() || shouldAnimateSelectionMarker()) {
+      scheduleAnimation();
+    }
+    clearPendingAutoAdvance();
+    updateTurnControls();
+    return;
+  }
+
+  if (!autoAdvanceTurns || !everyUnitHasOngoingTask()) {
     clearPendingAutoAdvance();
     updateTurnControls();
     return;
@@ -2282,6 +2547,10 @@ function loadTileImages() {
   loadImage(unitSprite.southImage, unitImages);
 
   for (const imagePath of unitSprite.workFrames) {
+    loadImage(imagePath, unitImages);
+  }
+
+  for (const imagePath of unitSprite.playFrames) {
     loadImage(imagePath, unitImages);
   }
 
@@ -2431,6 +2700,18 @@ function getBuildingAtCell(x, y) {
   return getBuildingsAtCell(x, y)[0] || null;
 }
 
+function getUnitAtCell(x, y, { excludeUnitId = null } = {}) {
+  return (
+    getUnits().find(
+      (currentUnit) =>
+        currentUnit &&
+        currentUnit.id !== excludeUnitId &&
+        currentUnit.x === x &&
+        currentUnit.y === y,
+    ) || null
+  );
+}
+
 function getBlockingBuildingAtCell(x, y) {
   return (
     buildings.find(
@@ -2447,6 +2728,71 @@ function isBuildingTargetedByDemolishTask(building) {
       currentUnit?.task?.type === "demolish" &&
       buildingOccupiesCell(building, currentUnit.task.toX, currentUnit.task.toY),
   );
+}
+
+function findAdjacentSpawnCell(x, y) {
+  const originCell = getCell(x, y);
+
+  if (!originCell) return null;
+
+  for (const direction of [
+    "east",
+    "west",
+    "southEast",
+    "southWest",
+    "northEast",
+    "northWest",
+    "south",
+    "north",
+  ]) {
+    const neighbor = getNeighborByDirection(originCell, direction);
+
+    if (canUnitEnter(neighbor)) {
+      return neighbor;
+    }
+  }
+
+  return null;
+}
+
+function spawnUnitFromHouse(building) {
+  if (!building) return null;
+
+  const spawnCell = findAdjacentSpawnCell(building.x, building.y);
+
+  if (!spawnCell) {
+    return null;
+  }
+
+  const spawnedUnit = {
+    id: createUnitId(),
+    name: getDefaultUnitName(),
+    x: spawnCell.x,
+    y: spawnCell.y,
+    facing: "west",
+    homeBuildingId: building.id,
+    staminaMax: getDefaultUnitStamina(),
+    stamina: getDefaultUnitStamina(),
+    selected: false,
+    task: null,
+    move: null,
+    turnRoute: null,
+    lastStepFromX: null,
+    lastStepFromY: null,
+  };
+
+  units.push(spawnedUnit);
+  syncActiveUnit();
+
+  const spawnTile = getCell(spawnCell.x, spawnCell.y);
+
+  if (spawnTile && !spawnTile.visited) {
+    spawnTile.visited = true;
+    invalidateStaticLayer();
+  }
+
+  invalidateStaticUnitsLayer();
+  return spawnedUnit;
 }
 
 function getBuildingVisual(building) {
@@ -2500,13 +2846,16 @@ function makeMap() {
 function initializeUnit() {
   const spawn = createDefaultUnitState(map.cells, map.width, map.height);
 
-  unit = spawn ? { ...spawn, selected: false, move: null, turnRoute: null } : null;
+  units = spawn
+    ? [{ ...spawn, selected: false, move: null, turnRoute: null, lastStepFromX: null, lastStepFromY: null }]
+    : [];
+  syncActiveUnit();
 
   invalidateStaticUnitsLayer();
   updateUnitReadout();
 }
 
-function findNearestPassableCell(startX, startY) {
+function findNearestPassableCell(startX, startY, currentUnit = null, occupiedKeys = null) {
   let best = null;
   let bestDistance = Number.POSITIVE_INFINITY;
 
@@ -2514,7 +2863,7 @@ function findNearestPassableCell(startX, startY) {
     for (let x = 0; x < map.width; x += 1) {
       const cell = getCell(x, y);
 
-      if (!canUnitEnter(cell)) continue;
+      if (!canUnitEnter(cell, currentUnit, occupiedKeys)) continue;
 
       const cellDistance = distance(x, y, startX, startY);
 
@@ -2528,54 +2877,107 @@ function findNearestPassableCell(startX, startY) {
   return best;
 }
 
-function canUnitEnter(cell) {
-  return Boolean(cell) && cell.type !== "water" && !getBlockingBuildingAtCell(cell.x, cell.y);
+function canUnitEnter(cell, currentUnit = null, occupiedKeys = null) {
+  return (
+    Boolean(cell) &&
+    cell.type !== "water" &&
+    !getBlockingBuildingAtCell(cell.x, cell.y) &&
+    !(
+      occupiedKeys instanceof Set
+        ? occupiedKeys.has(createCellKey(cell.x, cell.y))
+        : Boolean(getUnitAtCell(cell.x, cell.y, { excludeUnitId: currentUnit?.id || null }))
+    )
+  );
 }
 
 function updateUnitReadout() {
-  if (!unit) {
+  const selectedUnit = getSelectedUnit();
+  const displayedUnit = selectedUnit || unit;
+
+  if (!displayedUnit) {
     setTextContent(unitReadouts, strings.readouts.unitNone);
     updateUnitActionControls();
     return;
   }
 
-  const stamina = getUnitStamina(unit);
-  const staminaMax = getUnitMaxStamina(unit);
-
-  if (unit.move) {
-    setTextContent(unitReadouts, strings.readouts.unitMoving(unit.move.toX, unit.move.toY, stamina, staminaMax));
+  if (!selectedUnit && getUnits().length > 1) {
+    setTextContent(unitReadouts, strings.readouts.unitUnselected(getUnits().length));
+    updateUnitActionControls();
     return;
   }
 
-  if (unit.task?.type === "move") {
+  const stamina = getUnitStamina(displayedUnit);
+  const staminaMax = getUnitMaxStamina(displayedUnit);
+  const unitName = normalizeUnitName(displayedUnit.name);
+
+  if (displayedUnit.move) {
     setTextContent(
       unitReadouts,
-      strings.readouts.unitTaskMove(unit.task.toX, unit.task.toY, stamina, staminaMax),
+      strings.readouts.unitMoving(unitName, displayedUnit.move.toX, displayedUnit.move.toY, stamina, staminaMax),
     );
     updateUnitActionControls();
     return;
   }
 
-  if (unit.task?.type === "buildHouse") {
+  if (displayedUnit.task?.type === "move") {
     setTextContent(
       unitReadouts,
-      strings.readouts.unitTaskBuildHouse(unit.task.toX, unit.task.toY, stamina, staminaMax),
+      strings.readouts.unitTaskMove(
+        unitName,
+        displayedUnit.task.toX,
+        displayedUnit.task.toY,
+        stamina,
+        staminaMax,
+      ),
     );
     updateUnitActionControls();
     return;
   }
 
-  if (unit.task?.type === "demolish") {
+  if (displayedUnit.task?.type === "play") {
     setTextContent(
       unitReadouts,
-      strings.readouts.unitTaskDemolish(unit.task.toX, unit.task.toY, stamina, staminaMax),
+      strings.readouts.unitTaskPlay(unitName, stamina, staminaMax),
     );
     updateUnitActionControls();
     return;
   }
 
-  const state = unit.selected ? strings.unitStates.selected : strings.unitStates.idle;
-  setTextContent(unitReadouts, strings.readouts.unitState(state, unit.x, unit.y, stamina, staminaMax));
+  if (displayedUnit.task?.type === "buildHouse") {
+    setTextContent(
+      unitReadouts,
+      strings.readouts.unitTaskBuildHouse(
+        unitName,
+        displayedUnit.task.toX,
+        displayedUnit.task.toY,
+        stamina,
+        staminaMax,
+      ),
+    );
+    updateUnitActionControls();
+    return;
+  }
+
+  if (displayedUnit.task?.type === "demolish") {
+    setTextContent(
+      unitReadouts,
+      strings.readouts.unitTaskDemolish(
+        unitName,
+        displayedUnit.task.toX,
+        displayedUnit.task.toY,
+        stamina,
+        staminaMax,
+      ),
+    );
+    updateUnitActionControls();
+    return;
+  }
+
+  const state = displayedUnit.selected ? strings.unitStates.selected : strings.unitStates.idle;
+  setTextContent(
+    unitReadouts,
+    strings.readouts.unitState(unitName, state, displayedUnit.x, displayedUnit.y, stamina, staminaMax),
+  );
   updateUnitActionControls();
 }
 
@@ -2587,7 +2989,8 @@ function getVisibleTopBarMode() {
 function updateUnitActionControls() {
   if (!unitActionBar) return;
 
-  const shouldShow = isPlayMode() && !mainMenuOpen && Boolean(unit?.selected);
+  const selectedUnit = getSelectedUnit();
+  const shouldShow = isPlayMode() && !mainMenuOpen && Boolean(selectedUnit);
   unitActionBar.hidden = !shouldShow;
 
   if (!shouldShow) {
@@ -2595,7 +2998,9 @@ function updateUnitActionControls() {
   }
 
   const activeAction = getCurrentSelectedUnitAction();
-  const disabled = Boolean(unit?.move || unit?.task);
+  const disabled = Boolean(
+    selectedUnit?.move || (selectedUnit?.task && selectedUnit.task.type !== "play"),
+  );
 
   for (const button of unitActionButtons) {
     const action = normalizeUnitAction(button.dataset.unitAction);
@@ -2605,6 +3010,61 @@ function updateUnitActionControls() {
     button.setAttribute("aria-pressed", isSelected ? "true" : "false");
     button.disabled = disabled;
   }
+}
+
+function selectUnit(currentUnit, { scrollIntoView = false, defaultAction = null } = {}) {
+  if (!currentUnit) return false;
+
+  let didChange = false;
+
+  for (const candidate of getUnits()) {
+    const shouldSelect = candidate === currentUnit;
+
+    if (candidate.selected !== shouldSelect) {
+      candidate.selected = shouldSelect;
+      didChange = true;
+    }
+  }
+
+  unit = currentUnit;
+  selectedUnitAction = currentUnit.task
+    ? currentUnit.task.type === "play"
+      ? unitActions.play
+      : getActionForTask(currentUnit.task)
+    : normalizeUnitAction(defaultAction ?? unitActions.walk);
+
+  if (scrollIntoView) {
+    requestAnimationFrame(() => centerViewportOnUnit(currentUnit));
+  }
+
+  invalidateStaticUnitsLayer();
+  updateUnitReadout();
+  if (shouldAnimateSelectionMarker()) {
+    scheduleAnimation();
+  }
+  draw();
+  return didChange;
+}
+
+function ensureIdleUnitSelection({ force = false, scrollIntoView = false, defaultAction = null } = {}) {
+  if (!isPlayMode() || mainMenuOpen || turnResolutionActive) {
+    return false;
+  }
+
+  const idleUnit = getFirstIdleUnit();
+
+  if (!idleUnit) {
+    return false;
+  }
+
+  const selectedUnit = getSelectedUnit();
+
+  if (force || !selectedUnit || !isUnitIdle(selectedUnit)) {
+    selectUnit(idleUnit, { scrollIntoView, defaultAction });
+    return true;
+  }
+
+  return false;
 }
 
 function updateInteractionModeUi() {
@@ -2659,9 +3119,17 @@ function clearEditHoverState() {
 }
 
 function clearUnitSelection() {
-  if (!unit?.selected) return;
+  let didChange = false;
 
-  unit.selected = false;
+  for (const currentUnit of getUnits()) {
+    if (!currentUnit.selected) continue;
+    currentUnit.selected = false;
+    didChange = true;
+  }
+
+  if (!didChange) return;
+
+  syncActiveUnit();
   selectedUnitAction = unitActions.walk;
   invalidateStaticUnitsLayer();
   updateUnitReadout();
@@ -2701,6 +3169,10 @@ function setInteractionMode(nextMode) {
     draw();
   }
 
+  if (shouldAnimateWorkingUnits()) {
+    scheduleAnimation();
+  }
+
   maybeAutoAdvanceTurn();
 }
 
@@ -2726,32 +3198,38 @@ function startNewGeneratedState(mode, buildCells = buildGeneratedMapCells) {
 }
 
 function getUnitTargetCells() {
-  if (!unit) return [];
+  const selectedUnit = getSelectedUnit();
 
-  if (unit.task) {
-    const destinationCell = getCell(unit.task.toX, unit.task.toY);
+  if (!selectedUnit) return [];
+
+  if (selectedUnit.task && selectedUnit.task.type !== "play") {
+    const destinationCell = getCell(selectedUnit.task.toX, selectedUnit.task.toY);
     return destinationCell ? [destinationCell] : [];
   }
 
-  if (!unit.selected || unit.move) {
+  if (selectedUnit.move) {
     return [];
   }
 
   const action = getCurrentSelectedUnitAction();
 
   if (action === unitActions.buildHouse) {
-    return getBuildableAdjacentCells(unit);
+    return getBuildableAdjacentCells(selectedUnit);
   }
 
   if (action === unitActions.demolish) {
-    return getDemolishableAdjacentCells(unit);
+    return getDemolishableAdjacentCells(selectedUnit);
   }
 
   return [];
 }
 
 function getUnitTargetStyle() {
-  const action = unit?.task ? getActionForTask(unit.task) : getCurrentSelectedUnitAction();
+  const selectedUnit = getSelectedUnit();
+  const action =
+    selectedUnit?.task && selectedUnit.task.type !== "play"
+      ? getActionForTask(selectedUnit.task)
+      : getCurrentSelectedUnitAction();
 
   if (action === unitActions.demolish) {
     return {
@@ -2830,7 +3308,12 @@ function areCellsAdjacent(fromX, fromY, toX, toY) {
 }
 
 function canBuildHouseOnCell(cell) {
-  return Boolean(cell) && cell.type === "grass" && !getBuildingAtCell(cell.x, cell.y);
+  return (
+    Boolean(cell) &&
+    cell.type === "grass" &&
+    !getBuildingAtCell(cell.x, cell.y) &&
+    !getUnitAtCell(cell.x, cell.y)
+  );
 }
 
 function getBuildableAdjacentCells(currentUnit = unit) {
@@ -2842,7 +3325,10 @@ function getBuildableAdjacentCells(currentUnit = unit) {
 function getDemolishableAdjacentCells(currentUnit = unit) {
   const originCell = currentUnit ? getCell(currentUnit.x, currentUnit.y) : null;
 
-  return getAdjacentCells(originCell).filter((cell) => Boolean(getBuildingAtCell(cell.x, cell.y)));
+  return getAdjacentCells(originCell).filter((cell) => {
+    const building = getBuildingAtCell(cell.x, cell.y);
+    return Boolean(building && building.state === "abandoned");
+  });
 }
 
 function createCellKey(x, y) {
@@ -2866,7 +3352,7 @@ function buildTurnRoutes(currentUnit, cell, destinationCell, remainingStamina, v
   for (const direction of directions) {
     const neighbor = getNeighborByDirection(cell, direction);
 
-    if (!canUnitEnter(neighbor)) continue;
+    if (!canUnitEnter(neighbor, currentUnit)) continue;
     if (
       steps.length === 0 &&
       neighbor.x === currentUnit.lastStepFromX &&
@@ -2986,68 +3472,82 @@ function getNextMoveStep(currentUnit, task) {
 function handlePlayModeClick(cell) {
   hideTileMenu();
 
-  if (!unit || unit.move) return;
+  const selectedUnit = getSelectedUnit();
+  const movingUnit = getMovingUnit();
+
+  if (movingUnit) return;
 
   if (!cell) {
-    unit.selected = false;
-    invalidateStaticUnitsLayer();
-    updateUnitReadout();
+    clearUnitSelection();
+    maybeAutoAdvanceTurn();
     draw();
     return;
   }
 
-  if (cell.x === unit.x && cell.y === unit.y) {
-    unit.selected = !unit.selected;
+  const clickedUnit = getUnitAtCell(cell.x, cell.y);
 
-    if (unit.selected) {
-      selectedUnitAction = unit.task ? getActionForTask(unit.task) : unitActions.walk;
-    } else {
-      selectedUnitAction = unitActions.walk;
+  if (clickedUnit) {
+    const wasSelected = clickedUnit.selected;
+
+    if (wasSelected) {
+      clearUnitSelection();
+      maybeAutoAdvanceTurn();
+      draw();
+      return;
     }
 
-    invalidateStaticUnitsLayer();
-    updateUnitReadout();
-    draw();
+    selectUnit(clickedUnit);
     return;
   }
 
-  if (unit.selected) {
+  if (selectedUnit) {
     const action = getCurrentSelectedUnitAction();
 
+    if (action === unitActions.wait) {
+      return;
+    }
+
+    if (action === unitActions.play) {
+      return;
+    }
+
     if (action === unitActions.buildHouse) {
-      queueUnitBuildHouseTask(cell);
+      queueUnitBuildHouseTask(cell, selectedUnit);
       return;
     }
 
     if (action === unitActions.demolish) {
-      queueUnitDemolishTask(cell);
+      queueUnitDemolishTask(cell, selectedUnit);
       return;
     }
 
-    if (canUnitEnter(cell)) {
-      queueUnitMoveTask(cell);
+    if (canUnitEnter(cell, selectedUnit)) {
+      queueUnitMoveTask(cell, selectedUnit);
       return;
     }
   }
 
-  unit.selected = false;
-  selectedUnitAction = unitActions.walk;
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
+  clearUnitSelection();
+  maybeAutoAdvanceTurn();
   draw();
 }
 
-function startUnitMove(destinationCell, direction = getMoveDirection(unit.x, unit.y, destinationCell.x, destinationCell.y)) {
-  if (!unit) return;
+function startUnitMove(
+  destinationCell,
+  direction,
+  currentUnit = unit,
+) {
+  if (!currentUnit) return;
 
-  unit.move = {
-    fromX: unit.x,
-    fromY: unit.y,
+  currentUnit.move = {
+    fromX: currentUnit.x,
+    fromY: currentUnit.y,
     toX: destinationCell.x,
     toY: destinationCell.y,
-    direction,
+    direction: direction || getMoveDirection(currentUnit.x, currentUnit.y, destinationCell.x, destinationCell.y),
     startedAt: performance.now(),
   };
+  unit = currentUnit;
   invalidateStaticUnitsLayer();
   updateUnitReadout();
   updateTurnControls();
@@ -3063,35 +3563,42 @@ function scheduleAnimation() {
 
 function stepAnimations(now) {
   animationFrameId = 0;
-  let needsAnotherFrame = shouldAnimateWorkingUnits();
+  let needsAnotherFrame = shouldAnimateWorkingUnits() || shouldAnimateSelectionMarker();
+  const movingUnit = getMovingUnit();
 
-  if (unit?.move) {
-    const progress = getUnitMoveProgress(now);
+  if (movingUnit?.move) {
+    const progress = getUnitMoveProgress(movingUnit, now);
 
     if (progress >= 1) {
-      const moveToX = unit.move.toX;
-      const moveToY = unit.move.toY;
-      const moveFromX = unit.move.fromX;
-      const moveFromY = unit.move.fromY;
+      const moveToX = movingUnit.move.toX;
+      const moveToY = movingUnit.move.toY;
+      const moveFromX = movingUnit.move.fromX;
+      const moveFromY = movingUnit.move.fromY;
 
-      unit.x = unit.move.toX;
-      unit.y = unit.move.toY;
-      unit.facing = unit.move.direction || unit.facing;
-      unit.lastStepFromX = moveFromX;
-      unit.lastStepFromY = moveFromY;
-      unit.move = null;
-      const destinationCell = getCell(unit.x, unit.y);
+      movingUnit.x = movingUnit.move.toX;
+      movingUnit.y = movingUnit.move.toY;
+      movingUnit.facing = movingUnit.move.direction || movingUnit.facing;
+      movingUnit.lastStepFromX = moveFromX;
+      movingUnit.lastStepFromY = moveFromY;
+      movingUnit.move = null;
+      const destinationCell = getCell(movingUnit.x, movingUnit.y);
 
       if (destinationCell && !destinationCell.visited) {
         destinationCell.visited = true;
         invalidateStaticLayer();
       }
 
-      if (unit.task?.type === "move" && unit.task.toX === moveToX && unit.task.toY === moveToY) {
-        unit.task = null;
-        unit.turnRoute = null;
+      if (
+        movingUnit.task?.type === "move" &&
+        movingUnit.task.toX === moveToX &&
+        movingUnit.task.toY === moveToY
+      ) {
+        applyCompletedTaskDefaultAction("move", movingUnit);
+        movingUnit.task = null;
+        movingUnit.turnRoute = null;
       }
 
+      syncActiveUnit(movingUnit.id);
       invalidateStaticUnitsLayer();
       updateUnitReadout();
       updateTurnControls();
@@ -3114,20 +3621,20 @@ function stepAnimations(now) {
   }
 }
 
-function getUnitMoveProgress(now = performance.now()) {
-  if (!unit?.move) return 1;
+function getUnitMoveProgress(currentUnit = unit, now = performance.now()) {
+  if (!currentUnit?.move) return 1;
 
-  const elapsed = now - unit.move.startedAt;
+  const elapsed = now - currentUnit.move.startedAt;
   return clamp(elapsed / unitSprite.moveDuration, 0, 1);
 }
 
-function getUnitScreenPosition(now = performance.now()) {
-  if (!unit) return null;
-  if (!unit.move) return isoToScreen(unit.x, unit.y);
+function getUnitScreenPosition(currentUnit = unit, now = performance.now()) {
+  if (!currentUnit) return null;
+  if (!currentUnit.move) return isoToScreen(currentUnit.x, currentUnit.y);
 
-  const progress = easeInOut(getUnitMoveProgress(now));
-  const from = isoToScreen(unit.move.fromX, unit.move.fromY);
-  const to = isoToScreen(unit.move.toX, unit.move.toY);
+  const progress = easeInOut(getUnitMoveProgress(currentUnit, now));
+  const from = isoToScreen(currentUnit.move.fromX, currentUnit.move.fromY);
+  const to = isoToScreen(currentUnit.move.toX, currentUnit.move.toY);
 
   return {
     x: lerp(from.x, to.x, progress),
@@ -3179,15 +3686,15 @@ function usesSouthUnitSprite(direction) {
 }
 
 function getStationaryUnits() {
-  if (interactionMode !== interactionModes.play || !unit || unit.move || unit.selected) {
+  if (interactionMode !== interactionModes.play) {
     return [];
   }
 
-  return [unit];
+  return getUnits().filter((currentUnit) => currentUnit && !currentUnit.move && !currentUnit.selected);
 }
 
 function getMovingUnit() {
-  return unit?.move ? unit : null;
+  return getUnits().find((currentUnit) => currentUnit?.move) || null;
 }
 
 function compareUnitsByDrawOrder(a, b) {
@@ -3204,7 +3711,7 @@ function compareBuildingsByDrawOrder(a, b) {
 }
 
 function drawUnitTargets() {
-  if (interactionMode !== interactionModes.play || !unit || !unit.selected) {
+  if (interactionMode !== interactionModes.play || !getSelectedUnit()) {
     return;
   }
 
@@ -3221,37 +3728,97 @@ function drawUnitTargets() {
   }
 }
 
-function drawSelectedUnitMarker() {
-  if (interactionMode !== interactionModes.play || !unit?.selected) return;
+function drawUnitMoveTaskLines(now = performance.now()) {
+  if (interactionMode !== interactionModes.play) {
+    return;
+  }
 
-  const screen = getUnitScreenPosition();
+  const movingUnits = getUnits().filter(
+    (currentUnit) =>
+      currentUnit?.task?.type === "move" &&
+      (currentUnit.task.toX !== currentUnit.x || currentUnit.task.toY !== currentUnit.y),
+  );
+
+  if (movingUnits.length === 0) {
+    return;
+  }
+
+  ctx.save();
+  ctx.setLineDash([8, 6]);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  for (const currentUnit of movingUnits) {
+    const fromScreen = getUnitScreenPosition(currentUnit, now);
+    const destinationCell = getCell(currentUnit.task.toX, currentUnit.task.toY);
+
+    if (!fromScreen || !destinationCell) {
+      continue;
+    }
+
+    const fromGround = getUnitGroundPoint(fromScreen);
+    const toScreen = isoToScreen(destinationCell.x, destinationCell.y);
+    const toPoint = {
+      x: toScreen.x,
+      y: toScreen.y + tile.height * 0.52,
+    };
+
+    ctx.strokeStyle = "rgba(18, 22, 20, 0.45)";
+    ctx.lineWidth = Math.max(2.5, 3 * zoomLevels[zoomIndex]);
+    ctx.beginPath();
+    ctx.moveTo(fromGround.x, fromGround.y);
+    ctx.lineTo(toPoint.x, toPoint.y);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(239, 224, 170, 0.8)";
+    ctx.lineWidth = Math.max(1.2, 1.5 * zoomLevels[zoomIndex]);
+    ctx.beginPath();
+    ctx.moveTo(fromGround.x, fromGround.y);
+    ctx.lineTo(toPoint.x, toPoint.y);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawSelectedUnitMarker() {
+  const selectedUnit = getSelectedUnit();
+
+  if (interactionMode !== interactionModes.play || !selectedUnit) return;
+
+  const screen = getUnitScreenPosition(selectedUnit);
 
   if (!screen) return;
 
+  const now = performance.now();
+  const pulse = (Math.sin(now / 320) + 1) / 2;
   const centerY = screen.y + tile.height * 0.66;
+  const radiusX = tile.width * (0.29 + pulse * 0.05);
+  const radiusY = tile.height * (0.112 + pulse * 0.02);
+  const fillAlpha = 0.5 + pulse * 0.22;
 
   ctx.save();
-  ctx.fillStyle = "rgba(232, 145, 190, 0.5)";
+  ctx.fillStyle = `rgba(68, 98, 178, ${fillAlpha})`;
   ctx.beginPath();
   ctx.ellipse(
     screen.x,
     centerY,
-    tile.width * 0.28,
-    tile.height * 0.11,
+    radiusX,
+    radiusY,
     0,
     0,
     Math.PI * 2,
   );
   ctx.fill();
 
-  ctx.strokeStyle = "rgba(240, 171, 209, 0.96)";
+  ctx.strokeStyle = "rgb(102, 171, 255)";
   ctx.lineWidth = Math.max(1.5, 2 * zoomLevels[zoomIndex]);
   ctx.beginPath();
   ctx.ellipse(
     screen.x,
     centerY,
-    tile.width * 0.28,
-    tile.height * 0.11,
+    radiusX,
+    radiusY,
     0,
     0,
     Math.PI * 2,
@@ -3268,9 +3835,9 @@ function drawMovingUnit(now = performance.now()) {
 
   if (!movingUnit) return;
 
-  const screen = getUnitScreenPosition(now);
+  const screen = getUnitScreenPosition(movingUnit, now);
   const direction = movingUnit.move?.direction || movingUnit.facing || "west";
-  const imagePath = getMovingUnitImage(direction, now);
+  const imagePath = getMovingUnitImage(movingUnit, direction, now);
 
   if (!screen) return;
 
@@ -3278,16 +3845,18 @@ function drawMovingUnit(now = performance.now()) {
 }
 
 function drawSelectedStationaryUnit(now = performance.now()) {
-  if (interactionMode !== interactionModes.play || !unit || unit.move || !unit.selected) {
+  const selectedUnit = getSelectedUnit();
+
+  if (interactionMode !== interactionModes.play || !selectedUnit || selectedUnit.move) {
     return;
   }
 
-  const direction = getUnitDisplayDirection(unit);
+  const direction = getUnitDisplayDirection(selectedUnit);
 
   drawUnitAtScreen(
-    isoToScreen(unit.x, unit.y),
+    isoToScreen(selectedUnit.x, selectedUnit.y),
     ctx,
-    getStationaryUnitImage(unit, now),
+    getStationaryUnitImage(selectedUnit, now),
     shouldMirrorUnitDirection(direction),
     false,
   );
@@ -3324,12 +3893,39 @@ function getWorkingUnitImage(frameIndex = 0) {
   return unitSprite.workFrames[frameIndex % unitSprite.workFrames.length] || unitSprite.idleImage;
 }
 
+function getAnimatedTaskFrameOffset(currentUnit) {
+  if (!currentUnit) {
+    return 0;
+  }
+
+  if (!Number.isInteger(currentUnit.animatedTaskFrameOffset)) {
+    currentUnit.animatedTaskFrameOffset = Math.random() < 0.5 ? 1 : 0;
+  }
+
+  return currentUnit.animatedTaskFrameOffset;
+}
+
+function getAnimatedTaskUnitImage(currentUnit, frameIndex = 0) {
+  const frames =
+    currentUnit?.task?.type === "play" && unitSprite.playFrames.length > 0
+      ? unitSprite.playFrames
+      : unitSprite.workFrames;
+
+  if (frames.length === 0) {
+    return unitSprite.idleImage;
+  }
+
+  const offsetFrameIndex = frameIndex + getAnimatedTaskFrameOffset(currentUnit);
+
+  return frames[offsetFrameIndex % frames.length] || unitSprite.idleImage;
+}
+
 function getStationaryUnitImage(currentUnit, now = performance.now(), explicitFrameIndex = null) {
   if (isUnitWorking(currentUnit)) {
     const frameIndex =
       explicitFrameIndex === null ? getWorkingUnitFrameIndex(now) : explicitFrameIndex;
 
-    return getWorkingUnitImage(frameIndex);
+    return getAnimatedTaskUnitImage(currentUnit, frameIndex);
   }
 
   const direction = getUnitDisplayDirection(currentUnit);
@@ -3345,7 +3941,7 @@ function getStationaryUnitImage(currentUnit, now = performance.now(), explicitFr
   return unitSprite.idleImage;
 }
 
-function getMovingUnitImage(direction = "west", now = performance.now()) {
+function getMovingUnitImage(currentUnit = unit, direction = "west", now = performance.now()) {
   let moveFrames = unitSprite.moveFrames;
   let fallbackImage = unitSprite.idleImage;
 
@@ -3358,14 +3954,14 @@ function getMovingUnitImage(direction = "west", now = performance.now()) {
   }
 
   if (
-    !unit?.move ||
+    !currentUnit?.move ||
     moveFrames.length === 0 ||
     unitSprite.moveFrameSequence.length === 0
   ) {
     return fallbackImage;
   }
 
-  const progress = getUnitMoveProgress(now);
+  const progress = getUnitMoveProgress(currentUnit, now);
   const phaseIndex = Math.min(
     unitSprite.moveFrameSequence.length - 1,
     Math.floor(progress * unitSprite.moveFrameSequence.length),
@@ -4162,6 +4758,7 @@ function drawDynamicLayer(now = performance.now()) {
 
   if (interactionMode === interactionModes.play) {
     restoreStaticUnitsLayerToMain(getWorkingUnitFrameIndex(now));
+    drawUnitMoveTaskLines(now);
     drawSelectedUnitMarker();
     drawUnitTargets();
     drawSelectedStationaryUnit(now);
@@ -4248,6 +4845,20 @@ function restoreViewportCenter(center) {
     0,
     maxTop,
   );
+}
+
+function centerViewportOnUnit(currentUnit) {
+  if (!currentUnit) return;
+
+  const screen = getUnitScreenPosition(currentUnit);
+
+  if (!screen) return;
+
+  const maxLeft = Math.max(0, canvas.offsetWidth - viewport.clientWidth);
+  const maxTop = Math.max(0, canvas.offsetHeight - viewport.clientHeight);
+
+  viewport.scrollLeft = clamp(screen.x - viewport.clientWidth / 2, 0, maxLeft);
+  viewport.scrollTop = clamp(screen.y + tile.height / 2 - viewport.clientHeight / 2, 0, maxTop);
 }
 
 function updateZoomControls() {
@@ -4523,7 +5134,7 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
-  if (interactionMode === interactionModes.play && unit?.selected) {
+  if (interactionMode === interactionModes.play && getSelectedUnit()) {
     clearUnitSelection();
     draw();
     return;
@@ -4596,9 +5207,28 @@ for (const button of nextTurnButtons) {
 
 for (const button of unitActionButtons) {
   button.addEventListener("click", () => {
-    if (!unit?.selected || unit.move || unit.task) return;
+    const selectedUnit = getSelectedUnit();
 
-    selectedUnitAction = normalizeUnitAction(button.dataset.unitAction);
+    if (!selectedUnit || selectedUnit.move) return;
+    if (selectedUnit.task && selectedUnit.task.type !== "play") return;
+
+    const action = normalizeUnitAction(button.dataset.unitAction);
+
+    if (action === unitActions.wait) {
+      selectNextIdleUnit({
+        fromUnit: selectedUnit,
+        defaultAction: unitActions.wait,
+        scrollIntoView: true,
+      });
+      return;
+    }
+
+    if (action === unitActions.play) {
+      queueUnitPlayTask(selectedUnit);
+      return;
+    }
+
+    selectedUnitAction = action;
     updateUnitActionControls();
     draw();
   });

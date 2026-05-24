@@ -1,6 +1,7 @@
 window.APP_RULES = {
   units: {
     default: {
+      name: "Schtroumpf",
       stamina: 2,
       workPointsPerTurn: {
         buildHouse: 20,
