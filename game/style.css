@@ -304,6 +304,57 @@ p {
   justify-content: center;
 }
 
+.unit-action-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transform: translateX(-50%);
+}
+
+.unit-action-bar[hidden] {
+  display: none;
+}
+
+.unit-action-button {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border: 1px solid rgba(82, 57, 16, 0.85);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 243, 183, 0.68), rgba(235, 191, 92, 0.92) 45%, rgba(174, 127, 41, 0.98));
+  color: #2d2110;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+  cursor: pointer;
+  font: inherit;
+  font-size: calc(1.28rem * var(--ui-font-scale));
+  line-height: 1;
+}
+
+.unit-action-button:hover,
+.unit-action-button:focus-visible {
+  filter: brightness(1.05);
+  outline: none;
+}
+
+.unit-action-button.is-selected {
+  box-shadow:
+    0 0 0 2px rgba(255, 231, 154, 0.78),
+    0 10px 24px rgba(0, 0, 0, 0.32);
+}
+
+.unit-action-button:disabled {
+  cursor: default;
+  opacity: 0.62;
+  filter: saturate(0.65);
+}
+
 .game-action-menu {
   position: absolute;
   z-index: 20;
@@ -433,6 +484,8 @@ p {
 .slot-panel-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   min-height: 38px;
   padding: 0 12px;
   border: 1px solid var(--line);
@@ -443,6 +496,20 @@ p {
   font: inherit;
   font-size: calc(0.88rem * var(--ui-font-scale));
   text-align: left;
+}
+
+.slot-panel-item-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.slot-panel-item-meta {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: calc(0.76rem * var(--ui-font-scale));
+  text-transform: lowercase;
 }
 
 .slot-panel-item:hover,

@@ -80,6 +80,18 @@
         </div>
       </section>
 
+      <nav id="unitActionBar" class="unit-action-bar" aria-label="Unit actions" hidden>
+        <button class="unit-action-button" data-action="select-unit-action" data-unit-action="walk" type="button">
+          <span aria-hidden="true">➜</span>
+        </button>
+        <button class="unit-action-button" data-action="select-unit-action" data-unit-action="buildHouse" type="button">
+          <span aria-hidden="true">⌂</span>
+        </button>
+        <button class="unit-action-button" data-action="select-unit-action" data-unit-action="demolish" type="button">
+          <span aria-hidden="true">✕</span>
+        </button>
+      </nav>
+
       <aside id="playInspector" class="play-inspector" hidden>
         <p class="play-inspector-title" data-role="inspector-title"></p>
         <span class="panel-readout" data-role="unit-readout"></span>
@@ -107,6 +119,7 @@
           </label>
           <div class="slot-panel-actions">
             <button class="menu-button" data-action="confirm-slot-panel" type="button"></button>
+            <button class="menu-button" data-action="import-slot-panel" type="button" hidden></button>
             <button class="menu-button" data-action="cancel-slot-panel" type="button"></button>
           </div>
           <div class="slot-panel-list-wrap">
@@ -125,7 +138,7 @@
             <li><button class="main-menu-item" type="button" data-menu-action="play"></button></li>
             <li><button class="main-menu-item" type="button" data-menu-action="load-game"></button></li>
             <li><button class="main-menu-item" type="button" data-menu-action="edit"></button></li>
-            <li><button class="main-menu-item" type="button" data-menu-action="import-export" disabled></button></li>
+            <li><button class="main-menu-item" type="button" data-menu-action="import-export"></button></li>
           </ul>
         </div>
       </div>

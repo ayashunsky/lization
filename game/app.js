@@ -3,6 +3,7 @@ const ctx = canvas.getContext("2d");
 const viewport = document.querySelector(".viewport");
 const mainMenuOverlay = document.querySelector("#mainMenuOverlay");
 const playInspector = document.querySelector("#playInspector");
+const unitActionBar = document.querySelector("#unitActionBar");
 const gameActionMenu = document.querySelector("#gameActionMenu");
 const saveSlotOverlay = document.querySelector("#saveSlotOverlay");
 const saveSlotPanel = document.querySelector("#saveSlotPanel");
@@ -38,6 +39,7 @@ const dismissSlotPanelButtons = [...document.querySelectorAll('[data-action="clo
 const cancelSlotPanelButtons = [...document.querySelectorAll('[data-action="cancel-slot-panel"]')];
 const closeSlotPanelIconButtons = [...document.querySelectorAll('[data-action="close-slot-panel"]')];
 const confirmSlotPanelButtons = [...document.querySelectorAll('[data-action="confirm-slot-panel"]')];
+const importSlotPanelButtons = [...document.querySelectorAll('[data-action="import-slot-panel"]')];
 const zoomOutButtons = [...document.querySelectorAll('[data-action="zoom-out"]')];
 const zoomInButtons = [...document.querySelectorAll('[data-action="zoom-in"]')];
 const zoomLevelReadouts = [...document.querySelectorAll('[data-role="zoom-level"]')];
@@ -46,6 +48,7 @@ const turnReadouts = [...document.querySelectorAll('[data-role="turn-readout"]')
 const fileReadouts = [...document.querySelectorAll('[data-role="file-readout"]')];
 const nextTurnButtons = [...document.querySelectorAll('[data-action="next-turn"]')];
 const autoPassInputs = [...document.querySelectorAll('[data-action="auto-pass"]')];
+const unitActionButtons = [...document.querySelectorAll('[data-action="select-unit-action"]')];
 const autoPassLabels = [...document.querySelectorAll('[data-role="auto-pass-label"]')];
 const slotNameLabels = [...document.querySelectorAll('[data-role="slot-name-label"]')];
 const slotListTitles = [...document.querySelectorAll('[data-role="slot-list-title"]')];
@@ -59,8 +62,8 @@ const mainMenuItems = {
 };
 const staticLayerCanvas = document.createElement("canvas");
 const staticLayerCtx = staticLayerCanvas.getContext("2d");
-const staticUnitsLayerCanvas = document.createElement("canvas");
-const staticUnitsLayerCtx = staticUnitsLayerCanvas.getContext("2d");
+const staticUnitsLayerCanvases = [document.createElement("canvas"), document.createElement("canvas")];
+const staticUnitsLayerContexts = staticUnitsLayerCanvases.map((layerCanvas) => layerCanvas.getContext("2d"));
 
 const rules = window.APP_RULES;
 const localization = window.APP_LOCALIZATION;
@@ -90,10 +93,20 @@ const interactionModes = {
   edit: "edit",
   play: "play",
 };
+const unitActions = {
+  walk: "walk",
+  buildHouse: "buildHouse",
+  demolish: "demolish",
+};
 const unitSprite = {
   idleImage: "assets/units/unit_sprite.png",
   northImage: "assets/units/unit_back_sprite.png",
   southImage: "assets/units/unit_front_sprite.png",
+  workFrames: [
+    "assets/units/unit_work_sprite.png",
+    "assets/units/unit_work_sprite_1.png",
+  ],
+  workFrameDuration: 180,
   northMoveFrames: [
     "assets/units/unit_back_step_sprite.png",
     "assets/units/unit_back_step_sprite_2.png",
@@ -201,6 +214,22 @@ const terrain = {
   },
 };
 
+const buildingCatalog = {
+  house: {
+    subtypes: [
+      { id: "house_01", image: "assets/buildings/house_01.png" },
+      { id: "house_02", image: "assets/buildings/house_02.png" },
+      { id: "house_03", image: "assets/buildings/house_03.png" },
+      { id: "house_04", image: "assets/buildings/house_04.png" },
+    ],
+    abandonedImage: "assets/buildings/house_abandoned.png",
+    constructionImages: {
+      initial: "assets/buildings/house_construct.png",
+      half: "assets/buildings/house_half.png",
+    },
+  },
+};
+
 const transitionRules = [
   {
     baseType: "water",
@@ -235,6 +264,7 @@ let zoomIndex = 1;
 let interactionMode = null;
 let mainMenuOpen = true;
 let unit = null;
+let buildings = [];
 let animationFrameId = 0;
 let staticLayerDirty = true;
 let staticUnitsLayerDirty = true;
@@ -242,13 +272,19 @@ let currentDpr = 1;
 let currentTurn = 1;
 let autoAdvanceTurns = true;
 let autoAdvanceQueued = false;
+let autoAdvanceFrameId = 0;
+let turnResolutionPauseTimeoutId = 0;
 let turnResolutionActive = false;
+let turnResolutionHadAnimation = false;
+let turnResolutionHadWork = false;
+let selectedUnitAction = unitActions.walk;
 let activeGameMenuButton = null;
 let slotPanelState = null;
 const tileImages = {};
+const buildingImages = {};
 const shoreOverlayImages = {};
 const unitImages = {};
-const saveVersion = 2;
+const saveVersion = 3;
 const storageKeys = {
   filePrefix: "schtroumpfilization:save-file:v1:",
   currentFile: {
@@ -261,6 +297,7 @@ const currentFileNames = {
   play: null,
 };
 const autosaveSlotName = "autosave";
+const workTurnDisplayDelayMs = 720;
 
 function setTextContent(elements, text) {
   for (const element of elements) {
@@ -286,6 +323,36 @@ function setAttributeForElements(elements, name, value) {
   }
 }
 
+function clearPendingAutoAdvance() {
+  if (autoAdvanceFrameId) {
+    cancelAnimationFrame(autoAdvanceFrameId);
+    autoAdvanceFrameId = 0;
+  }
+
+  if (turnResolutionPauseTimeoutId) {
+    window.clearTimeout(turnResolutionPauseTimeoutId);
+    turnResolutionPauseTimeoutId = 0;
+  }
+
+  autoAdvanceQueued = false;
+}
+
+function normalizeUnitAction(action) {
+  return Object.values(unitActions).includes(action) ? action : unitActions.walk;
+}
+
+function getUnitActionLabel(action) {
+  if (action === unitActions.buildHouse) {
+    return strings.actions.buildHouse;
+  }
+
+  if (action === unitActions.demolish) {
+    return strings.actions.demolish;
+  }
+
+  return strings.actions.walk;
+}
+
 function applyStaticText() {
   document.documentElement.lang = currentLanguage;
   document.title = strings.app.title;
@@ -295,6 +362,7 @@ function applyStaticText() {
   gameActionMenu?.setAttribute("aria-label", strings.aria.gameMenu);
   saveSlotPanel?.setAttribute("aria-label", strings.aria.saveSlots);
   mainMenuOverlay?.setAttribute("aria-label", strings.aria.mainMenu);
+  unitActionBar?.setAttribute("aria-label", strings.aria.unitActions);
   setTextContent(appTitleElements, strings.app.title);
   setTextContent(inspectorTitleElements, strings.play.inspectorTitle);
   setTextContent(gameMenuToggleButtons, strings.actions.menu);
@@ -309,6 +377,7 @@ function applyStaticText() {
   setTextContent(slotNameLabels, strings.saveSlots.slotName);
   setTextContent(slotListTitles, strings.saveSlots.existingSlots);
   setTextContent(confirmSlotPanelButtons, strings.actions.save);
+  setTextContent(importSlotPanelButtons, strings.actions.importFile);
   setTextContent(cancelSlotPanelButtons, strings.actions.cancel);
   setAttributeForElements(closeSlotPanelIconButtons, "aria-label", strings.actions.close);
   if (saveSlotEmpty) {
@@ -324,6 +393,14 @@ function applyStaticText() {
   setAttributeForElements(zoomControlGroups, "aria-label", strings.aria.zoomControls);
   setAttributeForElements(zoomOutButtons, "aria-label", strings.aria.zoomOut);
   setAttributeForElements(zoomInButtons, "aria-label", strings.aria.zoomIn);
+
+  for (const button of unitActionButtons) {
+    const action = normalizeUnitAction(button.dataset.unitAction);
+    const label = getUnitActionLabel(action);
+
+    button.setAttribute("aria-label", label);
+    button.title = label;
+  }
 }
 
 function sanitizeFileName(fileName) {
@@ -413,11 +490,11 @@ function getDefaultUnitStamina() {
   return Math.max(1, clampInteger(rules.units?.default?.stamina, 1, 999, 2));
 }
 
-function getUnitMaxStamina(currentUnit) {
+function getUnitMaxStamina(currentUnit = unit) {
   return Math.max(1, clampInteger(currentUnit?.staminaMax, 1, 999, getDefaultUnitStamina()));
 }
 
-function getUnitStamina(currentUnit) {
+function getUnitStamina(currentUnit = unit) {
   return Math.max(0, clampInteger(currentUnit?.stamina, 0, 999, getUnitMaxStamina(currentUnit)));
 }
 
@@ -433,8 +510,103 @@ function getTerrainMoveCost(cell) {
   return Math.max(1, configuredCost);
 }
 
+function getUnitWorkPointsPerTurn(taskType) {
+  const configured = Number(rules.units?.default?.workPointsPerTurn?.[taskType]);
+
+  if (!Number.isFinite(configured)) {
+    return 0;
+  }
+
+  return Math.max(0, configured);
+}
+
+function getBuildingRules(type) {
+  return rules.buildings?.[type] || null;
+}
+
+function getBuildingSpec(type) {
+  return buildingCatalog[type] || null;
+}
+
+function getBuildingSubtypeVariants(type) {
+  return getBuildingSpec(type)?.subtypes || [];
+}
+
+function chooseBuildingSubtype(type) {
+  const variants = getBuildingSubtypeVariants(type);
+
+  if (variants.length === 0) return null;
+
+  const index = Math.floor(Math.random() * variants.length);
+  return variants[index].id;
+}
+
+function getDefaultBuildingWidth() {
+  return Math.max(1, clampInteger(rules.buildings?.default?.width, 1, 16, 1));
+}
+
+function getDefaultBuildingHeight() {
+  return Math.max(1, clampInteger(rules.buildings?.default?.height, 1, 16, 1));
+}
+
+function getBuildingCompleteness(building) {
+  const completeness = Number(building?.completeness);
+
+  if (!Number.isFinite(completeness)) {
+    return 1;
+  }
+
+  return clamp(completeness, 0, 1);
+}
+
+function getBuildingConstructionCost(type) {
+  return Math.max(1, clampInteger(getBuildingRules(type)?.constructionCost, 1, 999999, 100));
+}
+
+function isBuildingWalkable(type) {
+  return Boolean(getBuildingRules(type)?.walkable);
+}
+
+function getBuildingAbandonedDecay(type) {
+  const decay = Number(getBuildingRules(type)?.abandonedDecayPerTurn);
+
+  if (!Number.isFinite(decay)) {
+    return 0;
+  }
+
+  return clamp(decay, 0, 1);
+}
+
+function getBuildingConstructionThresholds(type) {
+  const thresholds = getBuildingRules(type)?.constructionVisualThresholds || {};
+  const initialValue = Number(thresholds.initialMax);
+  const halfValue = Number(thresholds.halfMax);
+  const initialMax = Number.isFinite(initialValue) ? clamp(initialValue, 0, 1) : 0.34;
+  const halfMax = Number.isFinite(halfValue) ? clamp(halfValue, initialMax, 1) : 0.79;
+
+  return {
+    initialMax,
+    halfMax,
+  };
+}
+
+function getBuildingWorkCompletenessDelta(taskType, buildingType) {
+  const workPoints = getUnitWorkPointsPerTurn(taskType);
+  const cost = getBuildingConstructionCost(buildingType);
+
+  if (workPoints <= 0 || cost <= 0) {
+    return 0;
+  }
+
+  return clamp(workPoints / cost, 0, 1);
+}
+
 function getSaveSlotNames() {
-  const names = [];
+  return getSaveSlotEntries().map((entry) => entry.name);
+}
+
+function getSaveSlotEntries() {
+  const entries = [];
 
   try {
     for (let index = 0; index < window.localStorage.length; index += 1) {
@@ -442,13 +614,33 @@ function getSaveSlotNames() {
 
       if (!key || !key.startsWith(storageKeys.filePrefix)) continue;
 
-      names.push(decodeURIComponent(key.slice(storageKeys.filePrefix.length)));
+      const name = decodeURIComponent(key.slice(storageKeys.filePrefix.length));
+      const raw = window.localStorage.getItem(key);
+      let parsed = null;
+      let isValidJson = false;
+
+      if (typeof raw === "string") {
+        try {
+          parsed = JSON.parse(raw);
+          isValidJson = true;
+        } catch (error) {
+          parsed = null;
+        }
+      }
+
+      entries.push({
+        name,
+        raw: typeof raw === "string" ? raw : null,
+        parsed,
+        isValidJson,
+        isCompatible: isCompatibleSaveState(parsed),
+      });
     }
   } catch (error) {
     console.warn("Could not enumerate save slots.", error);
   }
 
-  return names.sort((a, b) => a.localeCompare(b, currentLanguage));
+  return entries.sort((a, b) => a.name.localeCompare(b.name, currentLanguage));
 }
 
 function closeGameActionMenu({ restoreFocus = false } = {}) {
@@ -521,21 +713,40 @@ function closeSaveSlotPanel({ restoreFocus = false } = {}) {
 function renderSaveSlotList() {
   if (!saveSlotList || !saveSlotEmpty) return;
 
-  const saveNames = getSaveSlotNames();
+  const saveEntries = getSaveSlotEntries();
   saveSlotList.replaceChildren();
-  saveSlotEmpty.hidden = saveNames.length > 0;
+  saveSlotEmpty.hidden = saveEntries.length > 0;
 
-  for (const saveName of saveNames) {
+  for (const entry of saveEntries) {
     const button = document.createElement("button");
-    const isSelected = slotPanelState?.value === saveName;
+    const isSelected = slotPanelState?.value === entry.name;
+    const nameSpan = document.createElement("span");
+    const metaSpan = document.createElement("span");
+    let metaText = "";
 
     button.type = "button";
     button.className = "slot-panel-item";
-    button.textContent = saveName;
-    button.dataset.slotName = saveName;
+    nameSpan.className = "slot-panel-item-name";
+    nameSpan.textContent = entry.name;
+    metaSpan.className = "slot-panel-item-meta";
+
+    if (!entry.isValidJson) {
+      metaText = strings.saveSlots.invalidTag;
+    } else if (!entry.isCompatible) {
+      metaText = strings.saveSlots.obsoleteTag;
+    }
+
+    metaSpan.textContent = metaText;
+    button.dataset.slotName = entry.name;
     button.classList.toggle("is-selected", isSelected);
     button.setAttribute("role", "option");
     button.setAttribute("aria-selected", isSelected ? "true" : "false");
+    button.append(nameSpan);
+
+    if (metaText) {
+      button.append(metaSpan);
+    }
+
     saveSlotList.append(button);
   }
 }
@@ -543,12 +754,21 @@ function renderSaveSlotList() {
 function updateSaveSlotPanel() {
   if (!slotPanelState || !saveSlotOverlay || !saveSlotTitle || !saveSlotInput) return;
 
-  saveSlotTitle.textContent =
-    slotPanelState.mode === "load" ? strings.saveSlots.loadTitle : strings.saveSlots.saveAsTitle;
-  setTextContent(
-    confirmSlotPanelButtons,
-    slotPanelState.mode === "load" ? strings.actions.load : strings.actions.save,
-  );
+  if (slotPanelState.mode === "load") {
+    saveSlotTitle.textContent = strings.saveSlots.loadTitle;
+    setTextContent(confirmSlotPanelButtons, strings.actions.load);
+  } else if (slotPanelState.mode === "export") {
+    saveSlotTitle.textContent = strings.saveSlots.importExportTitle;
+    setTextContent(confirmSlotPanelButtons, strings.actions.export);
+  } else {
+    saveSlotTitle.textContent = strings.saveSlots.saveAsTitle;
+    setTextContent(confirmSlotPanelButtons, strings.actions.save);
+  }
+
+  for (const button of importSlotPanelButtons) {
+    button.hidden = slotPanelState.mode !== "export";
+  }
+
   saveSlotInput.value = slotPanelState.value || "";
   renderSaveSlotList();
 }
@@ -575,7 +795,7 @@ function openSaveSlotPanel(mode, { targetMode = interactionMode, initialValue = 
   });
 }
 
-function commitSaveSlotPanel() {
+async function commitSaveSlotPanel() {
   if (!slotPanelState) return false;
 
   const targetMode = slotPanelState.targetMode || interactionMode;
@@ -608,6 +828,10 @@ function commitSaveSlotPanel() {
 
     if (!loadFileIntoMode(fileName, targetMode)) {
       window.alert(strings.messages.obsoleteSave(fileName));
+      return false;
+    }
+  } else if (slotPanelState.mode === "export") {
+    if (!(await exportSaveFile(fileName))) {
       return false;
     }
   } else {
@@ -646,11 +870,33 @@ function serializeCell(cell) {
   };
 }
 
-function serializeTask(task) {
-  if (!task || task.type !== "move") return null;
+function serializeBuilding(building, width = map.width, height = map.height) {
+  if (!building) return null;
 
   return {
-    type: "move",
+    id: building.id || "building_01",
+    type: building.type,
+    subtype: building.subtype,
+    x: clampInteger(building.x, 0, width - 1, 0),
+    y: clampInteger(building.y, 0, height - 1, 0),
+    width: Math.max(1, clampInteger(building.width, 1, width, getDefaultBuildingWidth())),
+    height: Math.max(1, clampInteger(building.height, 1, height, getDefaultBuildingHeight())),
+    state: building.state || "complete",
+    walkable: Boolean(building.walkable),
+    completeness: getBuildingCompleteness(building),
+    constructionCost: getBuildingConstructionCost(building.type),
+  };
+}
+
+function serializeTask(task) {
+  if (!task) return null;
+
+  if (![ "move", "buildHouse", "demolish" ].includes(task.type)) {
+    return null;
+  }
+
+  return {
+    type: task.type,
     toX: clampInteger(task.toX, 0, map.width - 1, 0),
     toY: clampInteger(task.toY, 0, map.height - 1, 0),
   };
@@ -691,7 +937,11 @@ function serializeCells(cells = map.cells) {
   return cells.map((row) => row.map((cell) => serializeCell(cell)));
 }
 
-function serializeCurrentState(mode = interactionMode) {
+function serializeBuildings(items = buildings, width = map.width, height = map.height) {
+  return items.map((building) => serializeBuilding(building, width, height)).filter(Boolean);
+}
+
+function serializeCurrentState() {
   return {
     version: saveVersion,
     map: {
@@ -699,6 +949,7 @@ function serializeCurrentState(mode = interactionMode) {
       height: map.height,
       cells: serializeCells(),
     },
+    buildings: serializeBuildings(),
     units: unit ? [serializeUnit(unit)] : [],
     turn: currentTurn,
     autoAdvanceTurns,
@@ -719,12 +970,26 @@ function writeSaveFile(fileName, state) {
   }
 }
 
+function writeRawSaveFile(fileName, rawContents) {
+  const storageKey = getSaveFileKey(fileName);
+
+  if (!storageKey || typeof rawContents !== "string") return false;
+
+  try {
+    window.localStorage.setItem(storageKey, rawContents);
+    return true;
+  } catch (error) {
+    console.warn(`Could not write raw save file ${fileName}.`, error);
+    return false;
+  }
+}
+
 function saveStateToFile(fileName, mode = interactionMode) {
   const normalizedName = sanitizeFileName(fileName);
 
   if (!normalizedName) return false;
 
-  const didSave = writeSaveFile(normalizedName, serializeCurrentState(mode));
+  const didSave = writeSaveFile(normalizedName, serializeCurrentState());
 
   if (!didSave) return false;
 
@@ -749,8 +1014,183 @@ function readSaveFile(fileName) {
   }
 }
 
+function readRawSaveFile(fileName) {
+  const storageKey = getSaveFileKey(fileName);
+
+  if (!storageKey) return null;
+
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    return typeof raw === "string" ? raw : null;
+  } catch (error) {
+    console.warn(`Could not load raw save file ${fileName}.`, error);
+    return null;
+  }
+}
+
 function isCompatibleSaveState(state) {
   return Boolean(state) && state.version === saveVersion;
+}
+
+async function showImportFilePicker() {
+  if (typeof window.showOpenFilePicker === "function") {
+    const [handle] = await window.showOpenFilePicker({
+      multiple: false,
+      excludeAcceptAllOption: false,
+      types: [
+        {
+          description: "JSON save files",
+          accept: { "application/json": [".json"] },
+        },
+      ],
+    });
+
+    if (!handle) return null;
+
+    const file = await handle.getFile();
+    return file || null;
+  }
+
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.style.display = "none";
+    document.body.append(input);
+
+    const cleanup = () => {
+      input.remove();
+    };
+
+    input.addEventListener(
+      "change",
+      () => {
+        const file = input.files?.[0] || null;
+        cleanup();
+        resolve(file);
+      },
+      { once: true },
+    );
+    input.addEventListener(
+      "cancel",
+      () => {
+        cleanup();
+        resolve(null);
+      },
+      { once: true },
+    );
+
+    input.click();
+  });
+}
+
+async function saveTextFileToDisk(fileName, rawContents) {
+  if (typeof window.showSaveFilePicker === "function") {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: `${fileName}.json`,
+      types: [
+        {
+          description: "JSON save files",
+          accept: { "application/json": [".json"] },
+        },
+      ],
+    });
+
+    if (!handle) return false;
+
+    const writable = await handle.createWritable();
+    await writable.write(rawContents);
+    await writable.close();
+    return true;
+  }
+
+  const blob = new Blob([rawContents], { type: "application/json" });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = objectUrl;
+  link.download = `${fileName}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+  return true;
+}
+
+async function exportSaveFile(fileName) {
+  const raw = readRawSaveFile(fileName);
+
+  if (!raw) {
+    window.alert(strings.messages.saveNotFound(fileName));
+    return false;
+  }
+
+  try {
+    await saveTextFileToDisk(fileName, raw);
+    return true;
+  } catch (error) {
+    console.warn(`Could not export save file ${fileName}.`, error);
+    return false;
+  }
+}
+
+async function importSaveIntoSlot(fileName) {
+  let file = null;
+
+  try {
+    file = await showImportFilePicker();
+  } catch (error) {
+    console.warn("Could not open import file picker.", error);
+    return false;
+  }
+
+  if (!file) {
+    return false;
+  }
+
+  const fallbackName = sanitizeFileName(file.name.replace(/\.[^.]+$/, ""));
+  const normalizedName = sanitizeFileName(fileName) || fallbackName;
+
+  if (!normalizedName) {
+    window.alert(strings.messages.missingSaveName);
+    return false;
+  }
+
+  let rawContents = "";
+
+  try {
+    rawContents = await file.text();
+  } catch (error) {
+    console.warn("Could not read imported save file.", error);
+    return false;
+  }
+
+  let parsed = null;
+
+  try {
+    parsed = JSON.parse(rawContents);
+  } catch (error) {
+    window.alert(strings.messages.invalidImportFile);
+    return false;
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    window.alert(strings.messages.invalidSaveData);
+    return false;
+  }
+
+  if (!writeRawSaveFile(normalizedName, JSON.stringify(parsed, null, 2))) {
+    return false;
+  }
+
+  if (slotPanelState) {
+    slotPanelState.value = normalizedName;
+    saveSlotInput.value = normalizedName;
+  }
+
+  renderSaveSlotList();
+  updatePersistenceControls();
+  return true;
 }
 
 function buildGeneratedMapCells(
@@ -809,6 +1249,46 @@ function buildEmptyMapCells(
   return cells;
 }
 
+function getCellInCells(cells, width, height, x, y) {
+  if (x < 0 || x >= width || y < 0 || y >= height) return null;
+  return cells[y]?.[x] || null;
+}
+
+function getNeighborCellInCells(cells, width, height, cell, direction) {
+  if (!cell) return null;
+
+  if (["northWest", "northEast", "southEast", "southWest"].includes(direction)) {
+    const isOddRow = cell.y % 2 === 1;
+    const offsets = {
+      northWest: { x: isOddRow ? 0 : -1, y: -1 },
+      northEast: { x: isOddRow ? 1 : 0, y: -1 },
+      southEast: { x: isOddRow ? 1 : 0, y: 1 },
+      southWest: { x: isOddRow ? 0 : -1, y: 1 },
+    };
+    const offset = offsets[direction];
+
+    return getCellInCells(cells, width, height, cell.x + offset.x, cell.y + offset.y);
+  }
+
+  if (["north", "east", "south", "west"].includes(direction)) {
+    const offsets = {
+      north: { x: 0, y: -2 },
+      east: { x: 1, y: 0 },
+      south: { x: 0, y: 2 },
+      west: { x: -1, y: 0 },
+    };
+    const offset = offsets[direction];
+
+    return getCellInCells(cells, width, height, cell.x + offset.x, cell.y + offset.y);
+  }
+
+  return null;
+}
+
+function canEnterUnoccupiedCell(cell) {
+  return Boolean(cell) && cell.type !== "water";
+}
+
 function markCellsVisitedByUnits(cells, units) {
   if (!Array.isArray(cells) || !Array.isArray(units)) return;
 
@@ -846,14 +1326,131 @@ function createDefaultUnitState(cells, width, height) {
     : null;
 }
 
+function createBuildingId() {
+  let maxIndex = 0;
+
+  for (const building of buildings) {
+    const match = /^building_(\d+)$/.exec(building?.id || "");
+
+    if (!match) continue;
+    maxIndex = Math.max(maxIndex, Number.parseInt(match[1], 10) || 0);
+  }
+
+  return `building_${String(maxIndex + 1).padStart(2, "0")}`;
+}
+
+function createHouseConstructionAtCell(cell) {
+  if (!canBuildHouseOnCell(cell)) return null;
+
+  const building = {
+    id: createBuildingId(),
+    type: "house",
+    subtype: chooseBuildingSubtype("house") || "house_01",
+    x: cell.x,
+    y: cell.y,
+    width: getDefaultBuildingWidth(),
+    height: getDefaultBuildingHeight(),
+    state: "construction",
+    walkable: isBuildingWalkable("house"),
+    completeness: 0,
+    constructionCost: getBuildingConstructionCost("house"),
+  };
+
+  buildings.push(building);
+  return building;
+}
+
+function createDefaultBuildingsState(cells, width, height, units) {
+  const spawnUnit = Array.isArray(units) ? units[0] : null;
+
+  if (!spawnUnit) return [];
+
+  const spawnCell = getCellInCells(cells, width, height, spawnUnit.x, spawnUnit.y);
+
+  if (!spawnCell) return [];
+
+  const placementDirections = [
+    "east",
+    "west",
+    "southEast",
+    "southWest",
+    "northEast",
+    "northWest",
+    "south",
+    "north",
+  ];
+  const placementCells = [];
+  const occupied = new Set([`${spawnUnit.x},${spawnUnit.y}`]);
+
+  for (const direction of placementDirections) {
+    const neighbor = getNeighborCellInCells(cells, width, height, spawnCell, direction);
+
+    if (!canEnterUnoccupiedCell(neighbor)) continue;
+    const key = `${neighbor.x},${neighbor.y}`;
+
+    if (occupied.has(key)) continue;
+
+    occupied.add(key);
+    placementCells.push(neighbor);
+  }
+
+  if (placementCells.length === 0) return [];
+
+  const previewBuildings = [
+    {
+      state: "complete",
+      subtype: chooseBuildingSubtype("house") || "house_01",
+      completeness: 1,
+    },
+  ];
+
+  return previewBuildings
+    .slice(0, placementCells.length)
+    .map((preview, index) => {
+      const cell = placementCells[index];
+
+      return {
+        id: `building_${String(index + 1).padStart(2, "0")}`,
+        type: "house",
+        subtype: preview.subtype,
+        x: cell.x,
+        y: cell.y,
+        width: getDefaultBuildingWidth(),
+        height: getDefaultBuildingHeight(),
+        state: preview.state,
+        walkable: isBuildingWalkable("house"),
+        completeness: preview.completeness,
+        constructionCost: getBuildingConstructionCost("house"),
+      };
+    });
+}
+
+function markCellsVisitedByBuildings(cells, buildingsState) {
+  if (!Array.isArray(cells) || !Array.isArray(buildingsState)) return;
+
+  for (const building of buildingsState) {
+    for (let y = building.y; y < building.y + building.height; y += 1) {
+      for (let x = building.x; x < building.x + building.width; x += 1) {
+        const cell = cells[y]?.[x];
+
+        if (cell) {
+          cell.visited = true;
+        }
+      }
+    }
+  }
+}
+
 function createGeneratedState(mode, buildCells = buildGeneratedMapCells) {
   const width = defaultMapConfig.width;
   const height = defaultMapConfig.height;
   const cells = buildCells(width, height);
   const defaultUnit = createDefaultUnitState(cells, width, height);
   const units = defaultUnit ? [defaultUnit] : [];
+  const defaultBuildings = createDefaultBuildingsState(cells, width, height, units);
 
   markCellsVisitedByUnits(cells, units);
+  markCellsVisitedByBuildings(cells, defaultBuildings);
 
   return {
     version: saveVersion,
@@ -862,6 +1459,7 @@ function createGeneratedState(mode, buildCells = buildGeneratedMapCells) {
       height,
       cells: serializeCells(cells),
     },
+    buildings: serializeBuildings(defaultBuildings, width, height),
     units,
     turn: 1,
     autoAdvanceTurns: true,
@@ -948,30 +1546,109 @@ function normalizeDirection(direction) {
 }
 
 function normalizeTask(task, currentX, currentY) {
-  if (!task || task.type !== "move") return null;
+  if (!task) return null;
+
+  const type = task.type;
+
+  if (![ "move", "buildHouse", "demolish" ].includes(type)) {
+    return null;
+  }
 
   const toX = clampInteger(task.toX, 0, map.width - 1, currentX);
   const toY = clampInteger(task.toY, 0, map.height - 1, currentY);
   const destinationCell = getCell(toX, toY);
 
-  if (!canUnitEnter(destinationCell)) return null;
-  if (toX === currentX && toY === currentY) return null;
+  if (!destinationCell) return null;
 
-  return {
-    type: "move",
-    toX,
-    toY,
-  };
+  if (type === "move") {
+    if (!canUnitEnter(destinationCell)) return null;
+    if (toX === currentX && toY === currentY) return null;
+  } else if (!areCellsAdjacent(currentX, currentY, toX, toY)) {
+    return null;
+  } else if (type === "buildHouse") {
+    const building = getBuildingAtCell(toX, toY);
+
+    if (!building || building.type !== "house") {
+      return null;
+    }
+  } else if (type === "demolish" && !getBuildingAtCell(toX, toY)) {
+    return null;
+  }
+
+  return { type, toX, toY };
 }
 
 function preserveTask(task) {
-  if (!task || task.type !== "move") return null;
+  if (!task || !["move", "buildHouse", "demolish"].includes(task.type)) return null;
 
   return {
-    type: "move",
+    type: task.type,
     toX: clampInteger(task.toX, 0, map.width - 1, 0),
     toY: clampInteger(task.toY, 0, map.height - 1, 0),
   };
+}
+
+function normalizeBuildingState(state) {
+  return ["complete", "construction", "abandoned"].includes(state)
+    ? state
+    : "complete";
+}
+
+function normalizeBuildingSubtype(type, subtype) {
+  const variants = getBuildingSubtypeVariants(type);
+
+  if (variants.some((variant) => variant.id === subtype)) {
+    return subtype;
+  }
+
+  return variants[0]?.id || null;
+}
+
+function normalizeBuildingsState(rawBuildings) {
+  if (!Array.isArray(rawBuildings)) {
+    throw new Error("Missing building data.");
+  }
+
+  return rawBuildings.map((sourceBuilding, index) => {
+    const type = sourceBuilding?.type;
+
+    if (!getBuildingSpec(type)) {
+      throw new Error(`Unsupported building type: ${type}`);
+    }
+
+    const x = clampInteger(sourceBuilding.x, 0, map.width - 1, 0);
+    const y = clampInteger(sourceBuilding.y, 0, map.height - 1, 0);
+    const width = Math.max(
+      1,
+      Math.min(
+        map.width - x,
+        clampInteger(sourceBuilding.width, 1, map.width, getDefaultBuildingWidth()),
+      ),
+    );
+    const height = Math.max(
+      1,
+      Math.min(
+        map.height - y,
+        clampInteger(sourceBuilding.height, 1, map.height, getDefaultBuildingHeight()),
+      ),
+    );
+
+    return {
+      id: typeof sourceBuilding.id === "string" ? sourceBuilding.id : `building_${index + 1}`,
+      type,
+      subtype: normalizeBuildingSubtype(type, sourceBuilding.subtype),
+      x,
+      y,
+      width,
+      height,
+      state: normalizeBuildingState(sourceBuilding.state),
+      walkable: typeof sourceBuilding.walkable === "boolean"
+        ? sourceBuilding.walkable
+        : isBuildingWalkable(type),
+      completeness: getBuildingCompleteness(sourceBuilding),
+      constructionCost: getBuildingConstructionCost(type),
+    };
+  });
 }
 
 function normalizeUnitsState(rawUnits, mode) {
@@ -1047,7 +1724,7 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
     animationFrameId = 0;
   }
 
-  autoAdvanceQueued = false;
+  clearPendingAutoAdvance();
   clearEditHoverState();
   hideTileMenu();
 
@@ -1057,7 +1734,9 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   map.width = nextMap.width;
   map.height = nextMap.height;
   map.cells = nextMap.cells;
+  buildings = normalizeBuildingsState(nextState.buildings);
   unit = normalizeUnitsState(nextState.units, mode)[0] || null;
+  selectedUnitAction = unitActions.walk;
   currentTurn = Math.max(1, clampInteger(nextState.turn, 1, 999999, 1));
   autoAdvanceTurns =
     typeof nextState.autoAdvanceTurns === "boolean" ? nextState.autoAdvanceTurns : true;
@@ -1122,14 +1801,14 @@ function loadCurrentFileForMode(mode, options) {
 function loadState(mode = interactionMode) {
   if (!mode) return false;
 
-  openSaveSlotPanel("load");
+  openSaveSlotPanel("load", { targetMode: mode });
   return true;
 }
 
 function saveStateAs(mode = interactionMode) {
   if (!mode) return false;
 
-  openSaveSlotPanel("saveAs");
+  openSaveSlotPanel("saveAs", { targetMode: mode });
   return true;
 }
 
@@ -1153,6 +1832,69 @@ function getUnits() {
 
 function hasAssignedTask(currentUnit) {
   return Boolean(currentUnit?.task);
+}
+
+function getActionForTask(task) {
+  if (task?.type === "buildHouse") {
+    return unitActions.buildHouse;
+  }
+
+  if (task?.type === "demolish") {
+    return unitActions.demolish;
+  }
+
+  return unitActions.walk;
+}
+
+function getCurrentSelectedUnitAction() {
+  if (unit?.task) {
+    return getActionForTask(unit.task);
+  }
+
+  return normalizeUnitAction(selectedUnitAction);
+}
+
+function isWorkingTask(task) {
+  return task?.type === "buildHouse" || task?.type === "demolish";
+}
+
+function isUnitWorking(currentUnit) {
+  return Boolean(currentUnit) && !currentUnit.move && isWorkingTask(currentUnit.task);
+}
+
+function hasWorkingUnits() {
+  return getUnits().some((currentUnit) => isUnitWorking(currentUnit));
+}
+
+function getWorkingUnitFrameIndex(now = performance.now()) {
+  if (unitSprite.workFrames.length <= 1) {
+    return 0;
+  }
+
+  return Math.floor(now / unitSprite.workFrameDuration) % unitSprite.workFrames.length;
+}
+
+function shouldAnimateWorkingUnits() {
+  return hasWorkingUnits() && (turnResolutionActive || autoAdvanceQueued);
+}
+
+function getUnitTaskDirection(currentUnit) {
+  if (!isWorkingTask(currentUnit?.task)) {
+    return currentUnit?.facing || "west";
+  }
+
+  const direction = getMoveDirection(
+    currentUnit.x,
+    currentUnit.y,
+    currentUnit.task.toX,
+    currentUnit.task.toY,
+  );
+
+  if (direction === "south") {
+    return "southEast";
+  }
+
+  return direction;
 }
 
 function isUnitAnimating(currentUnit) {
@@ -1197,23 +1939,170 @@ function createMoveTask(destinationCell) {
   };
 }
 
+function createBuildHouseTask(destinationCell) {
+  return {
+    type: "buildHouse",
+    toX: destinationCell.x,
+    toY: destinationCell.y,
+  };
+}
+
+function createDemolishTask(destinationCell) {
+  return {
+    type: "demolish",
+    toX: destinationCell.x,
+    toY: destinationCell.y,
+  };
+}
+
+function assignUnitTask(task) {
+  if (!unit || unit.move || !task) return false;
+
+  unit.task = task;
+  unit.turnRoute = null;
+  unit.lastStepFromX = null;
+  unit.lastStepFromY = null;
+  selectedUnitAction = getActionForTask(task);
+  invalidateStaticUnitsLayer();
+  updateUnitReadout();
+  updateTurnControls();
+  draw();
+  maybeAutoAdvanceTurn();
+  return true;
+}
+
 function queueUnitMoveTask(destinationCell) {
   if (!unit || unit.move) return;
   if (!canUnitEnter(destinationCell)) return;
   if (destinationCell.x === unit.x && destinationCell.y === unit.y) return;
 
-  unit.task = createMoveTask(destinationCell);
-  unit.turnRoute = null;
-  unit.lastStepFromX = null;
-  unit.lastStepFromY = null;
-  updateUnitReadout();
-  updateTurnControls();
-  draw();
-  maybeAutoAdvanceTurn();
+  assignUnitTask(createMoveTask(destinationCell));
+}
+
+function queueUnitBuildHouseTask(destinationCell) {
+  if (!unit || unit.move || !canBuildHouseOnCell(destinationCell)) return;
+  if (!areCellsAdjacent(unit.x, unit.y, destinationCell.x, destinationCell.y)) return;
+
+  const building = createHouseConstructionAtCell(destinationCell);
+
+  if (!building) return;
+
+  const cell = getCell(destinationCell.x, destinationCell.y);
+
+  if (cell && !cell.visited) {
+    cell.visited = true;
+  }
+
+  invalidateStaticLayer();
+  assignUnitTask(createBuildHouseTask(destinationCell));
+}
+
+function queueUnitDemolishTask(destinationCell) {
+  if (!unit || unit.move || !areCellsAdjacent(unit.x, unit.y, destinationCell.x, destinationCell.y)) {
+    return;
+  }
+
+  const building = getBuildingAtCell(destinationCell.x, destinationCell.y);
+
+  if (!building) return;
+
+  building.state = "abandoned";
+  invalidateStaticLayer();
+  assignUnitTask(createDemolishTask(destinationCell));
+}
+
+function resolveBuildHouseTask(currentUnit) {
+  const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
+
+  if (!targetCell || !areCellsAdjacent(currentUnit.x, currentUnit.y, targetCell.x, targetCell.y)) {
+    currentUnit.task = null;
+    currentUnit.turnRoute = null;
+    invalidateStaticUnitsLayer();
+    return;
+  }
+
+  const building = getBuildingAtCell(targetCell.x, targetCell.y);
+
+  if (!building || building.type !== "house") {
+    currentUnit.task = null;
+    currentUnit.turnRoute = null;
+    invalidateStaticUnitsLayer();
+    return;
+  }
+
+  const nextCompleteness = clamp(
+    getBuildingCompleteness(building) +
+      getBuildingWorkCompletenessDelta("buildHouse", building.type),
+    0,
+    1,
+  );
+
+  turnResolutionHadWork = true;
+  building.state = nextCompleteness >= 1 ? "complete" : "construction";
+  building.completeness = nextCompleteness;
+  currentUnit.stamina = 0;
+  invalidateStaticLayer();
+
+  if (nextCompleteness >= 1) {
+    currentUnit.task = null;
+    currentUnit.turnRoute = null;
+    invalidateStaticUnitsLayer();
+  }
+}
+
+function resolveDemolishTask(currentUnit) {
+  const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
+
+  if (!targetCell || !areCellsAdjacent(currentUnit.x, currentUnit.y, targetCell.x, targetCell.y)) {
+    currentUnit.task = null;
+    currentUnit.turnRoute = null;
+    invalidateStaticUnitsLayer();
+    return;
+  }
+
+  const building = getBuildingAtCell(targetCell.x, targetCell.y);
+
+  if (!building) {
+    currentUnit.task = null;
+    currentUnit.turnRoute = null;
+    invalidateStaticUnitsLayer();
+    return;
+  }
+
+  const nextCompleteness = clamp(
+    getBuildingCompleteness(building) +
+      -getBuildingWorkCompletenessDelta("demolish", building.type),
+    0,
+    1,
+  );
+
+  turnResolutionHadWork = true;
+  building.state = "abandoned";
+  building.completeness = nextCompleteness;
+  currentUnit.stamina = 0;
+  invalidateStaticLayer();
+
+  if (nextCompleteness <= 0) {
+    buildings = buildings.filter((candidate) => candidate !== building);
+    currentUnit.task = null;
+    currentUnit.turnRoute = null;
+    invalidateStaticUnitsLayer();
+  }
 }
 
 function resolveUnitTask(currentUnit) {
   if (!currentUnit?.task) return false;
+
+  if (currentUnit.task.type === "buildHouse") {
+    resolveBuildHouseTask(currentUnit);
+    return false;
+  }
+
+  if (currentUnit.task.type === "demolish") {
+    resolveDemolishTask(currentUnit);
+    return false;
+  }
+
   if (currentUnit.task.type !== "move") {
     currentUnit.task = null;
     currentUnit.turnRoute = null;
@@ -1237,6 +2126,7 @@ function resolveUnitTask(currentUnit) {
   const moveCost = getTerrainMoveCost(nextMove.cell);
   currentUnit.stamina = Math.max(0, getUnitStamina(currentUnit) - moveCost);
 
+  turnResolutionHadAnimation = true;
   startUnitMove(nextMove.cell, nextMove.direction);
   return true;
 }
@@ -1246,6 +2136,28 @@ function resetUnitsForTurn() {
     currentUnit.stamina = getUnitMaxStamina(currentUnit);
     currentUnit.turnRoute = null;
   }
+}
+
+function finishTurnResolution() {
+  turnResolutionActive = false;
+  turnResolutionPauseTimeoutId = 0;
+  autosavePlayState();
+  updateTurnControls();
+  maybeAutoAdvanceTurn();
+}
+
+function startTurnResolutionPause() {
+  if (turnResolutionPauseTimeoutId) {
+    return;
+  }
+
+  if (shouldAnimateWorkingUnits()) {
+    scheduleAnimation();
+  }
+
+  turnResolutionPauseTimeoutId = window.setTimeout(() => {
+    finishTurnResolution();
+  }, workTurnDisplayDelayMs);
 }
 
 function continueTurnResolution() {
@@ -1275,34 +2187,74 @@ function continueTurnResolution() {
     return;
   }
 
-  turnResolutionActive = false;
-  autosavePlayState();
-  updateTurnControls();
+  if (!turnResolutionHadAnimation && turnResolutionHadWork) {
+    startTurnResolutionPause();
+    return;
+  }
 
-  if (!startedAnimatedTask) {
-    maybeAutoAdvanceTurn();
+  finishTurnResolution();
+}
+
+function updateBuildingsForTurn() {
+  let didChange = false;
+  const nextBuildings = [];
+
+  for (const building of buildings) {
+    if (building.state !== "abandoned" || isBuildingTargetedByDemolishTask(building)) {
+      nextBuildings.push(building);
+      continue;
+    }
+
+    const nextCompleteness = Math.max(
+      0,
+      getBuildingCompleteness(building) - getBuildingAbandonedDecay(building.type),
+    );
+
+    if (nextCompleteness !== building.completeness) {
+      building.completeness = nextCompleteness;
+      didChange = true;
+    }
+
+    if (nextCompleteness > 0) {
+      nextBuildings.push(building);
+    } else {
+      didChange = true;
+    }
+  }
+
+  buildings = nextBuildings;
+
+  if (didChange) {
+    invalidateStaticLayer();
   }
 }
 
 function advanceTurn() {
   if (!canAdvanceTurn()) return;
 
+  clearPendingAutoAdvance();
   currentTurn += 1;
+  updateBuildingsForTurn();
   turnResolutionActive = true;
+  turnResolutionHadAnimation = false;
+  turnResolutionHadWork = false;
   resetUnitsForTurn();
   continueTurnResolution();
 }
 
 function maybeAutoAdvanceTurn() {
-  if (autoAdvanceQueued) return;
   if (!autoAdvanceTurns || !canAdvanceTurn() || !everyUnitHasOngoingTask()) {
+    clearPendingAutoAdvance();
     updateTurnControls();
     return;
   }
 
+  if (autoAdvanceQueued) return;
+
   autoAdvanceQueued = true;
-  requestAnimationFrame(() => {
+  autoAdvanceFrameId = requestAnimationFrame(() => {
     autoAdvanceQueued = false;
+    autoAdvanceFrameId = 0;
 
     if (autoAdvanceTurns && canAdvanceTurn() && everyUnitHasOngoingTask()) {
       advanceTurn();
@@ -1317,6 +2269,10 @@ function loadTileImages() {
     }
   }
 
+  for (const imagePath of getBuildingImagePaths()) {
+    loadImage(imagePath, buildingImages);
+  }
+
   for (const imagePath of getShoreOverlayPaths()) {
     loadImage(imagePath, shoreOverlayImages);
   }
@@ -1324,6 +2280,10 @@ function loadTileImages() {
   loadImage(unitSprite.idleImage, unitImages);
   loadImage(unitSprite.northImage, unitImages);
   loadImage(unitSprite.southImage, unitImages);
+
+  for (const imagePath of unitSprite.workFrames) {
+    loadImage(imagePath, unitImages);
+  }
 
   for (const imagePath of unitSprite.northMoveFrames) {
     loadImage(imagePath, unitImages);
@@ -1336,6 +2296,26 @@ function loadTileImages() {
   for (const imagePath of unitSprite.moveFrames) {
     loadImage(imagePath, unitImages);
   }
+}
+
+function getBuildingImagePaths() {
+  const paths = [];
+
+  for (const spec of Object.values(buildingCatalog)) {
+    for (const variant of spec.subtypes || []) {
+      paths.push(variant.image);
+    }
+
+    if (spec.abandonedImage) {
+      paths.push(spec.abandonedImage);
+    }
+
+    if (spec.constructionImages) {
+      paths.push(...Object.values(spec.constructionImages));
+    }
+  }
+
+  return paths;
 }
 
 function getShoreOverlayPaths() {
@@ -1433,6 +2413,84 @@ function getTerrainVariant(type, variantId) {
   return variants.find((variant) => variant.id === variantId) || variants[0] || null;
 }
 
+function buildingOccupiesCell(building, x, y) {
+  return (
+    Boolean(building) &&
+    x >= building.x &&
+    x < building.x + building.width &&
+    y >= building.y &&
+    y < building.y + building.height
+  );
+}
+
+function getBuildingsAtCell(x, y) {
+  return buildings.filter((building) => buildingOccupiesCell(building, x, y));
+}
+
+function getBuildingAtCell(x, y) {
+  return getBuildingsAtCell(x, y)[0] || null;
+}
+
+function getBlockingBuildingAtCell(x, y) {
+  return (
+    buildings.find(
+      (building) => buildingOccupiesCell(building, x, y) && !building.walkable,
+    ) || null
+  );
+}
+
+function isBuildingTargetedByDemolishTask(building) {
+  if (!building) return false;
+
+  return getUnits().some(
+    (currentUnit) =>
+      currentUnit?.task?.type === "demolish" &&
+      buildingOccupiesCell(building, currentUnit.task.toX, currentUnit.task.toY),
+  );
+}
+
+function getBuildingVisual(building) {
+  const spec = getBuildingSpec(building?.type);
+
+  if (!spec) return null;
+
+  if (building.state === "abandoned") {
+    return {
+      image: spec.abandonedImage,
+      alpha: clamp(0.28 + getBuildingCompleteness(building) * 0.72, 0.2, 1),
+    };
+  }
+
+  if (building.state === "construction") {
+    const completeness = getBuildingCompleteness(building);
+    const thresholds = getBuildingConstructionThresholds(building.type);
+
+    if (completeness < thresholds.initialMax) {
+      return {
+        image: spec.constructionImages.initial,
+        alpha: 1,
+        yOffsetFactor: 0.2,
+      };
+    }
+
+    if (completeness < thresholds.halfMax) {
+      return {
+        image: spec.constructionImages.half,
+        alpha: 1,
+      };
+    }
+  }
+
+  const subtype = spec.subtypes.find((variant) => variant.id === building.subtype) || spec.subtypes[0];
+
+  return subtype
+    ? {
+        image: subtype.image,
+        alpha: 1,
+      }
+    : null;
+}
+
 function makeMap() {
   map.cells = buildGeneratedMapCells(map.width, map.height);
   setTextContent(mapSizeReadouts, strings.readouts.mapSize(map.width, map.height));
@@ -1471,12 +2529,13 @@ function findNearestPassableCell(startX, startY) {
 }
 
 function canUnitEnter(cell) {
-  return Boolean(cell) && cell.type !== "water";
+  return Boolean(cell) && cell.type !== "water" && !getBlockingBuildingAtCell(cell.x, cell.y);
 }
 
 function updateUnitReadout() {
   if (!unit) {
     setTextContent(unitReadouts, strings.readouts.unitNone);
+    updateUnitActionControls();
     return;
   }
 
@@ -1493,16 +2552,59 @@ function updateUnitReadout() {
       unitReadouts,
       strings.readouts.unitTaskMove(unit.task.toX, unit.task.toY, stamina, staminaMax),
     );
+    updateUnitActionControls();
+    return;
+  }
+
+  if (unit.task?.type === "buildHouse") {
+    setTextContent(
+      unitReadouts,
+      strings.readouts.unitTaskBuildHouse(unit.task.toX, unit.task.toY, stamina, staminaMax),
+    );
+    updateUnitActionControls();
+    return;
+  }
+
+  if (unit.task?.type === "demolish") {
+    setTextContent(
+      unitReadouts,
+      strings.readouts.unitTaskDemolish(unit.task.toX, unit.task.toY, stamina, staminaMax),
+    );
+    updateUnitActionControls();
     return;
   }
 
   const state = unit.selected ? strings.unitStates.selected : strings.unitStates.idle;
   setTextContent(unitReadouts, strings.readouts.unitState(state, unit.x, unit.y, stamina, staminaMax));
+  updateUnitActionControls();
 }
 
 function getVisibleTopBarMode() {
   if (mainMenuOpen || !interactionMode) return "menu";
   return interactionMode;
+}
+
+function updateUnitActionControls() {
+  if (!unitActionBar) return;
+
+  const shouldShow = isPlayMode() && !mainMenuOpen && Boolean(unit?.selected);
+  unitActionBar.hidden = !shouldShow;
+
+  if (!shouldShow) {
+    return;
+  }
+
+  const activeAction = getCurrentSelectedUnitAction();
+  const disabled = Boolean(unit?.move || unit?.task);
+
+  for (const button of unitActionButtons) {
+    const action = normalizeUnitAction(button.dataset.unitAction);
+    const isSelected = action === activeAction;
+
+    button.classList.toggle("is-selected", isSelected);
+    button.setAttribute("aria-pressed", isSelected ? "true" : "false");
+    button.disabled = disabled;
+  }
 }
 
 function updateInteractionModeUi() {
@@ -1530,6 +2632,7 @@ function updateInteractionModeUi() {
 
   updateTurnControls();
   updatePersistenceControls();
+  updateUnitActionControls();
 }
 
 function isEditMode() {
@@ -1559,11 +2662,13 @@ function clearUnitSelection() {
   if (!unit?.selected) return;
 
   unit.selected = false;
+  selectedUnitAction = unitActions.walk;
   invalidateStaticUnitsLayer();
   updateUnitReadout();
 }
 
 function openMainMenu() {
+  clearPendingAutoAdvance();
   closeGameActionMenu();
   closeSaveSlotPanel();
   clearEditHoverState();
@@ -1580,6 +2685,7 @@ function setInteractionMode(nextMode) {
 
   const didChange = interactionMode !== nextMode || mainMenuOpen;
 
+  clearPendingAutoAdvance();
   interactionMode = nextMode;
   mainMenuOpen = false;
   mainMenuOverlay.hidden = true;
@@ -1619,14 +2725,52 @@ function startNewGeneratedState(mode, buildCells = buildGeneratedMapCells) {
   return true;
 }
 
-function getUnitMoveTargets() {
-  if (!unit || !unit.task) return [];
+function getUnitTargetCells() {
+  if (!unit) return [];
 
-  const destinationCell = getCell(unit.task.toX, unit.task.toY);
+  if (unit.task) {
+    const destinationCell = getCell(unit.task.toX, unit.task.toY);
+    return destinationCell ? [destinationCell] : [];
+  }
 
-  if (!destinationCell) return [];
+  if (!unit.selected || unit.move) {
+    return [];
+  }
 
-  return [destinationCell];
+  const action = getCurrentSelectedUnitAction();
+
+  if (action === unitActions.buildHouse) {
+    return getBuildableAdjacentCells(unit);
+  }
+
+  if (action === unitActions.demolish) {
+    return getDemolishableAdjacentCells(unit);
+  }
+
+  return [];
+}
+
+function getUnitTargetStyle() {
+  const action = unit?.task ? getActionForTask(unit.task) : getCurrentSelectedUnitAction();
+
+  if (action === unitActions.demolish) {
+    return {
+      fill: "rgba(196, 90, 92, 0.2)",
+      stroke: "rgba(236, 150, 152, 0.7)",
+    };
+  }
+
+  if (action === unitActions.buildHouse) {
+    return {
+      fill: "rgba(209, 182, 99, 0.2)",
+      stroke: "rgba(242, 223, 156, 0.74)",
+    };
+  }
+
+  return {
+    fill: "rgba(98, 198, 136, 0.18)",
+    stroke: "rgba(152, 236, 185, 0.62)",
+  };
 }
 
 function isCellVisibleToPlayer(cell) {
@@ -1659,6 +2803,46 @@ function getNeighborByDirection(cell, direction) {
 
 function getMovementDirections() {
   return ["north", "northEast", "east", "southEast", "south", "southWest", "west", "northWest"];
+}
+
+function getAdjacentCells(cell) {
+  if (!cell) return [];
+
+  const neighbors = [];
+
+  for (const direction of getMovementDirections()) {
+    const neighbor = getNeighborByDirection(cell, direction);
+
+    if (neighbor) {
+      neighbors.push(neighbor);
+    }
+  }
+
+  return neighbors;
+}
+
+function areCellsAdjacent(fromX, fromY, toX, toY) {
+  const cell = getCell(fromX, fromY);
+
+  if (!cell) return false;
+
+  return getAdjacentCells(cell).some((neighbor) => neighbor.x === toX && neighbor.y === toY);
+}
+
+function canBuildHouseOnCell(cell) {
+  return Boolean(cell) && cell.type === "grass" && !getBuildingAtCell(cell.x, cell.y);
+}
+
+function getBuildableAdjacentCells(currentUnit = unit) {
+  const originCell = currentUnit ? getCell(currentUnit.x, currentUnit.y) : null;
+
+  return getAdjacentCells(originCell).filter((cell) => canBuildHouseOnCell(cell));
+}
+
+function getDemolishableAdjacentCells(currentUnit = unit) {
+  const originCell = currentUnit ? getCell(currentUnit.x, currentUnit.y) : null;
+
+  return getAdjacentCells(originCell).filter((cell) => Boolean(getBuildingAtCell(cell.x, cell.y)));
 }
 
 function createCellKey(x, y) {
@@ -1814,18 +2998,40 @@ function handlePlayModeClick(cell) {
 
   if (cell.x === unit.x && cell.y === unit.y) {
     unit.selected = !unit.selected;
+
+    if (unit.selected) {
+      selectedUnitAction = unit.task ? getActionForTask(unit.task) : unitActions.walk;
+    } else {
+      selectedUnitAction = unitActions.walk;
+    }
+
     invalidateStaticUnitsLayer();
     updateUnitReadout();
     draw();
     return;
   }
 
-  if (unit.selected && canUnitEnter(cell)) {
-    queueUnitMoveTask(cell);
-    return;
+  if (unit.selected) {
+    const action = getCurrentSelectedUnitAction();
+
+    if (action === unitActions.buildHouse) {
+      queueUnitBuildHouseTask(cell);
+      return;
+    }
+
+    if (action === unitActions.demolish) {
+      queueUnitDemolishTask(cell);
+      return;
+    }
+
+    if (canUnitEnter(cell)) {
+      queueUnitMoveTask(cell);
+      return;
+    }
   }
 
   unit.selected = false;
+  selectedUnitAction = unitActions.walk;
   invalidateStaticUnitsLayer();
   updateUnitReadout();
   draw();
@@ -1857,7 +3063,7 @@ function scheduleAnimation() {
 
 function stepAnimations(now) {
   animationFrameId = 0;
-  let needsAnotherFrame = false;
+  let needsAnotherFrame = shouldAnimateWorkingUnits();
 
   if (unit?.move) {
     const progress = getUnitMoveProgress(now);
@@ -1901,7 +3107,7 @@ function stepAnimations(now) {
     }
   }
 
-  draw();
+  draw(now);
 
   if (needsAnotherFrame) {
     scheduleAnimation();
@@ -1989,17 +3195,27 @@ function compareUnitsByDrawOrder(a, b) {
   return a.x - b.x;
 }
 
+function compareBuildingsByDrawOrder(a, b) {
+  const aRow = a.y + a.height - 1;
+  const bRow = b.y + b.height - 1;
+
+  if (aRow !== bRow) return aRow - bRow;
+  return a.x - b.x;
+}
+
 function drawUnitTargets() {
   if (interactionMode !== interactionModes.play || !unit || !unit.selected) {
     return;
   }
 
-  for (const cell of getUnitMoveTargets()) {
+  const style = getUnitTargetStyle();
+
+  for (const cell of getUnitTargetCells()) {
     const screen = isoToScreen(cell.x, cell.y);
     drawDiamondPath(screen.x, screen.y);
-    ctx.fillStyle = "rgba(98, 198, 136, 0.18)";
+    ctx.fillStyle = style.fill;
     ctx.fill();
-    ctx.strokeStyle = "rgba(152, 236, 185, 0.62)";
+    ctx.strokeStyle = style.stroke;
     ctx.lineWidth = 1.6;
     ctx.stroke();
   }
@@ -2045,51 +3261,79 @@ function drawSelectedUnitMarker() {
   ctx.restore();
 }
 
-function drawMovingUnit() {
+function drawMovingUnit(now = performance.now()) {
   if (interactionMode !== interactionModes.play) return;
 
   const movingUnit = getMovingUnit();
 
   if (!movingUnit) return;
 
-  const screen = getUnitScreenPosition();
+  const screen = getUnitScreenPosition(now);
   const direction = movingUnit.move?.direction || movingUnit.facing || "west";
-  const imagePath = getMovingUnitImage(direction);
+  const imagePath = getMovingUnitImage(direction, now);
 
   if (!screen) return;
 
   drawUnitAtScreen(screen, ctx, imagePath, shouldMirrorUnitDirection(direction), !movingUnit.selected);
 }
 
-function drawSelectedStationaryUnit() {
+function drawSelectedStationaryUnit(now = performance.now()) {
   if (interactionMode !== interactionModes.play || !unit || unit.move || !unit.selected) {
     return;
   }
 
+  const direction = getUnitDisplayDirection(unit);
+
   drawUnitAtScreen(
     isoToScreen(unit.x, unit.y),
     ctx,
-    getStationaryUnitImage(unit.facing),
-    shouldMirrorUnitDirection(unit.facing),
+    getStationaryUnitImage(unit, now),
+    shouldMirrorUnitDirection(direction),
     false,
   );
 }
 
-function drawStationaryUnits(drawContext = ctx) {
+function drawStationaryUnits(drawContext = ctx, frameIndex = 0) {
   const stationaryUnits = getStationaryUnits().slice().sort(compareUnitsByDrawOrder);
 
   for (const stationaryUnit of stationaryUnits) {
+    const direction = getUnitDisplayDirection(stationaryUnit);
     drawUnitAtScreen(
       isoToScreen(stationaryUnit.x, stationaryUnit.y),
       drawContext,
-      getStationaryUnitImage(stationaryUnit.facing),
-      shouldMirrorUnitDirection(stationaryUnit.facing),
+      getStationaryUnitImage(stationaryUnit, undefined, frameIndex),
+      shouldMirrorUnitDirection(direction),
       !stationaryUnit.selected,
     );
   }
 }
 
-function getStationaryUnitImage(direction = "west") {
+function getUnitDisplayDirection(currentUnit) {
+  if (isUnitWorking(currentUnit)) {
+    return getUnitTaskDirection(currentUnit);
+  }
+
+  return currentUnit?.facing || "west";
+}
+
+function getWorkingUnitImage(frameIndex = 0) {
+  if (unitSprite.workFrames.length === 0) {
+    return unitSprite.idleImage;
+  }
+
+  return unitSprite.workFrames[frameIndex % unitSprite.workFrames.length] || unitSprite.idleImage;
+}
+
+function getStationaryUnitImage(currentUnit, now = performance.now(), explicitFrameIndex = null) {
+  if (isUnitWorking(currentUnit)) {
+    const frameIndex =
+      explicitFrameIndex === null ? getWorkingUnitFrameIndex(now) : explicitFrameIndex;
+
+    return getWorkingUnitImage(frameIndex);
+  }
+
+  const direction = getUnitDisplayDirection(currentUnit);
+
   if (usesNorthUnitSprite(direction)) {
     return unitSprite.northImage;
   }
@@ -2374,6 +3618,42 @@ function drawTileBase(cell, screen, lift, spec) {
   }
 
   drawProceduralTile(cell, screen, lift, spec);
+}
+
+function drawBuildings() {
+  const visibleBuildings = buildings
+    .filter((building) => isCellVisibleToPlayer(getCell(building.x, building.y)))
+    .slice()
+    .sort(compareBuildingsByDrawOrder);
+
+  for (const building of visibleBuildings) {
+    drawBuilding(building);
+  }
+}
+
+function drawBuilding(building) {
+  const visual = getBuildingVisual(building);
+
+  if (!visual?.image) return;
+
+  const image = buildingImages[visual.image];
+
+  if (!image?.complete || image.naturalWidth <= 0) return;
+
+  const screen = isoToScreen(building.x, building.y);
+  const drawY =
+    screen.y - tile.edge - tile.height * 0.32 + tile.height * (visual.yOffsetFactor || 0);
+
+  ctx.save();
+  ctx.globalAlpha = visual.alpha ?? 1;
+  ctx.drawImage(
+    image,
+    screen.x - tile.width / 2,
+    drawY,
+    tile.width,
+    tile.height + tile.edge,
+  );
+  ctx.restore();
 }
 
 function drawFogBorders(cell, screen, lift) {
@@ -2800,15 +4080,19 @@ function ensureStaticLayerSize() {
 }
 
 function ensureStaticUnitsLayerSize() {
-  if (
-    staticUnitsLayerCanvas.width === canvas.width &&
-    staticUnitsLayerCanvas.height === canvas.height
-  ) {
+  const sizesMatch = staticUnitsLayerCanvases.every(
+    (layerCanvas) => layerCanvas.width === canvas.width && layerCanvas.height === canvas.height,
+  );
+
+  if (sizesMatch) {
     return;
   }
 
-  staticUnitsLayerCanvas.width = canvas.width;
-  staticUnitsLayerCanvas.height = canvas.height;
+  for (const layerCanvas of staticUnitsLayerCanvases) {
+    layerCanvas.width = canvas.width;
+    layerCanvas.height = canvas.height;
+  }
+
   staticUnitsLayerDirty = true;
 }
 
@@ -2828,6 +4112,8 @@ function renderStaticLayerToMain() {
       drawTile(map.cells[y][x]);
     }
   }
+
+  drawBuildings();
 }
 
 function cacheStaticLayer() {
@@ -2840,10 +4126,17 @@ function cacheStaticLayer() {
 
 function renderStaticUnitsLayer() {
   ensureStaticUnitsLayerSize();
-  staticUnitsLayerCtx.setTransform(1, 0, 0, 1, 0, 0);
-  staticUnitsLayerCtx.clearRect(0, 0, staticUnitsLayerCanvas.width, staticUnitsLayerCanvas.height);
-  staticUnitsLayerCtx.setTransform(currentDpr, 0, 0, currentDpr, 0, 0);
-  drawStationaryUnits(staticUnitsLayerCtx);
+
+  for (let frameIndex = 0; frameIndex < staticUnitsLayerCanvases.length; frameIndex += 1) {
+    const layerCanvas = staticUnitsLayerCanvases[frameIndex];
+    const layerContext = staticUnitsLayerContexts[frameIndex];
+
+    layerContext.setTransform(1, 0, 0, 1, 0, 0);
+    layerContext.clearRect(0, 0, layerCanvas.width, layerCanvas.height);
+    layerContext.setTransform(currentDpr, 0, 0, currentDpr, 0, 0);
+    drawStationaryUnits(layerContext, frameIndex);
+  }
+
   staticUnitsLayerDirty = false;
 }
 
@@ -2855,26 +4148,28 @@ function restoreStaticLayerToMain() {
   ctx.restore();
 }
 
-function restoreStaticUnitsLayerToMain() {
+function restoreStaticUnitsLayerToMain(frameIndex = 0) {
+  const layerCanvas = staticUnitsLayerCanvases[frameIndex % staticUnitsLayerCanvases.length];
+
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(staticUnitsLayerCanvas, 0, 0);
+  ctx.drawImage(layerCanvas, 0, 0);
   ctx.restore();
 }
 
-function drawDynamicLayer() {
+function drawDynamicLayer(now = performance.now()) {
   drawInteractiveTileOverlays();
 
   if (interactionMode === interactionModes.play) {
-    restoreStaticUnitsLayerToMain();
+    restoreStaticUnitsLayerToMain(getWorkingUnitFrameIndex(now));
     drawSelectedUnitMarker();
     drawUnitTargets();
-    drawSelectedStationaryUnit();
-    drawMovingUnit();
+    drawSelectedStationaryUnit(now);
+    drawMovingUnit(now);
   }
 }
 
-function draw() {
+function draw(now = performance.now()) {
   ensureStaticLayerSize();
   ensureStaticUnitsLayerSize();
 
@@ -2889,7 +4184,7 @@ function draw() {
     renderStaticUnitsLayer();
   }
 
-  drawDynamicLayer();
+  drawDynamicLayer(now);
 }
 
 function pointInPolygon(point, polygon) {
@@ -3255,7 +4550,12 @@ mainMenuOverlay.addEventListener("click", (event) => {
   }
 
   if (action === "load-game") {
-    openSaveSlotPanel("load", { targetMode: interactionModes.play });
+    loadState(interactionModes.play);
+    return;
+  }
+
+  if (action === "import-export") {
+    openSaveSlotPanel("export", { targetMode: interactionMode || interactionModes.play });
     return;
   }
 
@@ -3291,6 +4591,16 @@ for (const button of newEmptyMapButtons) {
 for (const button of nextTurnButtons) {
   button.addEventListener("click", () => {
     advanceTurn();
+  });
+}
+
+for (const button of unitActionButtons) {
+  button.addEventListener("click", () => {
+    if (!unit?.selected || unit.move || unit.task) return;
+
+    selectedUnitAction = normalizeUnitAction(button.dataset.unitAction);
+    updateUnitActionControls();
+    draw();
   });
 }
 
@@ -3335,7 +4645,13 @@ for (const button of dismissSlotPanelButtons) {
 
 for (const button of confirmSlotPanelButtons) {
   button.addEventListener("click", () => {
-    commitSaveSlotPanel();
+    void commitSaveSlotPanel();
+  });
+}
+
+for (const button of importSlotPanelButtons) {
+  button.addEventListener("click", () => {
+    void importSaveIntoSlot(saveSlotInput?.value || slotPanelState?.value || "");
   });
 }
 
@@ -3350,7 +4666,7 @@ saveSlotInput?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
 
   event.preventDefault();
-  commitSaveSlotPanel();
+  void commitSaveSlotPanel();
 });
 
 saveSlotList?.addEventListener("click", (event) => {
@@ -3364,7 +4680,7 @@ saveSlotList?.addEventListener("click", (event) => {
   renderSaveSlotList();
 
   if (slotPanelState.mode === "load") {
-    commitSaveSlotPanel();
+    void commitSaveSlotPanel();
   }
 });
 

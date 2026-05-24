@@ -11,9 +11,14 @@ window.APP_LOCALIZATION = {
         mainMenu: "Main menu",
         newRandomMap: "New random map",
         newEmptyMap: "New empty map",
+        walk: "Walk",
+        buildHouse: "Build house",
+        demolish: "Demolish",
         load: "Load",
         save: "Save",
         saveAs: "Save as...",
+        export: "Export",
+        importFile: "Import file...",
         nextTurn: "Next turn",
         cancel: "Cancel",
         close: "Close",
@@ -41,9 +46,12 @@ window.APP_LOCALIZATION = {
       saveSlots: {
         loadTitle: "Load Save",
         saveAsTitle: "Save As",
+        importExportTitle: "Import / Export",
         slotName: "Save slot",
         existingSlots: "Existing saves",
         empty: "No saves yet.",
+        obsoleteTag: "obsolete",
+        invalidTag: "invalid",
       },
       terrain: {
         water: "Water",
@@ -68,6 +76,8 @@ window.APP_LOCALIZATION = {
       },
       tasks: {
         move: "moving",
+        buildHouse: "building house",
+        demolish: "demolishing",
       },
       readouts: {
         mapSize: (width, height) => `${width} x ${height}`,
@@ -83,6 +93,10 @@ window.APP_LOCALIZATION = {
           `Unit: moving to ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
         unitTaskMove: (x, y, stamina, staminaMax) =>
           `Unit: moving to ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
+        unitTaskBuildHouse: (x, y, stamina, staminaMax) =>
+          `Unit: building at ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
+        unitTaskDemolish: (x, y, stamina, staminaMax) =>
+          `Unit: demolishing at ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
         unitState: (stateLabel, x, y, stamina, staminaMax) =>
           `Unit: ${stateLabel} | ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
         zoomLevel: (percent) => `${percent}%`,
@@ -91,6 +105,8 @@ window.APP_LOCALIZATION = {
         missingSaveName: "Please provide a save slot name.",
         saveNotFound: (fileName) => `No save slot named \"${fileName}\" was found.`,
         obsoleteSave: (fileName) => `Save slot \"${fileName}\" is obsolete and cannot be loaded.`,
+        invalidImportFile: "The selected file is not valid JSON.",
+        invalidSaveData: "The selected file does not contain a valid save object.",
       },
       aria: {
         viewport: "Isometric map canvas",
@@ -102,6 +118,7 @@ window.APP_LOCALIZATION = {
         zoomIn: "Zoom in",
         terrainMenu: "Terrain",
         variantMenu: "Visual variant",
+        unitActions: "Unit actions",
       },
     },
   },
