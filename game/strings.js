@@ -14,6 +14,8 @@ window.APP_LOCALIZATION = {
         wait: "Wait",
         walk: "Walk",
         play: "Play",
+        gatherFood: "Gather food",
+        gatherMaterials: "Gather materials",
         buildHouse: "Build house",
         demolish: "Demolish",
         load: "Load",
@@ -29,6 +31,8 @@ window.APP_LOCALIZATION = {
         autoPass: "Auto pass",
       },
       play: {
+        storesTitle: "Stores",
+        tileInspectorTitle: "Tile",
         inspectorTitle: "Unit",
       },
       modes: {
@@ -75,10 +79,22 @@ window.APP_LOCALIZATION = {
         idle: "idle",
         selected: "selected",
         busy: "busy",
+        done: "done",
+      },
+      resources: {
+        stone: "Stone",
+        lumber: "Lumber",
+        food: "Food",
+        grain: "Grain",
+        berries: "Berries",
+        mushrooms: "Mushrooms",
+        fish: "Fish",
       },
       tasks: {
         move: "moving",
         play: "playing",
+        gatherFood: "gathering food",
+        gatherMaterials: "gathering materials",
         buildHouse: "building house",
         demolish: "demolishing",
       },
@@ -87,9 +103,15 @@ window.APP_LOCALIZATION = {
         turn: (turnNumber) => `Turn: ${turnNumber}`,
         file: (fileName) => `Game name: ${fileName}`,
         fileNone: "Game name: none",
+        stockpile: (stone, lumber, food, capacity, shortageTurns, shortageLimit) =>
+          `Stores: stone ${stone}/${capacity} | lumber ${lumber}/${capacity} | food ${food}/${capacity} | shortage ${shortageTurns}/${shortageLimit}`,
+        coords: (x, y) => `Coords: ${x}, ${y}`,
         tileNone: "Tile: none",
         tile: (x, y, terrainLabel, variantLabel = "") =>
           `Tile: ${x}, ${y} | ${terrainLabel}${variantLabel ? ` | ${variantLabel}` : ""}`,
+        tileInspectNone: "Tile: none",
+        tileInspect: (x, y, terrainLabel, details = "") =>
+          details ? `Tile: ${x}, ${y} | ${terrainLabel} | ${details}` : `Tile: ${x}, ${y} | ${terrainLabel}`,
         tileMenuTitle: (x, y) => `Tile ${x}, ${y}`,
         unitNone: "Unit: none",
         unitUnselected: (count) =>
@@ -100,6 +122,10 @@ window.APP_LOCALIZATION = {
           `Unit: ${name} | moving to ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
         unitTaskPlay: (name, stamina, staminaMax) =>
           `Unit: ${name} | playing | stamina ${stamina}/${staminaMax}`,
+        unitTaskGatherFood: (name, x, y, stamina, staminaMax) =>
+          `Unit: ${name} | gathering food at ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
+        unitTaskGatherMaterials: (name, x, y, stamina, staminaMax) =>
+          `Unit: ${name} | gathering materials at ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
         unitTaskBuildHouse: (name, x, y, stamina, staminaMax) =>
           `Unit: ${name} | building at ${x}, ${y} | stamina ${stamina}/${staminaMax}`,
         unitTaskDemolish: (name, x, y, stamina, staminaMax) =>

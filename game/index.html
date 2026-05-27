@@ -25,20 +25,16 @@
         </header>
 
         <header class="top-bar" data-bar-mode="play" hidden>
-          <div class="top-bar-primary">
-            <div>
-              <h1 data-role="app-title"></h1>
-              <p data-role="app-subtitle"></p>
-            </div>
+          <div class="top-bar-side top-bar-side-left">
             <button class="menu-button" data-action="toggle-game-menu" type="button" aria-haspopup="menu" aria-expanded="false"></button>
             <span data-role="file-readout"></span>
           </div>
+          <div class="top-bar-title">
+            <h1 data-role="app-title"></h1>
+            <p data-role="app-subtitle"></p>
+          </div>
           <div class="readouts" aria-live="polite">
             <span data-role="turn-readout"></span>
-            <label class="toggle-control">
-              <input data-action="auto-pass" type="checkbox">
-              <span data-role="auto-pass-label"></span>
-            </label>
             <div class="zoom-controls">
               <button data-action="zoom-out" type="button">-</button>
               <span data-role="zoom-level"></span>
@@ -48,13 +44,13 @@
         </header>
 
         <header class="top-bar" data-bar-mode="edit" hidden>
-          <div class="top-bar-primary">
-            <div>
-              <h1 data-role="app-title"></h1>
-              <p data-role="app-subtitle"></p>
-            </div>
+          <div class="top-bar-side top-bar-side-left">
             <button class="menu-button" data-action="toggle-game-menu" type="button" aria-haspopup="menu" aria-expanded="false"></button>
             <span data-role="file-readout"></span>
+          </div>
+          <div class="top-bar-title">
+            <h1 data-role="app-title"></h1>
+            <p data-role="app-subtitle"></p>
           </div>
           <div class="readouts" aria-live="polite">
             <span data-role="map-size"></span>
@@ -90,6 +86,12 @@
         <button class="unit-action-button" data-action="select-unit-action" data-unit-action="play" type="button">
           <span aria-hidden="true">♪</span>
         </button>
+        <button class="unit-action-button" data-action="select-unit-action" data-unit-action="gatherFood" type="button">
+          <span aria-hidden="true">❀</span>
+        </button>
+        <button class="unit-action-button" data-action="select-unit-action" data-unit-action="gatherMaterials" type="button">
+          <span aria-hidden="true">⚒</span>
+        </button>
         <button class="unit-action-button" data-action="select-unit-action" data-unit-action="buildHouse" type="button">
           <span aria-hidden="true">⌂</span>
         </button>
@@ -99,9 +101,35 @@
       </nav>
 
       <aside id="playInspector" class="play-inspector" hidden>
-        <p class="play-inspector-title" data-role="inspector-title"></p>
-        <span class="panel-readout" data-role="unit-readout"></span>
-        <button class="menu-button" data-action="next-turn" type="button"></button>
+        <section class="play-inspector-section">
+          <p class="play-inspector-title" data-role="stores-title"></p>
+          <span class="panel-readout" data-role="stockpile-readout"></span>
+        </section>
+        <section class="play-inspector-section">
+          <p class="play-inspector-title" data-role="tile-inspector-title"></p>
+          <div class="panel-lines">
+            <span class="panel-readout" data-role="tile-inspector-main"></span>
+            <span class="panel-debug-line" data-role="tile-inspector-coords"></span>
+          </div>
+        </section>
+        <section class="play-inspector-section">
+          <p class="play-inspector-title" data-role="inspector-title"></p>
+          <div class="panel-lines">
+            <span class="panel-readout" data-role="unit-summary-readout"></span>
+            <div class="panel-task-row" data-role="unit-task-row" hidden>
+              <span class="panel-readout" data-role="unit-task-readout"></span>
+              <button class="menu-button panel-inline-button" data-action="cancel-unit-task" type="button"></button>
+            </div>
+            <span class="panel-debug-line" data-role="unit-coords-readout"></span>
+          </div>
+        </section>
+        <div class="play-inspector-footer">
+          <button class="menu-button" data-action="next-turn" type="button"></button>
+          <label class="toggle-control">
+            <input data-action="auto-pass" type="checkbox">
+            <span data-role="auto-pass-label"></span>
+          </label>
+        </div>
       </aside>
 
       <div id="gameActionMenu" class="game-action-menu" role="menu" hidden>

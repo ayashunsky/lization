@@ -4,7 +4,7 @@ const [, , sourcePath, outputPath, profileName = "default"] = process.argv;
 
 if (!sourcePath || !outputPath) {
   console.error(
-    "Usage: node tools/normalize-building-png.js <source.png> <output.png> [default|complete|abandoned|half|construct]",
+    "Usage: node tools/normalize-building-png.js <source.png> <output.png> [default|complete|berry|abandoned|half|construct]",
   );
   process.exit(1);
 }
@@ -62,6 +62,16 @@ function getProfile(name) {
     },
     complete: {
       targetBox: fullTarget,
+      getSourceBox: getCompletedHouseCrop,
+      fitMode: "anchor",
+    },
+    berry: {
+      targetBox: {
+        minX: 48,
+        maxX: 127,
+        minY: 43,
+        maxY: 105,
+      },
       getSourceBox: getCompletedHouseCrop,
       fitMode: "anchor",
     },
