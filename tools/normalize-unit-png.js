@@ -3,12 +3,12 @@ const { readPng, writePng } = require("./normalize-tile-png");
 const [, , sourcePath, outputPath, profileName = "default"] = process.argv;
 
 if (!sourcePath || !outputPath) {
-  console.error("Usage: node tools/normalize-unit-png.js <source.png> <output.png> [default|work|play]");
+  console.error("Usage: node tools/normalize-unit-png.js <source.png> <output.png> [default|work|play|fishing|fishingNorth]");
   process.exit(1);
 }
 
-const source = readPng(sourcePath);
 const profile = getProfile(profileName);
+const source = profile.preprocess ? profile.preprocess(readPng(sourcePath)) : readPng(sourcePath);
 const sourceBox = profile.getSourceBox(source);
 
 if (!sourceBox) {
@@ -16,16 +16,17 @@ if (!sourceBox) {
   process.exit(1);
 }
 
-const target = {
-  width: 72,
-  height: 88,
-  box: {
-    minX: 4,
-    maxX: 67,
-    minY: 0,
-    maxY: 87,
-  },
-};
+const target =
+  profile.target || {
+    width: 72,
+    height: 88,
+    box: {
+      minX: 4,
+      maxX: 67,
+      minY: 0,
+      maxY: 87,
+    },
+  };
 
 const output = {
   width: target.width,
@@ -69,6 +70,35 @@ function getProfile(name) {
       getSourceBox: primaryOpaqueBounds,
       fitMode: "matchHeight",
       postprocess: "stretchOpaqueHeight",
+    },
+    fishing: {
+      getSourceBox: primaryOpaqueBounds,
+      fitMode: "matchHeight",
+      target: {
+        width: 160,
+        height: 88,
+        // Left-align the figure so the fishing line can extend far past the unit tile.
+        box: {
+          minX: 0,
+          maxX: 155,
+          minY: 0,
+          maxY: 87,
+        },
+      },
+    },
+    fishingNorth: {
+      getSourceBox: primaryOpaqueBounds,
+      fitMode: "matchHeight",
+      target: {
+        width: 72,
+        height: 116,
+        box: {
+          minX: 11,
+          maxX: 60,
+          minY: 0,
+          maxY: 115,
+        },
+      },
     },
   };
 

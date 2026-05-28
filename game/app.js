@@ -120,6 +120,13 @@ const unitSprite = {
     "assets/units/unit_work_sprite.png",
     "assets/units/unit_work_sprite_1.png",
   ],
+  fishingFrames: [
+    "assets/units/unit_fishing_sprite.png",
+  ],
+  northFishingFrames: [
+    "assets/units/unit_fishing_north_sprite.png",
+    "assets/units/unit_fishing_north_sprite_1.png",
+  ],
   playFrames: [
     "assets/units/unit_play_sprite.png",
     "assets/units/unit_play_sprite_1.png",
@@ -139,6 +146,19 @@ const unitSprite = {
   height: 44,
   anchorX: 18,
   anchorY: 44,
+  fishingWidth: 80,
+  fishingHeight: 44,
+  fishingAnchorX: 18,
+  fishingAnchorY: 44,
+  fishingTargetOffsetFactors: {
+    east: -0.22,
+    west: 0.72,
+  },
+  northFishingWidth: 42,
+  northFishingHeight: 68,
+  northFishingAnchorX: 21,
+  northFishingAnchorY: 68,
+  northFishingGroundOffset: 0.28,
   groundOffset: 0.75,
   moveDuration: 720,
 };
@@ -315,7 +335,7 @@ const buildingImages = {};
 const shoreOverlayImages = {};
 const resourceOverlayImages = {};
 const unitImages = {};
-const saveVersion = 6;
+const saveVersion = 7;
 const storageKeys = {
   filePrefix: "schtroumpfilization:save-file:v1:",
   currentFile: {
@@ -1283,11 +1303,11 @@ function serializeBuilding(building, width = map.width, height = map.height) {
 function serializeTask(task) {
   if (!task) return null;
 
-  if (![ "move", "play", "gatherFood", "gatherMaterials", "buildHouse", "demolish" ].includes(task.type)) {
+  if (![ "move", "perform", "gatherFood", "gatherMaterials", "buildHouse", "demolish" ].includes(task.type)) {
     return null;
   }
 
-  if (task.type === "play") {
+  if (task.type === "perform") {
     return { type: task.type };
   }
 
@@ -2021,11 +2041,11 @@ function normalizeTask(task, currentX, currentY) {
 
   const type = task.type;
 
-  if (![ "move", "play", "gatherFood", "gatherMaterials", "buildHouse", "demolish" ].includes(type)) {
+  if (![ "move", "perform", "gatherFood", "gatherMaterials", "buildHouse", "demolish" ].includes(type)) {
     return null;
   }
 
-  if (type === "play") {
+  if (type === "perform") {
     return { type };
   }
 
@@ -2082,9 +2102,9 @@ function normalizeTask(task, currentX, currentY) {
 }
 
 function preserveTask(task) {
-  if (!task || !["move", "play", "gatherFood", "gatherMaterials", "buildHouse", "demolish"].includes(task.type)) return null;
+  if (!task || !["move", "perform", "gatherFood", "gatherMaterials", "buildHouse", "demolish"].includes(task.type)) return null;
 
-  if (task.type === "play") {
+  if (task.type === "perform") {
     return { type: task.type };
   }
 
@@ -2378,7 +2398,7 @@ function hasAssignedTask(currentUnit) {
 }
 
 function getActionForTask(task) {
-  if (task?.type === "play") {
+  if (task?.type === "perform") {
     return unitActions.play;
   }
 
@@ -2401,18 +2421,18 @@ function getActionForTask(task) {
   return unitActions.walk;
 }
 
-function getDefaultActionForCompletedTask(taskType) {
+function getDefaultActionForCompletedTask() {
   return unitActions.walk;
 }
 
-function applyCompletedTaskDefaultAction(taskType, currentUnit) {
+function applyCompletedTaskDefaultAction(currentUnit) {
   const selectedUnit = getSelectedUnit();
 
   if (selectedUnit && selectedUnit !== currentUnit) {
     return;
   }
 
-  selectedUnitAction = getDefaultActionForCompletedTask(taskType);
+  selectedUnitAction = getDefaultActionForCompletedTask();
 }
 
 function getCurrentSelectedUnitAction() {
@@ -2422,7 +2442,7 @@ function getCurrentSelectedUnitAction() {
 function isWorkingTask(task) {
   return task?.type === "buildHouse" ||
     task?.type === "demolish" ||
-    task?.type === "play" ||
+    task?.type === "perform" ||
     task?.type === "gatherFood" ||
     task?.type === "gatherMaterials";
 }
@@ -2456,19 +2476,9 @@ function getUnitTaskDirection(currentUnit) {
     return currentUnit?.facing || "west";
   }
 
-  if (currentUnit.task?.type === "play") {
+  if (currentUnit.task?.type === "perform") {
     const direction = currentUnit?.facing || "west";
     return direction === "south" ? "southEast" : direction;
-  }
-
-  if (
-    currentUnit.task?.type === "gatherFood" ||
-    currentUnit.task?.type === "gatherMaterials"
-  ) {
-    if (currentUnit.task.toX === currentUnit.x && currentUnit.task.toY === currentUnit.y) {
-      const direction = currentUnit?.facing || "west";
-      return direction === "south" ? "southEast" : direction;
-    }
   }
 
   const direction = getMoveDirection(
@@ -2560,7 +2570,7 @@ function updateTurnControls() {
   updateStockpileReadout();
   setCheckedState(autoPassInputs, autoAdvanceTurns);
   setDisabledState(nextTurnButtons, !canAdvanceTurn());
-  const shouldHighlight = canAdvanceTurn() && everyUnitHasOngoingTask();
+  const shouldHighlight = !autoAdvanceTurns && canAdvanceTurn() && everyUnitHasOngoingTask();
 
   for (const button of nextTurnButtons) {
     button.classList.toggle("is-highlighted", shouldHighlight);
@@ -2595,9 +2605,9 @@ function createGatherMaterialsTask(destinationCell) {
   };
 }
 
-function createPlayTask() {
+function createPerformTask() {
   return {
-    type: "play",
+    type: "perform",
   };
 }
 
@@ -2620,14 +2630,14 @@ function createDemolishTask(destinationCell) {
 function assignUnitTask(task, currentUnit = getSelectedUnit()) {
   if (!currentUnit || currentUnit.move || !task || isReplayPhase()) return false;
 
-  const previousTaskType = currentUnit.task?.type || null;
+  clearQueuedAutoAdvanceFrame();
 
   currentUnit.task = task;
   currentUnit.turnRoute = null;
   currentUnit.lastStepFromX = null;
   currentUnit.lastStepFromY = null;
   unit = currentUnit;
-  selectedUnitAction = task.type === "play" ? unitActions.play : getActionForTask(task);
+  selectedUnitAction = getActionForTask(task);
   invalidateStaticUnitsLayer();
   updateUnitReadout();
   updateTurnControls();
@@ -2636,36 +2646,7 @@ function assignUnitTask(task, currentUnit = getSelectedUnit()) {
   }
   draw();
 
-  if (!isReplayPhase() && previousTaskType === "play") {
-    clearQueuedAutoAdvanceFrame();
-  }
-
-  if (
-    !isReplayPhase() &&
-    previousTaskType === "play" &&
-    task.type !== "play" &&
-    autoAdvanceTurns &&
-    canAdvanceTurn() &&
-    getIdleUnits().length === 0 &&
-    everyUnitHasOngoingTask()
-  ) {
-    advanceTurn();
-    return true;
-  }
-
   maybeAutoAdvanceTurn();
-
-  if (
-    task.type === "play" &&
-    currentUnit.selected &&
-    getIdleUnits().length > 0
-  ) {
-    selectNextIdleUnit({
-      fromUnit: currentUnit,
-      defaultAction: unitActions.walk,
-      scrollIntoView: true,
-    });
-  }
 
   return true;
 }
@@ -2681,7 +2662,7 @@ function queueUnitMoveTask(destinationCell, currentUnit = getSelectedUnit()) {
 function queueUnitPlayTask(currentUnit = getSelectedUnit()) {
   if (!currentUnit || currentUnit.move) return false;
 
-  return assignUnitTask(createPlayTask(), currentUnit);
+  return assignUnitTask(createPerformTask(), currentUnit);
 }
 
 function queueUnitGatherFoodTask(destinationCell, currentUnit = getSelectedUnit()) {
@@ -2730,8 +2711,8 @@ function queueUnitDemolishTask(destinationCell, currentUnit = getSelectedUnit())
   return assignUnitTask(createDemolishTask(destinationCell), currentUnit);
 }
 
-function clearCompletedTask(currentUnit, taskType) {
-  applyCompletedTaskDefaultAction(taskType, currentUnit);
+function clearCompletedTask(currentUnit) {
+  applyCompletedTaskDefaultAction(currentUnit);
   currentUnit.task = null;
   currentUnit.turnRoute = null;
   invalidateStaticUnitsLayer();
@@ -2791,7 +2772,7 @@ function resolveGatherFoodTask(currentUnit) {
   const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
 
   if (!canGatherFoodFromCell(targetCell, currentUnit)) {
-    clearCompletedTask(currentUnit, "gatherFood");
+    clearCompletedTask(currentUnit);
     return;
   }
 
@@ -2802,7 +2783,7 @@ function resolveGatherFoodTask(currentUnit) {
 
   if (gatherAmount <= 0) {
     exhaustFoodResource(targetCell);
-    clearCompletedTask(currentUnit, "gatherFood");
+    clearCompletedTask(currentUnit);
     invalidateStaticLayer();
     return;
   }
@@ -2815,9 +2796,9 @@ function resolveGatherFoodTask(currentUnit) {
 
   if (targetCell.foodAmount <= 0) {
     exhaustFoodResource(targetCell);
-    clearCompletedTask(currentUnit, "gatherFood");
+    clearCompletedTask(currentUnit);
   } else if (currentUnit.task.turnsRemaining <= 0) {
-    clearCompletedTask(currentUnit, "gatherFood");
+    clearCompletedTask(currentUnit);
     invalidateStaticLayer();
   } else {
     invalidateStaticLayer();
@@ -2828,7 +2809,7 @@ function resolveGatherMaterialsTask(currentUnit) {
   const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
 
   if (!canGatherMaterialsFromCell(targetCell, currentUnit)) {
-    clearCompletedTask(currentUnit, "gatherMaterials");
+    clearCompletedTask(currentUnit);
     return;
   }
 
@@ -2842,7 +2823,7 @@ function resolveGatherMaterialsTask(currentUnit) {
     if (targetCell) {
       exhaustMaterialResource(targetCell);
     }
-    clearCompletedTask(currentUnit, "gatherMaterials");
+    clearCompletedTask(currentUnit);
     return;
   }
 
@@ -2854,9 +2835,9 @@ function resolveGatherMaterialsTask(currentUnit) {
 
   if (targetCell.materialAmount <= 0) {
     exhaustMaterialResource(targetCell);
-    clearCompletedTask(currentUnit, "gatherMaterials");
+    clearCompletedTask(currentUnit);
   } else if (currentUnit.task.turnsRemaining <= 0) {
-    clearCompletedTask(currentUnit, "gatherMaterials");
+    clearCompletedTask(currentUnit);
     invalidateStaticLayer();
   } else {
     invalidateStaticLayer();
@@ -2867,14 +2848,14 @@ function resolveBuildHouseTask(currentUnit) {
   const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
 
   if (!targetCell || !areCellsAdjacent(currentUnit.x, currentUnit.y, targetCell.x, targetCell.y)) {
-    clearCompletedTask(currentUnit, "buildHouse");
+    clearCompletedTask(currentUnit);
     return;
   }
 
   const building = getBuildingAtCell(targetCell.x, targetCell.y);
 
   if (!building || building.type !== "house") {
-    clearCompletedTask(currentUnit, "buildHouse");
+    clearCompletedTask(currentUnit);
     return;
   }
 
@@ -2893,7 +2874,7 @@ function resolveBuildHouseTask(currentUnit) {
 
   if (nextCompleteness >= 1) {
     spawnUnitFromHouse(building);
-    clearCompletedTask(currentUnit, "buildHouse");
+    clearCompletedTask(currentUnit);
   }
 }
 
@@ -2901,14 +2882,14 @@ function resolveDemolishTask(currentUnit) {
   const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
 
   if (!targetCell || !areCellsAdjacent(currentUnit.x, currentUnit.y, targetCell.x, targetCell.y)) {
-    clearCompletedTask(currentUnit, "demolish");
+    clearCompletedTask(currentUnit);
     return;
   }
 
   const building = getBuildingAtCell(targetCell.x, targetCell.y);
 
   if (!building || building.state !== "abandoned") {
-    clearCompletedTask(currentUnit, "demolish");
+    clearCompletedTask(currentUnit);
     return;
   }
 
@@ -2928,15 +2909,20 @@ function resolveDemolishTask(currentUnit) {
   if (nextCompleteness <= 0) {
     buildings = buildings.filter((candidate) => candidate !== building);
     clampStockpileToCapacity();
-    clearCompletedTask(currentUnit, "demolish");
+    clearCompletedTask(currentUnit);
   }
+}
+
+function resolvePerformTask(currentUnit) {
+  turnReplayHadWork = true;
+  currentUnit.stamina = 0;
 }
 
 function resolveUnitTask(currentUnit) {
   if (!currentUnit?.task) return;
 
-  if (currentUnit.task.type === "play") {
-    currentUnit.stamina = 0;
+  if (currentUnit.task.type === "perform") {
+    resolvePerformTask(currentUnit);
     return;
   }
 
@@ -2961,7 +2947,7 @@ function resolveUnitTask(currentUnit) {
   }
 
   if (currentUnit.task.type !== "move") {
-    clearCompletedTask(currentUnit, currentUnit.task.type);
+    clearCompletedTask(currentUnit);
     return;
   }
 
@@ -2971,14 +2957,14 @@ function resolveUnitTask(currentUnit) {
 function resolveMoveTaskForTurn(currentUnit) {
   while (currentUnit?.task?.type === "move" && getUnitStamina(currentUnit) > 0) {
     if (currentUnit.x === currentUnit.task.toX && currentUnit.y === currentUnit.task.toY) {
-      clearCompletedTask(currentUnit, "move");
+      clearCompletedTask(currentUnit);
       return;
     }
 
     const nextMove = getNextMoveStep(currentUnit, currentUnit.task);
 
     if (!nextMove) {
-      clearCompletedTask(currentUnit, "move");
+      clearCompletedTask(currentUnit);
       return;
     }
 
@@ -3009,7 +2995,7 @@ function resolveMoveTaskForTurn(currentUnit) {
     }
 
     if (currentUnit.x === currentUnit.task.toX && currentUnit.y === currentUnit.task.toY) {
-      applyCompletedTaskDefaultAction("move", currentUnit);
+      applyCompletedTaskDefaultAction(currentUnit);
       currentUnit.task = null;
       currentUnit.turnRoute = null;
       return;
@@ -3422,6 +3408,14 @@ function loadTileImages() {
   loadImage(unitSprite.southImage, unitImages);
 
   for (const imagePath of unitSprite.workFrames) {
+    loadImage(imagePath, unitImages);
+  }
+
+  for (const imagePath of unitSprite.fishingFrames) {
+    loadImage(imagePath, unitImages);
+  }
+
+  for (const imagePath of unitSprite.northFishingFrames) {
     loadImage(imagePath, unitImages);
   }
 
@@ -3932,7 +3926,7 @@ function updateUnitReadout() {
     return;
   }
 
-  if (displayedUnit.task?.type === "play") {
+  if (displayedUnit.task?.type === "perform") {
     setTaskAndRefresh(strings.tasks.play);
     return;
   }
@@ -4014,9 +4008,7 @@ function selectUnit(currentUnit, { scrollIntoView = false, defaultAction = null 
   }
 
   unit = currentUnit;
-  selectedUnitAction = normalizeUnitAction(
-    defaultAction ?? (currentUnit.task?.type === "play" ? unitActions.play : unitActions.walk),
-  );
+  selectedUnitAction = normalizeUnitAction(defaultAction ?? unitActions.walk);
   inspectedPlayCell = null;
 
   if (scrollIntoView) {
@@ -4200,7 +4192,11 @@ function getUnitTargetCells() {
 
   const action = getCurrentSelectedUnitAction();
 
-  if (selectedUnit.task && action === getActionForTask(selectedUnit.task)) {
+  if (
+    selectedUnit.task &&
+    isCellTargetUnitAction(action) &&
+    action === getActionForTask(selectedUnit.task)
+  ) {
     const destinationCell = getCell(selectedUnit.task.toX, selectedUnit.task.toY);
     return destinationCell ? [destinationCell] : [];
   }
@@ -4225,7 +4221,6 @@ function getUnitTargetCells() {
 }
 
 function getUnitTargetStyle() {
-  const selectedUnit = getSelectedUnit();
   const action = getCurrentSelectedUnitAction();
 
   if (action === unitActions.demolish) {
@@ -4699,10 +4694,41 @@ function getUnitScreenPosition(currentUnit = unit, now = performance.now()) {
   };
 }
 
-function getUnitGroundPoint(screen) {
+function getStationaryUnitDrawScreenPosition(currentUnit, imagePath, now = performance.now()) {
+  const baseScreen = getUnitScreenPosition(currentUnit, now);
+
+  if (
+    !baseScreen ||
+    !unitSprite.fishingFrames.includes(imagePath) ||
+    !isFishingTask(currentUnit)
+  ) {
+    return baseScreen;
+  }
+
+  const targetCell = getCell(currentUnit.task.toX, currentUnit.task.toY);
+
+  if (!targetCell) {
+    return baseScreen;
+  }
+
+  const targetScreen = isoToScreen(targetCell.x, targetCell.y);
+  const offsetConfig = unitSprite.fishingTargetOffsetFactors || {};
+  const offsetFactor =
+    targetScreen.x >= baseScreen.x
+      ? Number(offsetConfig.east)
+      : Number(offsetConfig.west);
+  const normalizedOffset = Number.isFinite(offsetFactor) ? offsetFactor : 0;
+
+  return {
+    x: lerp(baseScreen.x, targetScreen.x, normalizedOffset),
+    y: lerp(baseScreen.y, targetScreen.y, normalizedOffset),
+  };
+}
+
+function getUnitGroundPoint(screen, groundOffset = unitSprite.groundOffset) {
   return {
     x: screen.x,
-    y: screen.y + tile.height * unitSprite.groundOffset,
+    y: screen.y + tile.height * groundOffset,
   };
 }
 
@@ -4732,6 +4758,18 @@ function getMoveDirection(fromX, fromY, toX, toY) {
 
 function shouldMirrorUnitDirection(direction) {
   return direction === "east" || direction === "northEast" || direction === "southEast";
+}
+
+function shouldMirrorUnitImage(imagePath, direction) {
+  if (unitSprite.fishingFrames.includes(imagePath)) {
+    return direction === "west" || direction === "northWest" || direction === "southWest";
+  }
+
+  if (unitSprite.northFishingFrames.includes(imagePath)) {
+    return false;
+  }
+
+  return shouldMirrorUnitDirection(direction);
 }
 
 function usesNorthUnitSprite(direction) {
@@ -4937,7 +4975,7 @@ function drawMovingUnit(now = performance.now()) {
 
   if (!screen) return;
 
-  drawUnitAtScreen(screen, ctx, imagePath, shouldMirrorUnitDirection(direction), !movingUnit.selected);
+  drawUnitAtScreen(screen, ctx, imagePath, shouldMirrorUnitImage(imagePath, direction), !movingUnit.selected);
 }
 
 function drawSelectedStationaryUnit(now = performance.now()) {
@@ -4948,12 +4986,18 @@ function drawSelectedStationaryUnit(now = performance.now()) {
   }
 
   const direction = getUnitDisplayDirection(selectedUnit);
+  const imagePath = getStationaryUnitImage(selectedUnit, now);
+  const screen = getStationaryUnitDrawScreenPosition(selectedUnit, imagePath, now);
+
+  if (!screen) {
+    return;
+  }
 
   drawUnitAtScreen(
-    isoToScreen(selectedUnit.x, selectedUnit.y),
+    screen,
     ctx,
-    getStationaryUnitImage(selectedUnit, now),
-    shouldMirrorUnitDirection(direction),
+    imagePath,
+    shouldMirrorUnitImage(imagePath, direction),
     false,
   );
 }
@@ -4963,11 +5007,17 @@ function drawStationaryUnits(drawContext = ctx, frameIndex = 0) {
 
   for (const stationaryUnit of stationaryUnits) {
     const direction = getUnitDisplayDirection(stationaryUnit);
+    const imagePath = getStationaryUnitImage(stationaryUnit, undefined, frameIndex);
+    const screen = getStationaryUnitDrawScreenPosition(stationaryUnit, imagePath);
+
+    if (!screen) {
+      continue;
+    }
     drawUnitAtScreen(
-      isoToScreen(stationaryUnit.x, stationaryUnit.y),
+      screen,
       drawContext,
-      getStationaryUnitImage(stationaryUnit, undefined, frameIndex),
-      shouldMirrorUnitDirection(direction),
+      imagePath,
+      shouldMirrorUnitImage(imagePath, direction),
       !stationaryUnit.selected,
     );
   }
@@ -5001,11 +5051,33 @@ function getAnimatedTaskFrameOffset(currentUnit) {
   return currentUnit.animatedTaskFrameOffset;
 }
 
+function isFishingTask(currentUnit) {
+  if (currentUnit?.task?.type !== "gatherFood") {
+    return false;
+  }
+
+  const targetCell = getCell(currentUnit.task.toX, currentUnit.task.toY);
+  return targetCell?.foodType === "fish";
+}
+
+function getFishingTaskFrames(currentUnit) {
+  const direction = getUnitTaskDirection(currentUnit);
+
+  if (direction === "north" && unitSprite.northFishingFrames.length > 0) {
+    return unitSprite.northFishingFrames;
+  }
+
+  return unitSprite.fishingFrames;
+}
+
 function getAnimatedTaskUnitImage(currentUnit, frameIndex = 0) {
-  const frames =
-    currentUnit?.task?.type === "play" && unitSprite.playFrames.length > 0
-      ? unitSprite.playFrames
-      : unitSprite.workFrames;
+  let frames = unitSprite.workFrames;
+
+  if (currentUnit?.task?.type === "perform" && unitSprite.playFrames.length > 0) {
+    frames = unitSprite.playFrames;
+  } else if (isFishingTask(currentUnit)) {
+    frames = getFishingTaskFrames(currentUnit);
+  }
 
   if (frames.length === 0) {
     return unitSprite.idleImage;
@@ -5067,6 +5139,36 @@ function getMovingUnitImage(currentUnit = unit, direction = "west", now = perfor
   return moveFrames[frameIndex] || fallbackImage;
 }
 
+function getUnitSpriteRenderSpec(imagePath) {
+  if (unitSprite.northFishingFrames.includes(imagePath)) {
+    return {
+      width: unitSprite.northFishingWidth,
+      height: unitSprite.northFishingHeight,
+      anchorX: unitSprite.northFishingAnchorX,
+      anchorY: unitSprite.northFishingAnchorY,
+      groundOffset: unitSprite.northFishingGroundOffset,
+    };
+  }
+
+  if (unitSprite.fishingFrames.includes(imagePath)) {
+    return {
+      width: unitSprite.fishingWidth,
+      height: unitSprite.fishingHeight,
+      anchorX: unitSprite.fishingAnchorX,
+      anchorY: unitSprite.fishingAnchorY,
+      groundOffset: unitSprite.groundOffset,
+    };
+  }
+
+  return {
+    width: unitSprite.width,
+    height: unitSprite.height,
+    anchorX: unitSprite.anchorX,
+    anchorY: unitSprite.anchorY,
+    groundOffset: unitSprite.groundOffset,
+  };
+}
+
 function drawUnitAtScreen(
   screen,
   drawContext = ctx,
@@ -5075,12 +5177,13 @@ function drawUnitAtScreen(
   showShadow = true,
 ) {
   const image = unitImages[imagePath];
-  const drawWidth = unitSprite.width * zoomLevels[zoomIndex];
-  const drawHeight = unitSprite.height * zoomLevels[zoomIndex];
-  const drawX = screen.x - unitSprite.anchorX * zoomLevels[zoomIndex];
-  const ground = getUnitGroundPoint(screen);
+  const renderSpec = getUnitSpriteRenderSpec(imagePath);
+  const drawWidth = renderSpec.width * zoomLevels[zoomIndex];
+  const drawHeight = renderSpec.height * zoomLevels[zoomIndex];
+  const drawX = screen.x - renderSpec.anchorX * zoomLevels[zoomIndex];
+  const ground = getUnitGroundPoint(screen, renderSpec.groundOffset);
   const groundY = ground.y;
-  const drawY = groundY - unitSprite.anchorY * zoomLevels[zoomIndex];
+  const drawY = groundY - renderSpec.anchorY * zoomLevels[zoomIndex];
 
   drawContext.save();
   if (showShadow) {
@@ -5725,6 +5828,7 @@ function getCornerNeighbor(cell, direction) {
 }
 
 function getCell(x, y) {
+  if (!Number.isInteger(x) || !Number.isInteger(y)) return null;
   if (y < 0 || y >= map.height || x < 0 || x >= map.width) return null;
 
   return map.cells[y][x];
