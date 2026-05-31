@@ -18,6 +18,11 @@ window.APP_RULES = {
       forest: 1,
       mountain: 2,
     },
+    paths: {
+      wellKnownVisits: 10,
+      previewVisits: 5,
+      moveCost: 0.7,
+    },
   },
   buildings: {
     default: {

@@ -112,6 +112,7 @@ window.APP_LOCALIZATION = {
         tileInspectNone: "Tile: none",
         tileInspect: (x, y, terrainLabel, details = "") =>
           details ? `Tile: ${x}, ${y} | ${terrainLabel} | ${details}` : `Tile: ${x}, ${y} | ${terrainLabel}`,
+        visits: (count, threshold) => `Visits ${count}/${threshold}`,
         tileMenuTitle: (x, y) => `Tile ${x}, ${y}`,
         unitNone: "Unit: none",
         unitUnselected: (count) =>

@@ -3,7 +3,7 @@ const { readPng, writePng } = require("./normalize-tile-png");
 const [, , sourcePath, outputPath, profileName = "default"] = process.argv;
 
 if (!sourcePath || !outputPath) {
-  console.error("Usage: node tools/normalize-unit-png.js <source.png> <output.png> [default|work|play|fishing|fishingNorth]");
+  console.error("Usage: node tools/normalize-unit-png.js <source.png> <output.png> [default|bottomRight|work|workBottomRight|play|playBottomRight|fishing|fishingBottomRight|fishingNorth|fishingNorthBottomRight]");
   process.exit(1);
 }
 
@@ -36,6 +36,10 @@ const output = {
 
 if (profile.fitMode === "matchHeight") {
   resampleMatchHeightIntoBox(source, sourceBox, output, target.box);
+} else if (profile.fitMode === "matchHeightBottomRight") {
+  resampleMatchHeightIntoBox(source, sourceBox, output, target.box, { alignX: "right" });
+} else if (profile.fitMode === "bottomRight") {
+  resampleIntoBox(source, sourceBox, output, target.box, { alignX: "right" });
 } else {
   resampleIntoBox(source, sourceBox, output, target.box);
 }
@@ -61,14 +65,28 @@ function getProfile(name) {
       getSourceBox: primaryOpaqueBounds,
       fitMode: "contain",
     },
+    bottomRight: {
+      getSourceBox: primaryOpaqueBounds,
+      fitMode: "bottomRight",
+    },
     work: {
       getSourceBox: getWorkFigureBounds,
       fitMode: "matchHeight",
       postprocess: "stretchOpaqueHeight",
     },
+    workBottomRight: {
+      getSourceBox: getWorkFigureBounds,
+      fitMode: "matchHeightBottomRight",
+      postprocess: "stretchOpaqueHeight",
+    },
     play: {
       getSourceBox: primaryOpaqueBounds,
       fitMode: "matchHeight",
+      postprocess: "stretchOpaqueHeight",
+    },
+    playBottomRight: {
+      getSourceBox: primaryOpaqueBounds,
+      fitMode: "matchHeightBottomRight",
       postprocess: "stretchOpaqueHeight",
     },
     fishing: {
@@ -78,6 +96,21 @@ function getProfile(name) {
         width: 160,
         height: 88,
         // Left-align the figure so the fishing line can extend far past the unit tile.
+        box: {
+          minX: 0,
+          maxX: 155,
+          minY: 0,
+          maxY: 87,
+        },
+      },
+    },
+    fishingBottomRight: {
+      getSourceBox: primaryOpaqueBounds,
+      fitMode: "matchHeightBottomRight",
+      target: {
+        width: 160,
+        height: 88,
+        // Right-align the figure so the fishing line can sit hard against the target box edge.
         box: {
           minX: 0,
           maxX: 155,
@@ -100,12 +133,26 @@ function getProfile(name) {
         },
       },
     },
+    fishingNorthBottomRight: {
+      getSourceBox: primaryOpaqueBounds,
+      fitMode: "matchHeightBottomRight",
+      target: {
+        width: 72,
+        height: 116,
+        box: {
+          minX: 11,
+          maxX: 60,
+          minY: 0,
+          maxY: 115,
+        },
+      },
+    },
   };
 
   return profiles[name] || profiles.default;
 }
 
-function resampleIntoBox(sourceImage, sourceCrop, outputImage, targetBox) {
+function resampleIntoBox(sourceImage, sourceCrop, outputImage, targetBox, options = {}) {
   const targetWidth = targetBox.maxX - targetBox.minX + 1;
   const targetHeight = targetBox.maxY - targetBox.minY + 1;
   const sourceWidth = sourceCrop.maxX - sourceCrop.minX + 1;
@@ -113,7 +160,10 @@ function resampleIntoBox(sourceImage, sourceCrop, outputImage, targetBox) {
   const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
   const scaledWidth = Math.max(1, Math.round(sourceWidth * scale));
   const scaledHeight = Math.max(1, Math.round(sourceHeight * scale));
-  const offsetX = targetBox.minX + Math.floor((targetWidth - scaledWidth) / 2);
+  const offsetX =
+    options.alignX === "right"
+      ? targetBox.maxX - scaledWidth + 1
+      : targetBox.minX + Math.floor((targetWidth - scaledWidth) / 2);
   const offsetY = targetBox.maxY - scaledHeight + 1;
 
   for (let y = 0; y < scaledHeight; y += 1) {
@@ -133,7 +183,7 @@ function resampleIntoBox(sourceImage, sourceCrop, outputImage, targetBox) {
   }
 }
 
-function resampleMatchHeightIntoBox(sourceImage, sourceCrop, outputImage, targetBox) {
+function resampleMatchHeightIntoBox(sourceImage, sourceCrop, outputImage, targetBox, options = {}) {
   const targetWidth = targetBox.maxX - targetBox.minX + 1;
   const targetHeight = targetBox.maxY - targetBox.minY + 1;
   const sourceWidth = sourceCrop.maxX - sourceCrop.minX + 1;
@@ -141,7 +191,10 @@ function resampleMatchHeightIntoBox(sourceImage, sourceCrop, outputImage, target
   const scale = targetHeight / sourceHeight;
   const scaledWidth = Math.max(1, Math.round(sourceWidth * scale));
   const scaledHeight = Math.max(1, Math.round(sourceHeight * scale));
-  const offsetX = targetBox.minX + Math.floor((targetWidth - scaledWidth) / 2);
+  const offsetX =
+    options.alignX === "right"
+      ? targetBox.maxX - scaledWidth + 1
+      : targetBox.minX + Math.floor((targetWidth - scaledWidth) / 2);
   const offsetY = targetBox.maxY - scaledHeight + 1;
 
   for (let y = 0; y < scaledHeight; y += 1) {

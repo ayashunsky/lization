@@ -120,7 +120,37 @@ const unitSprite = {
     "assets/units/unit_work_sprite.png",
     "assets/units/unit_work_sprite_1.png",
   ],
-  fishingFrames: [
+  landFoodFrames: [
+    "assets/units/unit_food_sprite.png",
+    "assets/units/unit_food_sprite_1.png",
+  ],
+  lumberFrames: [
+    "assets/units/unit_lumber_sprite.png",
+    "assets/units/unit_lumber_sprite_1.png",
+  ],
+  stoneFrames: [
+    "assets/units/unit_stone_sprite.png",
+    "assets/units/unit_stone_sprite_1.png",
+  ],
+  northEastFishingFrames: [
+    "assets/units/unit_fishing_sprite.png",
+  ],
+  eastFishingFrames: [
+    "assets/units/unit_fishing_sprite.png",
+  ],
+  southEastFishingFrames: [
+    "assets/units/unit_fishing_sprite.png",
+  ],
+  southFishingFrames: [
+    "assets/units/unit_fishing_sprite.png",
+  ],
+  southWestFishingFrames: [
+    "assets/units/unit_fishing_sprite.png",
+  ],
+  westFishingFrames: [
+    "assets/units/unit_fishing_sprite.png",
+  ],
+  northWestFishingFrames: [
     "assets/units/unit_fishing_sprite.png",
   ],
   northFishingFrames: [
@@ -146,19 +176,40 @@ const unitSprite = {
   height: 44,
   anchorX: 18,
   anchorY: 44,
-  fishingWidth: 80,
-  fishingHeight: 44,
-  fishingAnchorX: 18,
-  fishingAnchorY: 44,
-  fishingTargetOffsetFactors: {
-    east: -0.22,
-    west: 0.72,
+  fishingDirections: {
+    north: {
+      frameSet: "northFishingFrames",
+      mirror: false,
+    },
+    northEast: {
+      frameSet: "northEastFishingFrames",
+      mirror: false,
+    },
+    east: {
+      frameSet: "eastFishingFrames",
+      mirror: false,
+    },
+    southEast: {
+      frameSet: "southEastFishingFrames",
+      mirror: false,
+    },
+    south: {
+      frameSet: "southFishingFrames",
+      mirror: false,
+    },
+    southWest: {
+      frameSet: "southWestFishingFrames",
+      mirror: true,
+    },
+    west: {
+      frameSet: "westFishingFrames",
+      mirror: true,
+    },
+    northWest: {
+      frameSet: "northWestFishingFrames",
+      mirror: true,
+    },
   },
-  northFishingWidth: 42,
-  northFishingHeight: 68,
-  northFishingAnchorX: 21,
-  northFishingAnchorY: 68,
-  northFishingGroundOffset: 0.28,
   groundOffset: 0.75,
   moveDuration: 720,
 };
@@ -305,6 +356,9 @@ let units = [];
 let unit = null;
 let buildings = [];
 let animationFrameId = 0;
+let animationTimerId = 0;
+let scheduledAnimationIntervalMs = 0;
+let lastAnimationFrameAt = 0;
 let staticLayerDirty = true;
 let staticUnitsLayerDirty = true;
 let currentDpr = 1;
@@ -335,7 +389,7 @@ const buildingImages = {};
 const shoreOverlayImages = {};
 const resourceOverlayImages = {};
 const unitImages = {};
-const saveVersion = 7;
+const saveVersion = 8;
 const storageKeys = {
   filePrefix: "schtroumpfilization:save-file:v1:",
   currentFile: {
@@ -349,6 +403,8 @@ const currentFileNames = {
 };
 const autosaveSlotName = "autosave";
 const workTurnDisplayDelayMs = 720;
+const animatedUiFrameIntervalMs = 1000 / 15;
+const moveAnimationFrameIntervalMs = 1000 / 60;
 
 function setTextContent(elements, text) {
   for (const element of elements) {
@@ -599,6 +655,10 @@ function formatTileInspectionDetails(cell) {
     );
   }
 
+  if (cell.type === "grass") {
+    details.push(strings.readouts.visits(getCellVisitsCount(cell), getPathWellKnownVisitsThreshold()));
+  }
+
   return details.join(" | ");
 }
 
@@ -683,11 +743,67 @@ function getUnitMaxStamina(currentUnit = unit) {
 }
 
 function getUnitStamina(currentUnit = unit) {
-  return Math.max(0, clampInteger(currentUnit?.stamina, 0, 999, getUnitMaxStamina(currentUnit)));
+  return Math.max(0, clampNumber(currentUnit?.stamina, 0, 999, getUnitMaxStamina(currentUnit)));
 }
 
-function getTerrainMoveCost(cell) {
+function getPathWellKnownVisitsThreshold() {
+  return Math.max(1, clampInteger(rules.movement?.paths?.wellKnownVisits, 1, 999999, 10));
+}
+
+function getPathPreviewVisitsThreshold() {
+  const threshold = getPathWellKnownVisitsThreshold();
+  return Math.max(
+    1,
+    clampInteger(rules.movement?.paths?.previewVisits, 1, threshold, Math.ceil(threshold / 2)),
+  );
+}
+
+function getPathMoveCost() {
+  return Math.max(0, clampNumber(rules.movement?.paths?.moveCost, 0, 999, 0.7));
+}
+
+function getCellVisitsCount(cell) {
+  if (!cell || cell.type !== "grass") {
+    return 0;
+  }
+
+  return Math.max(0, clampInteger(cell.visitsCount, 0, getPathWellKnownVisitsThreshold(), 0));
+}
+
+function isWellKnownPathCell(cell) {
+  return Boolean(cell) && cell.type === "grass" && getCellVisitsCount(cell) >= getPathWellKnownVisitsThreshold();
+}
+
+function isPreviewPathCell(cell) {
+  return Boolean(cell) && cell.type === "grass" && getCellVisitsCount(cell) >= getPathPreviewVisitsThreshold();
+}
+
+function getPathStateBetween(fromCell, toCell) {
+  if (!fromCell || !toCell || !areCellsAdjacent(fromCell.x, fromCell.y, toCell.x, toCell.y)) {
+    return null;
+  }
+
+  if (isWellKnownPathCell(fromCell) && isWellKnownPathCell(toCell)) {
+    return "full";
+  }
+
+  if (isPreviewPathCell(fromCell) && isPreviewPathCell(toCell)) {
+    return "preview";
+  }
+
+  return null;
+}
+
+function hasFullPathBetween(fromCell, toCell) {
+  return getPathStateBetween(fromCell, toCell) === "full";
+}
+
+function getTerrainMoveCost(cell, fromCell = null) {
   if (!cell) return Number.POSITIVE_INFINITY;
+
+  if (fromCell && hasFullPathBetween(fromCell, cell)) {
+    return getPathMoveCost();
+  }
 
   const configuredCost = rules.movement?.terrainCost?.[cell.type];
 
@@ -1271,11 +1387,19 @@ function clampInteger(value, min, max, fallback = min) {
   return clamp(number, min, max);
 }
 
+function clampNumber(value, min, max, fallback = min) {
+  const number = Number.parseFloat(value);
+
+  if (!Number.isFinite(number)) return fallback;
+  return clamp(number, min, max);
+}
+
 function serializeCell(cell) {
   return {
     type: cell.type,
     variant: ensureCellVariant(cell),
     visited: Boolean(cell.visited),
+    visitsCount: Math.max(0, clampInteger(cell.visitsCount, 0, getPathWellKnownVisitsThreshold(), 0)),
     materialAmount: Math.max(0, clampInteger(cell.materialAmount, 0, 999999, 0)),
     foodType: typeof cell.foodType === "string" && cell.foodType ? cell.foodType : null,
     foodAmount: Math.max(0, clampInteger(cell.foodAmount, 0, 999999, 0)),
@@ -1352,7 +1476,7 @@ function serializeUnit(currentUnit) {
       facing: currentUnit.move.direction || currentUnit.facing || "west",
       homeBuildingId: getUnitHomeBuildingId(currentUnit),
       staminaMax: getUnitMaxStamina(currentUnit),
-      stamina: getUnitStamina(currentUnit),
+      stamina: clampNumber(getUnitStamina(currentUnit), 0, 999, getUnitMaxStamina(currentUnit)),
       task: didReachDestination ? null : serializeTask(currentUnit.task),
     };
   }
@@ -1365,7 +1489,7 @@ function serializeUnit(currentUnit) {
     facing: currentUnit.facing || "west",
     homeBuildingId: getUnitHomeBuildingId(currentUnit),
     staminaMax: getUnitMaxStamina(currentUnit),
-    stamina: getUnitStamina(currentUnit),
+    stamina: clampNumber(getUnitStamina(currentUnit), 0, 999, getUnitMaxStamina(currentUnit)),
     task: serializeTask(currentUnit.task),
   };
 }
@@ -1737,7 +1861,7 @@ function markCellsVisitedByUnits(cells, units) {
     const cell = cells[currentUnit.y]?.[currentUnit.x];
 
     if (cell) {
-      cell.visited = true;
+      markCellVisitedByUnit(cell, { invalidate: false });
     }
   }
 }
@@ -1781,7 +1905,7 @@ function createBuildingId() {
 }
 
 function createHouseConstructionAtCell(cell) {
-  if (!canBuildHouseOnCell(cell)) return null;
+  if (!canStartNewHouseConstructionOnCell(cell)) return null;
 
   const buildCost = getHouseBuildCost("house");
 
@@ -1805,6 +1929,37 @@ function createHouseConstructionAtCell(cell) {
 
   buildings.push(building);
   return building;
+}
+
+function markCellVisitedByUnit(cell, { invalidate = true } = {}) {
+  if (!cell) {
+    return false;
+  }
+
+  let changed = false;
+
+  if (!cell.visited) {
+    cell.visited = true;
+    changed = true;
+  }
+
+  if (cell.type === "grass") {
+    const nextVisitsCount = Math.min(
+      getPathWellKnownVisitsThreshold(),
+      getCellVisitsCount(cell) + 1,
+    );
+
+    if (nextVisitsCount !== getCellVisitsCount(cell)) {
+      cell.visitsCount = nextVisitsCount;
+      changed = true;
+    }
+  }
+
+  if (changed && invalidate) {
+    invalidateStaticLayer();
+  }
+
+  return changed;
 }
 
 function createDefaultBuildingsState(cells, width, height, units) {
@@ -1952,6 +2107,9 @@ function normalizeMapState(rawMap) {
         throw new Error("Missing explored state in map cell.");
       }
       cell.visited = sourceCell.visited;
+      if (!Number.isFinite(sourceCell.visitsCount)) {
+        throw new Error("Missing visits count in map cell.");
+      }
       if (!Number.isFinite(sourceCell.materialAmount)) {
         throw new Error("Missing material amount in map cell.");
       }
@@ -1966,6 +2124,7 @@ function normalizeMapState(rawMap) {
       cell.variant = variants.some((variant) => variant.id === sourceCell.variant)
         ? sourceCell.variant
         : chooseTerrainVariant(cell.type);
+      cell.visitsCount = Math.max(0, clampInteger(sourceCell.visitsCount, 0, getPathWellKnownVisitsThreshold(), 0));
       cell.materialAmount = Math.max(0, clampInteger(sourceCell.materialAmount, 0, 999999, 0));
       cell.foodType = sourceCell.foodType;
       cell.foodAmount = Math.max(0, clampInteger(sourceCell.foodAmount, 0, 999999, 0));
@@ -2083,7 +2242,7 @@ function normalizeTask(task, currentX, currentY) {
   } else if (type === "buildHouse") {
     const building = getBuildingAtCell(toX, toY);
 
-    if (!building || building.type !== "house") {
+    if (!building || building.type !== "house" || building.state !== "construction") {
       return null;
     }
   } else {
@@ -2254,7 +2413,7 @@ function normalizeUnitsState(rawUnits, mode) {
           ? sourceUnit.homeBuildingId
           : null,
       staminaMax,
-      stamina: Math.max(0, clampInteger(sourceUnit?.stamina, 0, 999, staminaMax)),
+      stamina: Math.max(0, clampNumber(sourceUnit?.stamina, 0, 999, staminaMax)),
       selected: false,
       task:
         mode !== interactionModes.play
@@ -2271,10 +2430,7 @@ function normalizeUnitsState(rawUnits, mode) {
 }
 
 function applyStateSnapshot(state, mode, { recenter = true } = {}) {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId);
-    animationFrameId = 0;
-  }
+  clearAnimationSchedule();
 
   clearPendingAutoAdvance();
   clearEditHoverState();
@@ -2463,36 +2619,111 @@ function getWorkingUnitFrameIndex(now = performance.now()) {
   return Math.floor(now / unitSprite.workFrameDuration) % unitSprite.workFrames.length;
 }
 
+function canRenderAnimatedFrames() {
+  return document.visibilityState !== "hidden";
+}
+
+function clearAnimationSchedule() {
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = 0;
+  }
+
+  if (animationTimerId) {
+    clearTimeout(animationTimerId);
+    animationTimerId = 0;
+  }
+
+  scheduledAnimationIntervalMs = 0;
+}
+
+function getAnimationFrameInterval() {
+  if (!canRenderAnimatedFrames()) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  if (getMovingUnit()?.move) {
+    return moveAnimationFrameIntervalMs;
+  }
+
+  if (shouldAnimateWorkingUnits() || shouldAnimateSelectionMarker()) {
+    return animatedUiFrameIntervalMs;
+  }
+
+  return Number.POSITIVE_INFINITY;
+}
+
+function getFrameSetPaths(frameSetName) {
+  const frameSet = unitSprite?.[frameSetName];
+  return Array.isArray(frameSet) ? frameSet : [];
+}
+
+function getAllFishingFrameSetNames() {
+  return Object.values(unitSprite.fishingDirections || {})
+    .map((config) => config?.frameSet)
+    .filter((frameSetName) => typeof frameSetName === "string" && frameSetName);
+}
+
+function getAllFishingFrameImagePaths() {
+  return Array.from(
+    new Set(
+      getAllFishingFrameSetNames().flatMap((frameSetName) => getFrameSetPaths(frameSetName)),
+    ),
+  );
+}
+
 function shouldAnimateWorkingUnits() {
-  return isPlayMode() && !mainMenuOpen && hasWorkingUnits();
+  return canRenderAnimatedFrames() && isPlayMode() && !mainMenuOpen && hasWorkingUnits();
 }
 
 function shouldAnimateSelectionMarker() {
-  return isPlayMode() && !mainMenuOpen && Boolean(getSelectedUnit());
+  return canRenderAnimatedFrames() && isPlayMode() && !mainMenuOpen && Boolean(getSelectedUnit());
 }
 
-function getUnitTaskDirection(currentUnit) {
+function getRawUnitTaskDirection(currentUnit) {
   if (!isWorkingTask(currentUnit?.task)) {
     return currentUnit?.facing || "west";
   }
 
   if (currentUnit.task?.type === "perform") {
-    const direction = currentUnit?.facing || "west";
-    return direction === "south" ? "southEast" : direction;
+    return currentUnit?.facing || "west";
   }
 
-  const direction = getMoveDirection(
+  return getMoveDirection(
     currentUnit.x,
     currentUnit.y,
     currentUnit.task.toX,
     currentUnit.task.toY,
   );
+}
+
+function getUnitTaskDirection(currentUnit) {
+  const direction = getRawUnitTaskDirection(currentUnit);
 
   if (direction === "south") {
     return "southEast";
   }
 
   return direction;
+}
+
+function getUnitTaskTargetCell(currentUnit) {
+  const task = currentUnit?.task;
+
+  if (!task || !Number.isInteger(task.toX) || !Number.isInteger(task.toY)) {
+    return null;
+  }
+
+  return getCell(task.toX, task.toY);
+}
+
+function getFishingTaskDirectionConfig(currentUnit) {
+  if (!isFishingTask(currentUnit)) {
+    return null;
+  }
+
+  const direction = getRawUnitTaskDirection(currentUnit);
+  return unitSprite.fishingDirections?.[direction] || unitSprite.fishingDirections?.east || null;
 }
 
 function isUnitAnimating(currentUnit) {
@@ -2678,10 +2909,17 @@ function queueUnitGatherMaterialsTask(destinationCell, currentUnit = getSelected
 }
 
 function queueUnitBuildHouseTask(destinationCell, currentUnit = getSelectedUnit()) {
-  if (!currentUnit || currentUnit.move || !canBuildHouseOnCell(destinationCell)) return false;
+  if (!currentUnit || currentUnit.move) return false;
   if (!areCellsAdjacent(currentUnit.x, currentUnit.y, destinationCell.x, destinationCell.y)) return false;
 
-  const building = createHouseConstructionAtCell(destinationCell);
+  const targetMode = getBuildHouseTargetMode(destinationCell);
+  let building = null;
+
+  if (targetMode === "new") {
+    building = createHouseConstructionAtCell(destinationCell);
+  } else if (targetMode === "construction") {
+    building = getBuildingAtCell(destinationCell.x, destinationCell.y);
+  }
 
   if (!building) return false;
 
@@ -2854,7 +3092,7 @@ function resolveBuildHouseTask(currentUnit) {
 
   const building = getBuildingAtCell(targetCell.x, targetCell.y);
 
-  if (!building || building.type !== "house") {
+  if (!building || building.type !== "house" || building.state !== "construction") {
     clearCompletedTask(currentUnit);
     return;
   }
@@ -2970,7 +3208,7 @@ function resolveMoveTaskForTurn(currentUnit) {
 
     const fromX = currentUnit.x;
     const fromY = currentUnit.y;
-    const moveCost = getTerrainMoveCost(nextMove.cell);
+    const moveCost = getTerrainMoveCost(nextMove.cell, getCell(fromX, fromY));
 
     currentUnit.stamina = Math.max(0, getUnitStamina(currentUnit) - moveCost);
     currentUnit.x = nextMove.cell.x;
@@ -2989,10 +3227,7 @@ function resolveMoveTaskForTurn(currentUnit) {
 
     const destinationCell = getCell(currentUnit.x, currentUnit.y);
 
-    if (destinationCell && !destinationCell.visited) {
-      destinationCell.visited = true;
-      invalidateStaticLayer();
-    }
+    markCellVisitedByUnit(destinationCell);
 
     if (currentUnit.x === currentUnit.task.toX && currentUnit.y === currentUnit.task.toY) {
       applyCompletedTaskDefaultAction(currentUnit);
@@ -3411,11 +3646,19 @@ function loadTileImages() {
     loadImage(imagePath, unitImages);
   }
 
-  for (const imagePath of unitSprite.fishingFrames) {
+  for (const imagePath of unitSprite.landFoodFrames) {
     loadImage(imagePath, unitImages);
   }
 
-  for (const imagePath of unitSprite.northFishingFrames) {
+  for (const imagePath of unitSprite.lumberFrames) {
+    loadImage(imagePath, unitImages);
+  }
+
+  for (const imagePath of unitSprite.stoneFrames) {
+    loadImage(imagePath, unitImages);
+  }
+
+  for (const imagePath of getAllFishingFrameImagePaths()) {
     loadImage(imagePath, unitImages);
   }
 
@@ -3588,6 +3831,7 @@ function createCell(x, y, type) {
     type,
     variant: chooseTerrainVariant(type),
     visited: false,
+    visitsCount: 0,
   };
 
   return initializeCellResources(cell);
@@ -3597,6 +3841,7 @@ function setCellTerrain(cell, type, { rollFood = true } = {}) {
   if (cell.type !== type) {
     cell.type = type;
     cell.variant = chooseTerrainVariant(type);
+    cell.visitsCount = 0;
     initializeCellResources(cell, { rollFood });
     invalidateStaticLayer();
     return;
@@ -3757,10 +4002,7 @@ function spawnUnitFromHouse(building) {
 
   const spawnTile = getCell(spawnCell.x, spawnCell.y);
 
-  if (spawnTile && !spawnTile.visited) {
-    spawnTile.visited = true;
-    invalidateStaticLayer();
-  }
+  markCellVisitedByUnit(spawnTile);
 
   invalidateStaticUnitsLayer();
   return spawnedUnit;
@@ -4313,7 +4555,7 @@ function areCellsAdjacent(fromX, fromY, toX, toY) {
   return getAdjacentCells(cell).some((neighbor) => neighbor.x === toX && neighbor.y === toY);
 }
 
-function canBuildHouseOnCell(cell) {
+function canStartNewHouseConstructionOnCell(cell) {
   return (
     Boolean(cell) &&
     cell.type === "grass" &&
@@ -4323,10 +4565,31 @@ function canBuildHouseOnCell(cell) {
   );
 }
 
+function canContinueHouseConstructionOnCell(cell) {
+  if (!cell) {
+    return false;
+  }
+
+  const building = getBuildingAtCell(cell.x, cell.y);
+  return Boolean(building && building.type === "house" && building.state === "construction");
+}
+
+function getBuildHouseTargetMode(cell) {
+  if (canContinueHouseConstructionOnCell(cell)) {
+    return "construction";
+  }
+
+  if (canStartNewHouseConstructionOnCell(cell)) {
+    return "new";
+  }
+
+  return null;
+}
+
 function getBuildableAdjacentCells(currentUnit = unit) {
   const originCell = currentUnit ? getCell(currentUnit.x, currentUnit.y) : null;
 
-  return getAdjacentCells(originCell).filter((cell) => canBuildHouseOnCell(cell));
+  return getAdjacentCells(originCell).filter((cell) => Boolean(getBuildHouseTargetMode(cell)));
 }
 
 function getDemolishableAdjacentCells(currentUnit = unit) {
@@ -4404,7 +4667,7 @@ function buildTurnRoutes(currentUnit, cell, destinationCell, remainingStamina, v
       continue;
     }
 
-    const moveCost = getTerrainMoveCost(neighbor);
+    const moveCost = getTerrainMoveCost(neighbor, cell);
     const staminaAfterMove = Math.max(0, remainingStamina - moveCost);
     const nextSteps = steps.concat({
       cell: neighbor,
@@ -4627,13 +4890,52 @@ function startUnitMove(
 }
 
 function scheduleAnimation() {
-  if (animationFrameId) return;
+  const interval = getAnimationFrameInterval();
 
-  animationFrameId = requestAnimationFrame(stepAnimations);
+  if (!Number.isFinite(interval)) {
+    clearAnimationSchedule();
+    return;
+  }
+
+  if (animationFrameId) {
+    return;
+  }
+
+  if (animationTimerId) {
+    if (scheduledAnimationIntervalMs <= interval) {
+      return;
+    }
+
+    clearTimeout(animationTimerId);
+    animationTimerId = 0;
+    scheduledAnimationIntervalMs = 0;
+  }
+
+  const elapsed = performance.now() - lastAnimationFrameAt;
+
+  if (interval <= moveAnimationFrameIntervalMs || elapsed >= interval) {
+    scheduledAnimationIntervalMs = interval;
+    animationFrameId = requestAnimationFrame(stepAnimations);
+    return;
+  }
+
+  scheduledAnimationIntervalMs = interval;
+  animationTimerId = window.setTimeout(() => {
+    animationTimerId = 0;
+    scheduledAnimationIntervalMs = 0;
+    animationFrameId = requestAnimationFrame(stepAnimations);
+  }, Math.max(0, interval - elapsed));
 }
 
 function stepAnimations(now) {
   animationFrameId = 0;
+  lastAnimationFrameAt = now;
+
+  if (!canRenderAnimatedFrames()) {
+    scheduledAnimationIntervalMs = 0;
+    return;
+  }
+
   let needsAnotherFrame = shouldAnimateWorkingUnits() || shouldAnimateSelectionMarker();
   const movingUnit = getMovingUnit();
 
@@ -4697,31 +4999,19 @@ function getUnitScreenPosition(currentUnit = unit, now = performance.now()) {
 function getStationaryUnitDrawScreenPosition(currentUnit, imagePath, now = performance.now()) {
   const baseScreen = getUnitScreenPosition(currentUnit, now);
 
-  if (
-    !baseScreen ||
-    !unitSprite.fishingFrames.includes(imagePath) ||
-    !isFishingTask(currentUnit)
-  ) {
+  if (!baseScreen) {
     return baseScreen;
   }
 
-  const targetCell = getCell(currentUnit.task.toX, currentUnit.task.toY);
+  const taskGroundPoint = getTargetBasedWorkTaskGroundPoint(currentUnit);
 
-  if (!targetCell) {
+  if (!taskGroundPoint) {
     return baseScreen;
   }
-
-  const targetScreen = isoToScreen(targetCell.x, targetCell.y);
-  const offsetConfig = unitSprite.fishingTargetOffsetFactors || {};
-  const offsetFactor =
-    targetScreen.x >= baseScreen.x
-      ? Number(offsetConfig.east)
-      : Number(offsetConfig.west);
-  const normalizedOffset = Number.isFinite(offsetFactor) ? offsetFactor : 0;
 
   return {
-    x: lerp(baseScreen.x, targetScreen.x, normalizedOffset),
-    y: lerp(baseScreen.y, targetScreen.y, normalizedOffset),
+    x: taskGroundPoint.x,
+    y: taskGroundPoint.y - tile.height * unitSprite.groundOffset,
   };
 }
 
@@ -4760,13 +5050,45 @@ function shouldMirrorUnitDirection(direction) {
   return direction === "east" || direction === "northEast" || direction === "southEast";
 }
 
-function shouldMirrorUnitImage(imagePath, direction) {
-  if (unitSprite.fishingFrames.includes(imagePath)) {
-    return direction === "west" || direction === "northWest" || direction === "southWest";
+function getTargetBasedWorkTaskGroundPoint(currentUnit) {
+  const task = currentUnit?.task;
+
+  if (!task || !isWorkingTask(task) || task.type === "perform") {
+    return null;
   }
 
-  if (unitSprite.northFishingFrames.includes(imagePath)) {
-    return false;
+  const baseScreen = isoToScreen(currentUnit.x, currentUnit.y);
+  const direction = getRawUnitTaskDirection(currentUnit);
+  const halfW = tile.width / 2;
+  const halfH = tile.height / 2;
+
+  switch (direction) {
+    case "north":
+      return { x: baseScreen.x, y: baseScreen.y };
+    case "east":
+      return { x: baseScreen.x + halfW, y: baseScreen.y + halfH };
+    case "south":
+      return { x: baseScreen.x, y: baseScreen.y + tile.height };
+    case "west":
+      return { x: baseScreen.x - halfW, y: baseScreen.y + halfH };
+    case "northEast":
+      return { x: baseScreen.x + halfW / 2, y: baseScreen.y + halfH / 2 };
+    case "southEast":
+      return { x: baseScreen.x + halfW / 2, y: baseScreen.y + halfH * 1.5 };
+    case "southWest":
+      return { x: baseScreen.x - halfW / 2, y: baseScreen.y + halfH * 1.5 };
+    case "northWest":
+      return { x: baseScreen.x - halfW / 2, y: baseScreen.y + halfH / 2 };
+    default:
+      return null;
+  }
+}
+
+function shouldMirrorUnitImage(imagePath, direction, currentUnit = null) {
+  const fishingConfig = getFishingTaskDirectionConfig(currentUnit);
+
+  if (fishingConfig && getFrameSetPaths(fishingConfig.frameSet).includes(imagePath)) {
+    return Boolean(fishingConfig.mirror);
   }
 
   return shouldMirrorUnitDirection(direction);
@@ -4975,7 +5297,7 @@ function drawMovingUnit(now = performance.now()) {
 
   if (!screen) return;
 
-  drawUnitAtScreen(screen, ctx, imagePath, shouldMirrorUnitImage(imagePath, direction), !movingUnit.selected);
+  drawUnitAtScreen(screen, ctx, imagePath, shouldMirrorUnitImage(imagePath, direction, movingUnit), !movingUnit.selected);
 }
 
 function drawSelectedStationaryUnit(now = performance.now()) {
@@ -4997,7 +5319,7 @@ function drawSelectedStationaryUnit(now = performance.now()) {
     screen,
     ctx,
     imagePath,
-    shouldMirrorUnitImage(imagePath, direction),
+    shouldMirrorUnitImage(imagePath, direction, selectedUnit),
     false,
   );
 }
@@ -5017,7 +5339,7 @@ function drawStationaryUnits(drawContext = ctx, frameIndex = 0) {
       screen,
       drawContext,
       imagePath,
-      shouldMirrorUnitImage(imagePath, direction),
+      shouldMirrorUnitImage(imagePath, direction, stationaryUnit),
       !stationaryUnit.selected,
     );
   }
@@ -5056,18 +5378,33 @@ function isFishingTask(currentUnit) {
     return false;
   }
 
-  const targetCell = getCell(currentUnit.task.toX, currentUnit.task.toY);
+  const targetCell = getUnitTaskTargetCell(currentUnit);
   return targetCell?.foodType === "fish";
 }
 
 function getFishingTaskFrames(currentUnit) {
-  const direction = getUnitTaskDirection(currentUnit);
+  const fishingConfig = getFishingTaskDirectionConfig(currentUnit);
+  const frames = getFrameSetPaths(fishingConfig?.frameSet);
+  return frames.length > 0 ? frames : unitSprite.workFrames;
+}
 
-  if (direction === "north" && unitSprite.northFishingFrames.length > 0) {
-    return unitSprite.northFishingFrames;
+function getLandFoodTaskFrames() {
+  return unitSprite.landFoodFrames.length > 0 ? unitSprite.landFoodFrames : unitSprite.workFrames;
+}
+
+function getMaterialGatherTaskFrames(currentUnit) {
+  const targetCell = getUnitTaskTargetCell(currentUnit);
+  const materialType = getCellMaterialResourceType(targetCell);
+
+  if (materialType === "lumber" && unitSprite.lumberFrames.length > 0) {
+    return unitSprite.lumberFrames;
   }
 
-  return unitSprite.fishingFrames;
+  if (materialType === "stone" && unitSprite.stoneFrames.length > 0) {
+    return unitSprite.stoneFrames;
+  }
+
+  return unitSprite.workFrames;
 }
 
 function getAnimatedTaskUnitImage(currentUnit, frameIndex = 0) {
@@ -5077,6 +5414,10 @@ function getAnimatedTaskUnitImage(currentUnit, frameIndex = 0) {
     frames = unitSprite.playFrames;
   } else if (isFishingTask(currentUnit)) {
     frames = getFishingTaskFrames(currentUnit);
+  } else if (currentUnit?.task?.type === "gatherFood") {
+    frames = getLandFoodTaskFrames();
+  } else if (currentUnit?.task?.type === "gatherMaterials") {
+    frames = getMaterialGatherTaskFrames(currentUnit);
   }
 
   if (frames.length === 0) {
@@ -5140,26 +5481,6 @@ function getMovingUnitImage(currentUnit = unit, direction = "west", now = perfor
 }
 
 function getUnitSpriteRenderSpec(imagePath) {
-  if (unitSprite.northFishingFrames.includes(imagePath)) {
-    return {
-      width: unitSprite.northFishingWidth,
-      height: unitSprite.northFishingHeight,
-      anchorX: unitSprite.northFishingAnchorX,
-      anchorY: unitSprite.northFishingAnchorY,
-      groundOffset: unitSprite.northFishingGroundOffset,
-    };
-  }
-
-  if (unitSprite.fishingFrames.includes(imagePath)) {
-    return {
-      width: unitSprite.fishingWidth,
-      height: unitSprite.fishingHeight,
-      anchorX: unitSprite.fishingAnchorX,
-      anchorY: unitSprite.fishingAnchorY,
-      groundOffset: unitSprite.groundOffset,
-    };
-  }
-
   return {
     width: unitSprite.width,
     height: unitSprite.height,
@@ -5367,7 +5688,7 @@ function drawDiamondPath(cx, cy, lift = 0) {
   ctx.closePath();
 }
 
-function drawTile(cell) {
+function drawTileTerrain(cell) {
   if (!isCellVisibleToPlayer(cell)) {
     return;
   }
@@ -5378,6 +5699,16 @@ function drawTile(cell) {
 
   drawTileBase(cell, screen, lift, spec);
   drawTerrainTransitions(cell, screen, lift);
+}
+
+function drawTileOverlays(cell) {
+  if (!isCellVisibleToPlayer(cell)) {
+    return;
+  }
+
+  const screen = isoToScreen(cell.x, cell.y);
+  const lift = 0;
+
   drawCellResourceOverlay(cell, screen, lift);
   drawFogBorders(cell, screen, lift);
   recordTileHitArea(cell, screen, lift);
@@ -5445,6 +5776,496 @@ function drawTileBase(cell, screen, lift, spec) {
   }
 
   drawProceduralTile(cell, screen, lift, spec);
+}
+
+function getTileTopCenter(screen, lift = 0) {
+  return {
+    x: screen.x,
+    y: screen.y + tile.height / 2 - lift,
+  };
+}
+
+function getPathCurveMiddleControlPoint(fromPoint, toPoint, direction) {
+  const midX = (fromPoint.x + toPoint.x) / 2;
+  const midY = (fromPoint.y + toPoint.y) / 2;
+  const bend = tile.width * 0.25;
+
+  switch (direction) {
+    case "east":
+      return { x: midX, y: midY - bend * 0.5 };
+    case "south":
+      return { x: midX + bend * 0.55, y: midY };
+    case "southEast":
+      return { x: midX + bend * 0.65, y: midY - bend * 0.3 };
+    case "southWest":
+      return { x: midX - bend * 0.65, y: midY - bend * 0.3 };
+    default:
+      return { x: midX, y: midY };
+  }
+}
+
+function drawPathNode(point, pathState) {
+  const isFull = pathState === "full";
+
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, Math.max(3.4, tile.width * 0.06), 0, Math.PI * 2);
+  ctx.fillStyle = isFull ? "rgba(12, 11, 10, 0.92)" : "rgba(12, 11, 10, 0.22)";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, Math.max(1.8, tile.width * 0.04), 0, Math.PI * 2);
+  ctx.fillStyle = isFull ? "rgba(254, 232, 111, 1)" : "rgba(151, 124, 82, 0.28)";
+  ctx.fill();
+}
+
+function drawPathIntersectionCap(point, pathState) {
+  const isFull = pathState === "full";
+
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, Math.max(1.3, tile.width * 0.055), 0, Math.PI * 2);
+  ctx.fillStyle = isFull ? "rgba(254, 232, 111, 1)" : "rgba(151, 124, 82, 0.28)";
+  ctx.fill();
+}
+
+function getStrongerPathState(firstState, secondState) {
+  if (firstState === "full" || secondState === "full") {
+    return "full";
+  }
+
+  if (firstState === "preview" || secondState === "preview") {
+    return "preview";
+  }
+
+  return null;
+}
+
+function getVisiblePathStateBetween(fromCell, toCell) {
+  if (!fromCell || !toCell || !isCellVisibleToPlayer(fromCell) || !isCellVisibleToPlayer(toCell)) {
+    return null;
+  }
+
+  return getPathStateBetween(fromCell, toCell);
+}
+
+function getPathCrossingDescriptorsAtCorner(cell, cornerDirection) {
+  switch (cornerDirection) {
+    case "north":
+      return {
+        vertical: {
+          fromCell: getCornerNeighbor(cell, "north"),
+          toCell: cell,
+          direction: "south",
+        },
+        horizontal: {
+          fromCell: getEdgeNeighbor(cell, "northWest"),
+          toCell: getEdgeNeighbor(cell, "northEast"),
+          direction: "east",
+        },
+      };
+    case "east":
+      return {
+        vertical: {
+          fromCell: getEdgeNeighbor(cell, "northEast"),
+          toCell: getEdgeNeighbor(cell, "southEast"),
+          direction: "south",
+        },
+        horizontal: {
+          fromCell: cell,
+          toCell: getCornerNeighbor(cell, "east"),
+          direction: "east",
+        },
+      };
+    case "south":
+      return {
+        vertical: {
+          fromCell: cell,
+          toCell: getCornerNeighbor(cell, "south"),
+          direction: "south",
+        },
+        horizontal: {
+          fromCell: getEdgeNeighbor(cell, "southWest"),
+          toCell: getEdgeNeighbor(cell, "southEast"),
+          direction: "east",
+        },
+      };
+    case "west":
+      return {
+        vertical: {
+          fromCell: getEdgeNeighbor(cell, "northWest"),
+          toCell: getEdgeNeighbor(cell, "southWest"),
+          direction: "south",
+        },
+        horizontal: {
+          fromCell: getCornerNeighbor(cell, "west"),
+          toCell: cell,
+          direction: "east",
+        },
+      };
+    default:
+      return null;
+  }
+}
+
+function getPathDescriptorState(descriptor) {
+  if (!descriptor) {
+    return null;
+  }
+
+  return getVisiblePathStateBetween(descriptor.fromCell, descriptor.toCell);
+}
+
+function getPathDescriptorPoints(descriptor) {
+  if (!descriptor?.fromCell || !descriptor?.toCell) {
+    return null;
+  }
+
+  return getQuarticBezierPathPoints(
+    getTileTopCenter(isoToScreen(descriptor.fromCell.x, descriptor.fromCell.y)),
+    getTileTopCenter(isoToScreen(descriptor.toCell.x, descriptor.toCell.y)),
+    descriptor.direction,
+  );
+}
+
+function getSegmentIntersectionPoint(aStart, aEnd, bStart, bEnd) {
+  const r = {
+    x: aEnd.x - aStart.x,
+    y: aEnd.y - aStart.y,
+  };
+  const s = {
+    x: bEnd.x - bStart.x,
+    y: bEnd.y - bStart.y,
+  };
+  const denominator = r.x * s.y - r.y * s.x;
+
+  if (Math.abs(denominator) < 0.0001) {
+    return null;
+  }
+
+  const startDelta = {
+    x: bStart.x - aStart.x,
+    y: bStart.y - aStart.y,
+  };
+  const u = (startDelta.x * r.y - startDelta.y * r.x) / denominator;
+  const t = (startDelta.x * s.y - startDelta.y * s.x) / denominator;
+
+  if (t < 0 || t > 1 || u < 0 || u > 1) {
+    return null;
+  }
+
+  return {
+    x: aStart.x + t * r.x,
+    y: aStart.y + t * r.y,
+  };
+}
+
+function findPolylineIntersectionPoint(firstPoints, secondPoints) {
+  if (!Array.isArray(firstPoints) || !Array.isArray(secondPoints)) {
+    return null;
+  }
+
+  for (let firstIndex = 0; firstIndex < firstPoints.length - 1; firstIndex += 1) {
+    for (let secondIndex = 0; secondIndex < secondPoints.length - 1; secondIndex += 1) {
+      const intersection = getSegmentIntersectionPoint(
+        firstPoints[firstIndex],
+        firstPoints[firstIndex + 1],
+        secondPoints[secondIndex],
+        secondPoints[secondIndex + 1],
+      );
+
+      if (intersection) {
+        return intersection;
+      }
+    }
+  }
+
+  return null;
+}
+
+function getPathCrossingAtCorner(cell, corner) {
+  const descriptors = getPathCrossingDescriptorsAtCorner(cell, corner.direction);
+
+  if (!descriptors) {
+    return null;
+  }
+
+  const verticalState = getPathDescriptorState(descriptors.vertical);
+  const horizontalState = getPathDescriptorState(descriptors.horizontal);
+
+  if (!verticalState || !horizontalState) {
+    return null;
+  }
+
+  return {
+    pathState: getStrongerPathState(verticalState, horizontalState),
+    point:
+      findPolylineIntersectionPoint(
+        getPathDescriptorPoints(descriptors.vertical),
+        getPathDescriptorPoints(descriptors.horizontal),
+      ) || corner.point,
+  };
+}
+
+function trimSegmentEndpoints(fromPoint, toPoint, trimDistance = 0) {
+  if (trimDistance <= 0) {
+    return { fromPoint, toPoint };
+  }
+
+  const segmentLength = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y);
+  const clampedTrim = Math.min(trimDistance, Math.max(0, segmentLength / 2 - 1));
+
+  if (clampedTrim <= 0) {
+    return { fromPoint, toPoint };
+  }
+
+  return {
+    fromPoint: pointOnSegment(fromPoint, toPoint, clampedTrim),
+    toPoint: pointOnSegment(toPoint, fromPoint, clampedTrim),
+  };
+}
+
+function getQuarticBezierPathPoints(fromPoint, toPoint, direction, trimDistance = 0) {
+  const trimmed = trimSegmentEndpoints(fromPoint, toPoint, trimDistance);
+  const start = trimmed.fromPoint;
+  const end = trimmed.toPoint;
+  const tangent = normalizeVector({
+    x: end.x - start.x,
+    y: end.y - start.y,
+  });
+  const segmentLength = Math.hypot(end.x - start.x, end.y - start.y);
+  const handleDistance = segmentLength * 0.24;
+  const controlPoint = getPathCurveMiddleControlPoint(start, end, direction);
+  const p1 = {
+    x: start.x + tangent.x * handleDistance,
+    y: start.y + tangent.y * handleDistance,
+  };
+  const p3 = {
+    x: end.x - tangent.x * handleDistance,
+    y: end.y - tangent.y * handleDistance,
+  };
+  const points = [];
+  const steps = Math.max(12, Math.round(segmentLength / Math.max(8, tile.width * 0.12)));
+
+  for (let index = 0; index <= steps; index += 1) {
+    const t = index / steps;
+    const inverse = 1 - t;
+    const weight0 = inverse ** 4;
+    const weight1 = 4 * inverse ** 3 * t;
+    const weight2 = 6 * inverse ** 2 * t ** 2;
+    const weight3 = 4 * inverse * t ** 3;
+    const weight4 = t ** 4;
+
+    points.push({
+      x:
+        weight0 * start.x +
+        weight1 * p1.x +
+        weight2 * controlPoint.x +
+        weight3 * p3.x +
+        weight4 * end.x,
+      y:
+        weight0 * start.y +
+        weight1 * p1.y +
+        weight2 * controlPoint.y +
+        weight3 * p3.y +
+        weight4 * end.y,
+    });
+  }
+
+  return points;
+}
+
+function strokePathSegment(fromPoint, toPoint, direction, style) {
+  const pathPoints = getQuarticBezierPathPoints(
+    fromPoint,
+    toPoint,
+    direction,
+    Number(style.trimDistance) || 0,
+  );
+
+  ctx.strokeStyle = style.strokeStyle;
+  ctx.lineWidth = style.lineWidth;
+  ctx.beginPath();
+  ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+
+  for (let index = 1; index < pathPoints.length; index += 1) {
+    ctx.lineTo(pathPoints[index].x, pathPoints[index].y);
+  }
+
+  ctx.stroke();
+}
+
+function shouldRenderPathDirectionFromCell(cell, direction) {
+  const neighbor = getNeighborByDirection(cell, direction);
+
+  if (direction === "southEast") {
+    return !(
+      (
+        getPathStateBetween(cell, getCornerNeighbor(cell, "south")) &&
+        getPathStateBetween(cell, getCornerNeighbor(cell, "east"))
+      ) ||
+      (
+        neighbor &&
+        getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "north")) &&
+        getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "west"))
+      )
+    );
+  }
+
+  if (direction === "southWest") {
+    return !(
+      (
+        getPathStateBetween(cell, getCornerNeighbor(cell, "south")) &&
+        getPathStateBetween(cell, getCornerNeighbor(cell, "west"))
+      ) ||
+      (
+        neighbor &&
+        getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "north")) &&
+        getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "east"))
+      )
+    );
+  }
+
+  return true;
+}
+
+function drawPaths() {
+  const renderedDirections = ["east", "south", "southEast", "southWest"];
+  const nodeStates = new Map();
+  const nodeTouchCounts = new Map();
+  const crossingCaps = new Map();
+
+  for (let y = 0; y < map.height; y += 1) {
+    for (let x = 0; x < map.width; x += 1) {
+      const cell = map.cells[y][x];
+
+      if (!isCellVisibleToPlayer(cell)) {
+        continue;
+      }
+
+      for (const direction of renderedDirections) {
+        if (!shouldRenderPathDirectionFromCell(cell, direction)) {
+          continue;
+        }
+
+        const neighbor = getNeighborByDirection(cell, direction);
+        const pathState = getPathStateBetween(cell, neighbor);
+
+        if (!neighbor || !pathState || !isCellVisibleToPlayer(neighbor)) {
+          continue;
+        }
+
+        for (const endpointCell of [cell, neighbor]) {
+          const nodeKey = createCellKey(endpointCell.x, endpointCell.y);
+          const currentNodeState = nodeStates.get(nodeKey) || null;
+          const currentTouchCount = nodeTouchCounts.get(nodeKey) || 0;
+
+          nodeTouchCounts.set(nodeKey, currentTouchCount + 1);
+
+          if (pathState === "full" || !currentNodeState) {
+            nodeStates.set(nodeKey, pathState);
+          }
+        }
+      }
+    }
+  }
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  for (let y = 0; y < map.height; y += 1) {
+    for (let x = 0; x < map.width; x += 1) {
+      const cell = map.cells[y][x];
+      const nodeState = nodeStates.get(createCellKey(cell.x, cell.y));
+      const touchCount = nodeTouchCounts.get(createCellKey(cell.x, cell.y)) || 0;
+
+      if (!nodeState || touchCount < 2 || !isCellVisibleToPlayer(cell)) {
+        continue;
+      }
+
+      drawPathNode(getTileTopCenter(isoToScreen(cell.x, cell.y)), nodeState);
+    }
+  }
+
+  for (let y = 0; y < map.height; y += 1) {
+    for (let x = 0; x < map.width; x += 1) {
+      const cell = map.cells[y][x];
+
+      if (!isCellVisibleToPlayer(cell)) {
+        continue;
+      }
+
+      const fromScreen = isoToScreen(cell.x, cell.y);
+      const fromPoint = getTileTopCenter(fromScreen);
+
+      for (const direction of renderedDirections) {
+        if (!shouldRenderPathDirectionFromCell(cell, direction)) {
+          continue;
+        }
+
+        const neighbor = getNeighborByDirection(cell, direction);
+        const pathState = getPathStateBetween(cell, neighbor);
+
+        if (!neighbor || !pathState || !isCellVisibleToPlayer(neighbor)) {
+          continue;
+        }
+
+        const toPoint = getTileTopCenter(isoToScreen(neighbor.x, neighbor.y));
+
+        if (pathState === "full") {
+          strokePathSegment(fromPoint, toPoint, direction, {
+            strokeStyle: "rgba(12, 11, 10, 0.92)",
+            lineWidth: Math.max(3.8, tile.width * 0.095),
+            trimDistance: tile.width * 0.06,
+          });
+          strokePathSegment(fromPoint, toPoint, direction, {
+            strokeStyle: "rgba(254, 232, 111, 1)",
+            lineWidth: Math.max(2.2, tile.width * 0.065),
+          });
+        } else {
+          strokePathSegment(fromPoint, toPoint, direction, {
+            strokeStyle: "rgba(151, 124, 82, 0.28)",
+            lineWidth: Math.max(1.5, tile.width * 0.045),
+          });
+        }
+      }
+    }
+  }
+
+  for (let y = 0; y < map.height; y += 1) {
+    for (let x = 0; x < map.width; x += 1) {
+      const cell = map.cells[y][x];
+
+      if (!isCellVisibleToPlayer(cell)) {
+        continue;
+      }
+
+      const screen = isoToScreen(cell.x, cell.y);
+
+      for (const corner of getTileCorners(screen, 0)) {
+        const crossing = getPathCrossingAtCorner(cell, corner);
+
+        if (!crossing) {
+          continue;
+        }
+
+        const capKey = `${corner.point.x.toFixed(2)},${corner.point.y.toFixed(2)}`;
+        const existingCap = crossingCaps.get(capKey) || null;
+
+        if (crossing.pathState === "full" || !existingCap) {
+          crossingCaps.set(capKey, {
+            point: crossing.point,
+            pathState: crossing.pathState,
+          });
+        }
+      }
+    }
+  }
+
+  for (const cap of crossingCaps.values()) {
+    drawPathIntersectionCap(cap.point, cap.pathState);
+  }
+
+  ctx.restore();
 }
 
 function drawBuildings() {
@@ -6055,7 +6876,15 @@ function renderStaticLayerToMain() {
 
   for (let y = 0; y < map.height; y += 1) {
     for (let x = 0; x < map.width; x += 1) {
-      drawTile(map.cells[y][x]);
+      drawTileTerrain(map.cells[y][x]);
+    }
+  }
+
+  drawPaths();
+
+  for (let y = 0; y < map.height; y += 1) {
+    for (let x = 0; x < map.width; x += 1) {
+      drawTileOverlays(map.cells[y][x]);
     }
   }
 
@@ -6497,6 +7326,19 @@ document.addEventListener("keydown", (event) => {
   }
 
   openMainMenu();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!canRenderAnimatedFrames()) {
+    clearAnimationSchedule();
+    return;
+  }
+
+  draw();
+
+  if (shouldAnimateWorkingUnits() || shouldAnimateSelectionMarker() || getMovingUnit()?.move) {
+    scheduleAnimation();
+  }
 });
 
 mainMenuOverlay.addEventListener("click", (event) => {
