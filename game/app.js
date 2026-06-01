@@ -2,8 +2,10 @@ const canvas = document.querySelector("#mapCanvas");
 const ctx = canvas.getContext("2d");
 const viewport = document.querySelector(".viewport");
 const appShell = document.querySelector(".app-shell");
+const topBarsContainer = document.querySelector(".top-bars");
 const mainMenuOverlay = document.querySelector("#mainMenuOverlay");
 const playInspector = document.querySelector("#playInspector");
+const bookOverlay = document.querySelector("#bookOverlay");
 const unitActionBar = document.querySelector("#unitActionBar");
 const gameActionMenu = document.querySelector("#gameActionMenu");
 const saveSlotOverlay = document.querySelector("#saveSlotOverlay");
@@ -14,7 +16,6 @@ const saveSlotList = document.querySelector("#saveSlotList");
 const saveSlotEmpty = document.querySelector("#saveSlotEmpty");
 const appTitleElements = [...document.querySelectorAll('[data-role="app-title"]')];
 const appSubtitleElements = [...document.querySelectorAll('[data-role="app-subtitle"]')];
-const inspectorTitleElements = [...document.querySelectorAll('[data-role="inspector-title"]')];
 const storesTitleElements = [...document.querySelectorAll('[data-role="stores-title"]')];
 const topBars = {
   menu: document.querySelector('[data-bar-mode="menu"]'),
@@ -46,22 +47,48 @@ const zoomOutButtons = [...document.querySelectorAll('[data-action="zoom-out"]')
 const zoomInButtons = [...document.querySelectorAll('[data-action="zoom-in"]')];
 const zoomLevelReadouts = [...document.querySelectorAll('[data-role="zoom-level"]')];
 const tileInspectorTitleElements = [...document.querySelectorAll('[data-role="tile-inspector-title"]')];
-const tileInspectorMainReadouts = [...document.querySelectorAll('[data-role="tile-inspector-main"]')];
-const tileInspectorCoordsReadouts = [...document.querySelectorAll('[data-role="tile-inspector-coords"]')];
-const unitSummaryReadouts = [...document.querySelectorAll('[data-role="unit-summary-readout"]')];
-const unitTaskReadouts = [...document.querySelectorAll('[data-role="unit-task-readout"]')];
-const unitCoordsReadouts = [...document.querySelectorAll('[data-role="unit-coords-readout"]')];
+const tileInfoPrimaryItems = [...document.querySelectorAll('[data-role="tile-info-primary"]')];
+const tileInfoPrimaryCanvases = [...document.querySelectorAll('[data-role="tile-info-primary-canvas"]')];
+const tileInfoPrimaryCaptions = [...document.querySelectorAll('[data-role="tile-info-primary-caption"]')];
+const tileInfoSecondaryItems = [...document.querySelectorAll('[data-role="tile-info-secondary"]')];
+const tileInfoSecondaryCanvases = [...document.querySelectorAll('[data-role="tile-info-secondary-canvas"]')];
+const tileInfoSecondaryCaptions = [...document.querySelectorAll('[data-role="tile-info-secondary-caption"]')];
+const unitTitleReadouts = [...document.querySelectorAll('[data-role="unit-title"]')];
+const unitActionSpriteImages = [...document.querySelectorAll('[data-role="unit-action-sprite"]')];
+const unitActionProgressReadouts = [...document.querySelectorAll('[data-role="unit-action-progress"]')];
 const unitTaskRows = [...document.querySelectorAll('[data-role="unit-task-row"]')];
 const turnReadouts = [...document.querySelectorAll('[data-role="turn-readout"]')];
-const stockpileReadouts = [...document.querySelectorAll('[data-role="stockpile-readout"]')];
+const situationMessageDisplays = [...document.querySelectorAll('[data-role="situation-message-display"]')];
+const situationMessageBubbleElements = [...document.querySelectorAll('[data-role="situation-message-bubble"]')];
+const situationSpeakerHeadElements = [...document.querySelectorAll('[data-role="situation-speaker-head"]')];
+const situationMessageTextElements = [...document.querySelectorAll('[data-role="situation-message-text"]')];
+const situationMessageToggleLabelElements = [...document.querySelectorAll('[data-role="situation-message-toggle-label"]')];
+const resourceStoneCanvases = [...document.querySelectorAll('[data-role="resource-stone-canvas"]')];
+const resourceStoneCaptions = [...document.querySelectorAll('[data-role="resource-stone-caption"]')];
+const resourceLumberCanvases = [...document.querySelectorAll('[data-role="resource-lumber-canvas"]')];
+const resourceLumberCaptions = [...document.querySelectorAll('[data-role="resource-lumber-caption"]')];
+const resourceFoodCanvases = [...document.querySelectorAll('[data-role="resource-food-canvas"]')];
+const resourceFoodCaptions = [...document.querySelectorAll('[data-role="resource-food-caption"]')];
 const fileReadouts = [...document.querySelectorAll('[data-role="file-readout"]')];
 const nextTurnButtons = [...document.querySelectorAll('[data-action="next-turn"]')];
+const nextUnitButtons = [...document.querySelectorAll('[data-action="select-next-unit"]')];
 const autoPassInputs = [...document.querySelectorAll('[data-action="auto-pass"]')];
+const musicEnabledInputs = [...document.querySelectorAll('[data-action="music-enabled"]')];
+const musicVolumeInputs = [...document.querySelectorAll('[data-action="music-volume"]')];
 const cancelUnitTaskButtons = [...document.querySelectorAll('[data-action="cancel-unit-task"]')];
+const openBookOverlayButtons = [...document.querySelectorAll('[data-action="open-book-overlay"]')];
+const closeBookOverlayButtons = [...document.querySelectorAll('[data-action="close-book-overlay"]')];
+const toggleSituationMessageButtons = [...document.querySelectorAll('[data-action="toggle-situation-message"]')];
+const previousSituationMessageButtons = [...document.querySelectorAll('[data-action="previous-situation-message"]')];
+const nextSituationMessageButtons = [...document.querySelectorAll('[data-action="next-situation-message"]')];
 const unitActionButtons = [...document.querySelectorAll('[data-action="select-unit-action"]')];
 const autoPassLabels = [...document.querySelectorAll('[data-role="auto-pass-label"]')];
+const musicToggleLabelElements = [...document.querySelectorAll('[data-role="music-toggle-label"]')];
+const musicVolumeLabelElements = [...document.querySelectorAll('[data-role="music-volume-label"]')];
 const slotNameLabels = [...document.querySelectorAll('[data-role="slot-name-label"]')];
 const slotListTitles = [...document.querySelectorAll('[data-role="slot-list-title"]')];
+const languageSelectorGroups = [...document.querySelectorAll('[data-role="language-selector"]')];
+const languageOptionButtons = [...document.querySelectorAll('[data-action="set-language"]')];
 const mainMenuItems = {
   watchIntro: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="watch-intro"]'),
   startNewGame: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="start-new-game"]'),
@@ -74,11 +101,14 @@ const staticLayerCanvas = document.createElement("canvas");
 const staticLayerCtx = staticLayerCanvas.getContext("2d");
 const staticUnitsLayerCanvases = [document.createElement("canvas"), document.createElement("canvas")];
 const staticUnitsLayerContexts = staticUnitsLayerCanvases.map((layerCanvas) => layerCanvas.getContext("2d"));
+const backgroundMusic = new Audio("assets/audio/music.mp3");
 
 const rules = window.APP_RULES;
 const localization = window.APP_LOCALIZATION;
-const currentLanguage = localization?.defaultLanguage || "en";
-const strings = localization?.languages?.[currentLanguage];
+const languageStorageKey = "schtroumpfilization:language:v1";
+const availableLanguages = localization?.languages || {};
+const currentLanguage = loadCurrentLanguage();
+const strings = availableLanguages[currentLanguage];
 
 if (!rules) {
   throw new Error("Missing game rules.");
@@ -104,7 +134,6 @@ const interactionModes = {
   play: "play",
 };
 const unitActions = {
-  wait: "wait",
   walk: "walk",
   play: "play",
   gatherFood: "gatherFood",
@@ -382,29 +411,63 @@ let selectedUnitAction = unitActions.walk;
 let inspectedPlayCell = null;
 let stockpile = { stone: 0, lumber: 0, food: 0 };
 let foodShortageTurns = 0;
+let situationMessages = [];
+let situationMessageVisible = false;
+let situationMessageViewIndex = -1;
+let situationMessageTypingTimeoutId = 0;
+let situationMessageTypingToken = 0;
+let bookOverlayTriggerButton = null;
 let activeGameMenuButton = null;
 let slotPanelState = null;
 const tileImages = {};
 const buildingImages = {};
 const shoreOverlayImages = {};
 const resourceOverlayImages = {};
+const resourceIconImages = {};
 const unitImages = {};
-const saveVersion = 8;
+const saveVersion = 9;
 const storageKeys = {
   filePrefix: "schtroumpfilization:save-file:v1:",
   currentFile: {
     edit: "schtroumpfilization:current-file:edit:v1",
     play: "schtroumpfilization:current-file:play:v1",
   },
+  audioSettings: "schtroumpfilization:audio-settings:v1",
 };
 const currentFileNames = {
   edit: null,
   play: null,
 };
 const autosaveSlotName = "autosave";
+const situationMessageTypingDelayMs = 18;
+const julianTurnEpoch = {
+  year: 1468,
+  month: 5,
+  day: 31,
+};
 const workTurnDisplayDelayMs = 720;
 const animatedUiFrameIntervalMs = 1000 / 15;
 const moveAnimationFrameIntervalMs = 1000 / 60;
+const resourceUiIcons = {
+  stone: "assets/resources/stone_icon.png",
+  lumber: "assets/resources/lumber_icon.png",
+  food: "assets/resources/food_icon.png",
+};
+const defaultAudioSettings = {
+  musicEnabled: true,
+  volume: 0.55,
+};
+let audioSettings = loadAudioSettings();
+
+backgroundMusic.loop = true;
+backgroundMusic.preload = "auto";
+backgroundMusic.volume = audioSettings.volume;
+
+const julianTurnEpochJdn = getJulianDayNumber(
+  julianTurnEpoch.year,
+  julianTurnEpoch.month,
+  julianTurnEpoch.day,
+);
 
 function setTextContent(elements, text) {
   for (const element of elements) {
@@ -427,6 +490,361 @@ function setCheckedState(elements, checked) {
 function setAttributeForElements(elements, name, value) {
   for (const element of elements) {
     element.setAttribute(name, value);
+  }
+}
+
+function getJulianDayNumber(year, month, day) {
+  const a = Math.floor((14 - month) / 12);
+  const y = year + 4800 - a;
+  const m = month + 12 * a - 3;
+
+  return day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - 32083;
+}
+
+function getJulianCalendarDateFromDayNumber(dayNumber) {
+  const c = dayNumber + 32082;
+  const d = Math.floor((4 * c + 3) / 1461);
+  const e = c - Math.floor((1461 * d) / 4);
+  const m = Math.floor((5 * e + 2) / 153);
+
+  return {
+    day: e - Math.floor((153 * m + 2) / 5) + 1,
+    month: m + 3 - 12 * Math.floor(m / 10),
+    year: d - 4800 + Math.floor(m / 10),
+  };
+}
+
+function getJulianTurnDate(turnNumber) {
+  const elapsedDays = Math.max(0, clampInteger(turnNumber, 1, 999999, 1) - 1);
+  return getJulianCalendarDateFromDayNumber(julianTurnEpochJdn + elapsedDays);
+}
+
+function formatJulianTurnDate(turnNumber) {
+  const date = getJulianTurnDate(turnNumber);
+  const monthLabels = strings.calendar?.julianMonthsShort;
+  const monthLabel = Array.isArray(monthLabels) && monthLabels[date.month - 1]
+    ? monthLabels[date.month - 1]
+    : String(date.month);
+  return `${date.day} ${monthLabel} ${date.year}`;
+}
+
+function setValueForElements(elements, value) {
+  for (const element of elements) {
+    element.value = value;
+  }
+}
+
+function loadCurrentLanguage() {
+  const defaultLanguage = localization?.defaultLanguage || "en";
+
+  try {
+    const storedLanguage = window.localStorage.getItem(languageStorageKey);
+
+    if (storedLanguage && availableLanguages[storedLanguage]) {
+      return storedLanguage;
+    }
+  } catch {
+    // Ignore language persistence failures.
+  }
+
+  if (availableLanguages[defaultLanguage]) {
+    return defaultLanguage;
+  }
+
+  return Object.keys(availableLanguages)[0] || "en";
+}
+
+function saveCurrentLanguage(language) {
+  if (!availableLanguages[language]) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(languageStorageKey, language);
+  } catch {
+    // Ignore language persistence failures.
+  }
+}
+
+function getNextSituationMessageId() {
+  return situationMessages.reduce(
+    (maxId, entry) => Math.max(maxId, clampInteger(entry?.id, 0, 999999999, 0)),
+    0,
+  ) + 1;
+}
+
+function createSituationMessageEntry(kind, data = {}, turn = currentTurn, id = getNextSituationMessageId()) {
+  const normalizedTurn = Math.max(1, clampInteger(turn, 1, 999999, 1));
+  const entry = {
+    id: Math.max(1, clampInteger(id, 1, 999999999, 1)),
+    kind,
+    turn: normalizedTurn,
+  };
+
+  if (typeof data.unitName === "string" && data.unitName.trim()) {
+    entry.unitName = normalizeUnitName(data.unitName);
+  }
+
+  if (Number.isFinite(data.current)) {
+    entry.current = Math.max(0, clampInteger(data.current, 0, 999999, 0));
+  }
+
+  if (Number.isFinite(data.threshold)) {
+    entry.threshold = Math.max(0, clampInteger(data.threshold, 0, 999999, 0));
+  }
+
+  return entry;
+}
+
+function getSituationMessageText(entry) {
+  if (!entry) {
+    return "";
+  }
+
+  const template = strings.situationMessages || {};
+
+  if (entry.kind === "intro") {
+    return template.intro || "";
+  }
+
+  if (entry.kind === "houseStarted") {
+    return template.houseStarted || "";
+  }
+
+  if (entry.kind === "houseCompleted") {
+    return typeof template.houseCompleted === "function"
+      ? template.houseCompleted(entry.unitName || getDefaultUnitName())
+      : "";
+  }
+
+  if (entry.kind === "foodShortage") {
+    return typeof template.foodShortage === "function"
+      ? template.foodShortage(
+          Math.max(0, clampInteger(entry.current, 0, 999999, 0)),
+          Math.max(0, clampInteger(entry.threshold, 0, 999999, 0)),
+        )
+      : "";
+  }
+
+  if (entry.kind === "foodRecovered") {
+    return template.foodRecovered || "";
+  }
+
+  if (entry.kind === "unitLeft") {
+    return typeof template.unitLeft === "function"
+      ? template.unitLeft(entry.unitName || getDefaultUnitName())
+      : "";
+  }
+
+  return "";
+}
+
+function clearSituationMessageTyping() {
+  if (situationMessageTypingTimeoutId) {
+    window.clearTimeout(situationMessageTypingTimeoutId);
+    situationMessageTypingTimeoutId = 0;
+  }
+
+  situationMessageTypingToken += 1;
+}
+
+function getViewedSituationMessage() {
+  if (situationMessageViewIndex < 0 || situationMessageViewIndex >= situationMessages.length) {
+    return null;
+  }
+
+  return situationMessages[situationMessageViewIndex] || null;
+}
+
+function setSituationMessageVisibility(visible) {
+  situationMessageVisible = visible && situationMessages.length > 0;
+}
+
+function setSituationMessageText(text) {
+  setTextContent(situationMessageTextElements, text);
+}
+
+function updateSituationMessageToggleButton() {
+  const hasMessages = situationMessages.length > 0;
+  const isVisible = situationMessageVisible && Boolean(getViewedSituationMessage());
+  const label = isVisible ? strings.actions.hideMessage : strings.actions.showLastMessage;
+  const iconText = "👁";
+  const mode = isVisible ? "hide" : "show";
+
+  setDisabledState(toggleSituationMessageButtons, !hasMessages);
+  setTextContent(situationMessageToggleLabelElements, iconText);
+  setAttributeForElements(situationMessageToggleLabelElements, "data-mode", mode);
+  setAttributeForElements(toggleSituationMessageButtons, "aria-label", label);
+  setAttributeForElements(toggleSituationMessageButtons, "title", label);
+}
+
+function updateSituationMessageControls() {
+  const hasMessages = situationMessages.length > 0;
+  const canGoBack = hasMessages && situationMessageViewIndex > 0;
+  const canGoForward = hasMessages && situationMessageViewIndex >= 0 && situationMessageViewIndex < situationMessages.length - 1;
+
+  updateSituationMessageToggleButton();
+  setDisabledState(previousSituationMessageButtons, !canGoBack);
+  setDisabledState(nextSituationMessageButtons, !canGoForward);
+}
+
+function updateSituationMessagePanel({ restartTyping = false } = {}) {
+  const viewedMessage = getViewedSituationMessage();
+  const shouldShowMessage = situationMessageVisible && Boolean(viewedMessage);
+
+  for (const display of situationMessageDisplays) {
+    display.hidden = false;
+  }
+
+  for (const bubble of situationMessageBubbleElements) {
+    bubble.hidden = !shouldShowMessage;
+  }
+
+  for (const head of situationSpeakerHeadElements) {
+    head.hidden = !shouldShowMessage;
+  }
+
+  if (!shouldShowMessage) {
+    clearSituationMessageTyping();
+    setSituationMessageText("");
+    updateSituationMessageControls();
+    return;
+  }
+
+  const fullText = getSituationMessageText(viewedMessage);
+
+  if (!restartTyping) {
+    setSituationMessageText(fullText);
+    updateSituationMessageControls();
+    return;
+  }
+
+  clearSituationMessageTyping();
+  setSituationMessageText("");
+
+  const token = situationMessageTypingToken;
+  let nextLength = 0;
+
+  const typeNextCharacter = () => {
+    if (token !== situationMessageTypingToken) {
+      return;
+    }
+
+    nextLength += 1;
+    setSituationMessageText(fullText.slice(0, nextLength));
+
+    if (nextLength >= fullText.length) {
+      situationMessageTypingTimeoutId = 0;
+      updateSituationMessageControls();
+      return;
+    }
+
+    situationMessageTypingTimeoutId = window.setTimeout(typeNextCharacter, situationMessageTypingDelayMs);
+  };
+
+  if (!fullText) {
+    updateSituationMessageControls();
+    return;
+  }
+
+  situationMessageTypingTimeoutId = window.setTimeout(typeNextCharacter, situationMessageTypingDelayMs);
+  updateSituationMessageControls();
+}
+
+function showSituationMessageAtIndex(index, { restartTyping = true } = {}) {
+  if (situationMessages.length === 0) {
+    situationMessageViewIndex = -1;
+    setSituationMessageVisibility(false);
+    updateSituationMessagePanel();
+    return false;
+  }
+
+  situationMessageViewIndex = clampInteger(index, 0, situationMessages.length - 1, situationMessages.length - 1);
+  setSituationMessageVisibility(true);
+  updateSituationMessagePanel({ restartTyping });
+  return true;
+}
+
+function revealLatestSituationMessage({ restartTyping = true } = {}) {
+  if (situationMessages.length === 0) {
+    return false;
+  }
+
+  return showSituationMessageAtIndex(situationMessages.length - 1, { restartTyping });
+}
+
+function hideSituationMessage() {
+  if (!situationMessageVisible) {
+    return false;
+  }
+
+  setSituationMessageVisibility(false);
+  updateSituationMessagePanel();
+  return true;
+}
+
+function addSituationMessage(kind, data = {}, { reveal = true } = {}) {
+  const entry = createSituationMessageEntry(kind, data);
+
+  situationMessages.push(entry);
+
+  if (reveal) {
+    revealLatestSituationMessage({ restartTyping: true });
+  } else {
+    updateSituationMessageControls();
+  }
+
+  return entry;
+}
+
+function loadAudioSettings() {
+  try {
+    const raw = window.localStorage.getItem(storageKeys.audioSettings);
+
+    if (!raw) {
+      return { ...defaultAudioSettings };
+    }
+
+    const parsed = JSON.parse(raw);
+
+    return {
+      musicEnabled: parsed?.musicEnabled !== false,
+      volume: clampNumber(Number(parsed?.volume), 0, 1, defaultAudioSettings.volume),
+    };
+  } catch {
+    return { ...defaultAudioSettings };
+  }
+}
+
+function saveAudioSettings() {
+  try {
+    window.localStorage.setItem(storageKeys.audioSettings, JSON.stringify(audioSettings));
+  } catch {
+    // Ignore settings persistence failures.
+  }
+}
+
+function updateAudioControls() {
+  setCheckedState(musicEnabledInputs, audioSettings.musicEnabled);
+  setValueForElements(musicVolumeInputs, String(Math.round(audioSettings.volume * 100)));
+}
+
+function shouldPlayBackgroundMusic() {
+  return isPlayMode() && !mainMenuOpen && audioSettings.musicEnabled;
+}
+
+async function syncBackgroundMusicPlayback() {
+  backgroundMusic.volume = audioSettings.volume;
+
+  if (!shouldPlayBackgroundMusic()) {
+    backgroundMusic.pause();
+    return;
+  }
+
+  try {
+    await backgroundMusic.play();
+  } catch {
+    // Ignore autoplay restrictions; the next user gesture will retry.
   }
 }
 
@@ -476,10 +894,6 @@ function isCellTargetUnitAction(action) {
 }
 
 function getUnitActionLabel(action) {
-  if (action === unitActions.wait) {
-    return strings.actions.wait;
-  }
-
   if (action === unitActions.play) {
     return strings.actions.play;
   }
@@ -515,8 +929,7 @@ function applyStaticText() {
   unitActionBar?.setAttribute("aria-label", strings.aria.unitActions);
   setTextContent(appTitleElements, strings.app.title);
   setTextContent(storesTitleElements, strings.play.storesTitle);
-  setTextContent(inspectorTitleElements, strings.play.inspectorTitle);
-  setTextContent(tileInspectorTitleElements, strings.play.tileInspectorTitle);
+  setTextContent(tileInspectorTitleElements, "");
   setTextContent(gameMenuToggleButtons, strings.actions.menu);
   setTextContent(newRandomMapButtons, strings.actions.newRandomMap);
   setTextContent(newEmptyMapButtons, strings.actions.newEmptyMap);
@@ -526,7 +939,8 @@ function applyStaticText() {
   setTextContent(openMainMenuButtons, strings.actions.mainMenu);
   setTextContent(nextTurnButtons, strings.actions.nextTurn);
   setTextContent(autoPassLabels, strings.toggles.autoPass);
-  setTextContent(cancelUnitTaskButtons, strings.actions.cancel);
+  setTextContent(musicToggleLabelElements, strings.audio.musicToggle);
+  setTextContent(musicVolumeLabelElements, strings.audio.volume);
   setTextContent(slotNameLabels, strings.saveSlots.slotName);
   setTextContent(slotListTitles, strings.saveSlots.existingSlots);
   setTextContent(confirmSlotPanelButtons, strings.actions.save);
@@ -543,9 +957,26 @@ function applyStaticText() {
   setTextContent([mainMenuItems.edit], strings.menu.edit);
   setTextContent([mainMenuItems.importExport], strings.menu.importExport);
   setTextContent([variantMenuTitle], strings.menu.visual);
+  setAttributeForElements(languageSelectorGroups, "aria-label", strings.language.selectorLabel);
   setAttributeForElements(zoomControlGroups, "aria-label", strings.aria.zoomControls);
   setAttributeForElements(zoomOutButtons, "aria-label", strings.aria.zoomOut);
   setAttributeForElements(zoomInButtons, "aria-label", strings.aria.zoomIn);
+  setAttributeForElements(musicEnabledInputs, "aria-label", strings.aria.musicToggle);
+  setAttributeForElements(musicVolumeInputs, "aria-label", strings.aria.musicVolume);
+  setAttributeForElements(musicEnabledInputs, "title", strings.aria.musicToggle);
+  setAttributeForElements(musicVolumeInputs, "title", strings.aria.musicVolume);
+  setAttributeForElements(nextUnitButtons, "aria-label", strings.actions.nextUnit);
+  setAttributeForElements(nextUnitButtons, "title", strings.actions.nextUnit);
+  setAttributeForElements(cancelUnitTaskButtons, "aria-label", strings.actions.cancel);
+  setAttributeForElements(cancelUnitTaskButtons, "title", strings.actions.cancel);
+  setAttributeForElements(openBookOverlayButtons, "aria-label", strings.actions.openBook);
+  setAttributeForElements(openBookOverlayButtons, "title", strings.actions.openBook);
+  setAttributeForElements(closeBookOverlayButtons, "aria-label", strings.actions.closeBook);
+  setAttributeForElements(closeBookOverlayButtons, "title", strings.actions.closeBook);
+  setAttributeForElements(previousSituationMessageButtons, "aria-label", strings.actions.previousMessage);
+  setAttributeForElements(previousSituationMessageButtons, "title", strings.actions.previousMessage);
+  setAttributeForElements(nextSituationMessageButtons, "aria-label", strings.actions.nextMessage);
+  setAttributeForElements(nextSituationMessageButtons, "title", strings.actions.nextMessage);
 
   for (const button of unitActionButtons) {
     const action = normalizeUnitAction(button.dataset.unitAction);
@@ -554,6 +985,20 @@ function applyStaticText() {
     button.setAttribute("aria-label", label);
     button.title = label;
   }
+
+  for (const button of languageOptionButtons) {
+    const language = button.dataset.language;
+    const label = strings.language?.[language] || language || "";
+    const isSelected = language === currentLanguage;
+
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    button.setAttribute("aria-pressed", isSelected ? "true" : "false");
+    button.classList.toggle("is-selected", isSelected);
+  }
+
+  updateAudioControls();
+  updateSituationMessagePanel();
 }
 
 function sanitizeFileName(fileName) {
@@ -621,45 +1066,411 @@ function updateFileReadout() {
   );
 }
 
+function clearResourceCanvas(canvas) {
+  const context = canvas?.getContext?.("2d");
+
+  if (!context || !canvas) {
+    return null;
+  }
+
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  return context;
+}
+
+function drawResourceIconOnCanvas(canvas, imagePath) {
+  const context = clearResourceCanvas(canvas);
+  const image = resourceIconImages[imagePath];
+
+  if (!context || !image?.complete || image.naturalWidth <= 0) {
+    return;
+  }
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+}
+
+function drawShortageIndicatorOnCanvas(canvas, currentTurns, thresholdTurns) {
+  const context = clearResourceCanvas(canvas);
+
+  if (!context) {
+    return;
+  }
+
+  const normalizedCurrent = clampInteger(currentTurns, 0, thresholdTurns, 0);
+  const normalizedThreshold = Math.max(1, clampInteger(thresholdTurns, 1, 999999, 3));
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const radius = Math.min(canvas.width, canvas.height) * 0.33;
+  const sectorAngle = (Math.PI * 2) / normalizedThreshold;
+
+  context.save();
+  context.fillStyle = "rgba(48, 20, 24, 0.36)";
+  context.beginPath();
+  context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  context.fill();
+
+  for (let index = 0; index < normalizedThreshold; index += 1) {
+    const startAngle = -Math.PI / 2 + sectorAngle * index;
+    const endAngle = startAngle + sectorAngle;
+
+    context.beginPath();
+    context.moveTo(centerX, centerY);
+    context.arc(
+      centerX,
+      centerY,
+      radius,
+      startAngle,
+      endAngle,
+      false,
+    );
+    context.closePath();
+    context.fillStyle = index < normalizedCurrent
+      ? "rgba(188, 44, 54, 0.96)"
+      : "rgba(48, 20, 24, 0.18)";
+    context.fill();
+  }
+
+  context.strokeStyle = "rgba(71, 12, 16, 0.92)";
+  context.lineWidth = Math.max(2, canvas.width * 0.03);
+  context.beginPath();
+  context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  context.stroke();
+
+  context.lineWidth = Math.max(1.1, canvas.width * 0.02);
+  for (let index = 0; index < normalizedThreshold; index += 1) {
+    const angle = -Math.PI / 2 + sectorAngle * index;
+    context.beginPath();
+    context.moveTo(centerX, centerY);
+    context.lineTo(
+      centerX + Math.cos(angle) * radius,
+      centerY + Math.sin(angle) * radius,
+    );
+    context.stroke();
+  }
+  context.restore();
+}
+
 function updateStockpileReadout() {
   const capacity = getResourceStorageCapacity();
+  const stoneAmount = getCurrentStockpileAmount("stone");
+  const lumberAmount = getCurrentStockpileAmount("lumber");
+  const foodAmount = getCurrentStockpileAmount("food");
+  const shortageThreshold = getFoodShortageThreshold();
 
+  for (const canvas of resourceStoneCanvases) {
+    drawResourceIconOnCanvas(canvas, resourceUiIcons.stone);
+  }
+
+  for (const canvas of resourceLumberCanvases) {
+    drawResourceIconOnCanvas(canvas, resourceUiIcons.lumber);
+  }
+
+  if (foodShortageTurns > 0) {
+    for (const canvas of resourceFoodCanvases) {
+      drawShortageIndicatorOnCanvas(canvas, foodShortageTurns, shortageThreshold);
+    }
+  } else {
+    for (const canvas of resourceFoodCanvases) {
+      drawResourceIconOnCanvas(canvas, resourceUiIcons.food);
+    }
+  }
+
+  setTextContent(resourceStoneCaptions, `${stoneAmount}/${capacity}`);
+  setTextContent(resourceLumberCaptions, `${lumberAmount}/${capacity}`);
   setTextContent(
-    stockpileReadouts,
-    strings.readouts.stockpile(
-      getCurrentStockpileAmount("stone"),
-      getCurrentStockpileAmount("lumber"),
-      getCurrentStockpileAmount("food"),
-      capacity,
-      foodShortageTurns,
-      getFoodShortageThreshold(),
-    ),
+    resourceFoodCaptions,
+    foodShortageTurns > 0
+      ? `${foodShortageTurns}/${shortageThreshold}`
+      : `${foodAmount}/${capacity}`,
   );
 }
 
-function formatTileInspectionDetails(cell) {
+function getPathCompletionPercent(cell) {
+  return clampInteger(
+    Math.round((getCellVisitsCount(cell) / getPathWellKnownVisitsThreshold()) * 100),
+    0,
+    100,
+    0,
+  );
+}
+
+function getTileInspectorInfoEntries(cell) {
   if (!cell) {
-    return "";
+    return [];
   }
 
-  const details = [];
+  const entries = [];
+  const building = getBuildingAtCell(cell.x, cell.y);
   const materialType = getCellMaterialResourceType(cell);
+  const pathProgressEligible = cell.type === "grass" && getCellVisitsCount(cell) >= getPathPreviewVisitsThreshold();
+
+  if (building) {
+    const completeness = Math.round(getBuildingCompleteness(building) * 100);
+    entries.push({
+      kind: "building",
+      cell,
+      building,
+      label: completeness >= 100 ? "" : `${completeness}%`,
+    });
+  } else if (hasFoodResource(cell)) {
+    entries.push({
+      kind: "food",
+      cell,
+      label: `${Math.max(0, Math.floor(cell.foodAmount))}/${getFoodTypeMaxAmount(cell.foodType)}`,
+    });
+  }
 
   if (materialType) {
-    details.push(`${getResourceLabel(materialType)} ${Math.max(0, Math.floor(cell.materialAmount))}`);
+    entries.push({
+      kind: "material",
+      cell,
+      materialType,
+      label: `${Math.max(0, Math.floor(cell.materialAmount))}/${getMaterialAmountForTerrain(cell.type)}`,
+    });
+  } else if (pathProgressEligible) {
+    const completionPercent = getPathCompletionPercent(cell);
+    entries.push({
+      kind: "path",
+      cell,
+      label: completionPercent >= 100 ? "" : `${completionPercent}%`,
+    });
   }
 
-  if (hasFoodResource(cell)) {
-    details.push(
-      `${getResourceLabel(cell.foodType)} ${Math.max(0, Math.floor(cell.foodAmount))}/${getFoodTypeMaxAmount(cell.foodType)}`,
-    );
+  if (entries.length === 0 && (cell.type === "grass" || cell.type === "water")) {
+    entries.push({
+      kind: "tile",
+      cell,
+      label: "",
+    });
   }
 
-  if (cell.type === "grass") {
-    details.push(strings.readouts.visits(getCellVisitsCount(cell), getPathWellKnownVisitsThreshold()));
+  return entries.slice(0, 2);
+}
+
+function clearInspectorCanvas(canvas) {
+  const context = canvas?.getContext?.("2d");
+
+  if (!context || !canvas) {
+    return null;
   }
 
-  return details.join(" | ");
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  return context;
+}
+
+function drawInspectorTileBase(context, cell) {
+  if (!context || !cell) {
+    return;
+  }
+
+  const canvas = context.canvas;
+  const variantId = ensureCellVariant(cell);
+  const variant = getTerrainVariant(cell.type, variantId);
+  const image = variant ? tileImages[variant.image] : null;
+
+  if (image?.complete && image.naturalWidth > 0) {
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  const spec = terrain[cell.type];
+
+  if (!spec) {
+    return;
+  }
+
+  context.save();
+  context.beginPath();
+  context.moveTo(canvas.width / 2, 0);
+  context.lineTo(canvas.width, canvas.height * 0.39);
+  context.lineTo(canvas.width / 2, canvas.height * 0.79);
+  context.lineTo(0, canvas.height * 0.39);
+  context.closePath();
+  context.fillStyle = spec.top;
+  context.fill();
+  context.strokeStyle = spec.stroke;
+  context.lineWidth = 1;
+  context.stroke();
+
+  context.beginPath();
+  context.moveTo(0, canvas.height * 0.39);
+  context.lineTo(canvas.width / 2, canvas.height * 0.79);
+  context.lineTo(canvas.width, canvas.height * 0.39);
+  context.lineTo(canvas.width / 2, canvas.height);
+  context.closePath();
+  context.fillStyle = spec.side;
+  context.fill();
+  context.restore();
+}
+
+function drawInspectorFoodOverlay(context, cell) {
+  if (!context || !cell || !hasFoodResource(cell)) {
+    return;
+  }
+
+  const overlayImagePath = getFoodOverlayImagePath(cell.foodType);
+
+  if (!overlayImagePath) {
+    return;
+  }
+
+  const image = resourceOverlayImages[overlayImagePath];
+
+  if (!image?.complete || image.naturalWidth <= 0) {
+    return;
+  }
+
+  const renderSpec = getFoodOverlayRenderSpec(cell.foodType);
+  const drawWidth = baseTile.width * renderSpec.scale;
+  const drawHeight = baseTile.height * renderSpec.scale;
+  const baseY = baseTile.height * renderSpec.baseYFactor;
+
+  context.drawImage(
+    image,
+    baseTile.width / 2 - drawWidth / 2,
+    baseY - drawHeight,
+    drawWidth,
+    drawHeight,
+  );
+}
+
+function drawInspectorBuildingOverlay(context, building) {
+  if (!context || !building) {
+    return;
+  }
+
+  const visual = getBuildingVisual(building);
+  const image = visual?.image ? buildingImages[visual.image] : null;
+
+  if (!image?.complete || image.naturalWidth <= 0) {
+    return;
+  }
+
+  context.save();
+  context.globalAlpha = visual.alpha ?? 1;
+  context.drawImage(
+    image,
+    0,
+    -baseTile.height * 0.32 + baseTile.height * (visual.yOffsetFactor || 0),
+    baseTile.width,
+    baseTile.height + baseTile.edge,
+  );
+  context.restore();
+}
+
+function drawInspectorPathOverlay(context, isFull) {
+  if (!context) {
+    return;
+  }
+
+  const centerX = baseTile.width / 2;
+  const centerY = baseTile.height / 2;
+
+  context.save();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  if (isFull) {
+    context.strokeStyle = "rgba(12, 11, 10, 0.92)";
+    context.lineWidth = Math.max(3.2, baseTile.width * 0.08);
+    context.beginPath();
+    context.moveTo(18, centerY + 1);
+    context.quadraticCurveTo(centerX, centerY - 7, 70, centerY + 1);
+    context.stroke();
+
+    context.strokeStyle = "rgba(254, 232, 111, 1)";
+    context.lineWidth = Math.max(2, baseTile.width * 0.05);
+    context.beginPath();
+    context.moveTo(18, centerY + 1);
+    context.quadraticCurveTo(centerX, centerY - 7, 70, centerY + 1);
+    context.stroke();
+
+    context.beginPath();
+    context.arc(centerX, centerY - 1, Math.max(1.8, baseTile.width * 0.026), 0, Math.PI * 2);
+    context.fillStyle = "rgba(254, 232, 111, 1)";
+    context.fill();
+  } else {
+    context.strokeStyle = "rgba(151, 124, 82, 0.28)";
+    context.lineWidth = Math.max(1.4, baseTile.width * 0.04);
+    context.beginPath();
+    context.moveTo(18, centerY + 1);
+    context.quadraticCurveTo(centerX, centerY - 7, 70, centerY + 1);
+    context.stroke();
+
+    context.beginPath();
+    context.arc(centerX, centerY - 1, Math.max(1.5, baseTile.width * 0.022), 0, Math.PI * 2);
+    context.fillStyle = "rgba(151, 124, 82, 0.28)";
+    context.fill();
+  }
+
+  context.restore();
+}
+
+function renderTileInspectorInfoItem(canvas, entry) {
+  const context = clearInspectorCanvas(canvas);
+
+  if (!context || !entry?.cell) {
+    return;
+  }
+
+  const shouldDrawTileBase = !(
+    (entry.kind === "food" &&
+      entry.cell.foodType &&
+      entry.cell.foodType !== "fish") ||
+    entry.kind === "building"
+  );
+
+  if (shouldDrawTileBase) {
+    drawInspectorTileBase(context, entry.cell);
+  }
+
+  if (entry.kind === "food") {
+    drawInspectorFoodOverlay(context, entry.cell);
+    return;
+  }
+
+  if (entry.kind === "building") {
+    drawInspectorBuildingOverlay(context, entry.building);
+    return;
+  }
+
+  if (entry.kind === "path") {
+    drawInspectorPathOverlay(context, isWellKnownPathCell(entry.cell));
+  }
+}
+
+function setTileInspectorInfoSlot(slotIndex, entry = null) {
+  const itemCollections = [tileInfoPrimaryItems, tileInfoSecondaryItems];
+  const canvasCollections = [tileInfoPrimaryCanvases, tileInfoSecondaryCanvases];
+  const captionCollections = [tileInfoPrimaryCaptions, tileInfoSecondaryCaptions];
+  const items = itemCollections[slotIndex] || [];
+  const canvases = canvasCollections[slotIndex] || [];
+  const captions = captionCollections[slotIndex] || [];
+
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    const canvas = canvases[index];
+    const caption = captions[index];
+
+    item.hidden = !entry;
+
+    if (!entry) {
+      if (canvas) {
+        clearInspectorCanvas(canvas);
+      }
+
+      if (caption) {
+        caption.textContent = "";
+      }
+
+      continue;
+    }
+
+    renderTileInspectorInfoItem(canvas, entry);
+
+    if (caption) {
+      caption.textContent = entry.label || "";
+    }
+  }
 }
 
 function getInspectedPlayCell() {
@@ -684,20 +1495,16 @@ function updateTileInspectorReadout() {
   const inspectedCell = getInspectedPlayCell();
 
   if (!isPlayMode() || !inspectedCell) {
-    setTextContent(tileInspectorMainReadouts, strings.readouts.tileInspectNone);
-    setTextContent(tileInspectorCoordsReadouts, "");
+    setTextContent(tileInspectorTitleElements, "");
+    setTileInspectorInfoSlot(0, null);
+    setTileInspectorInfoSlot(1, null);
     return;
   }
 
-  setTextContent(
-    tileInspectorMainReadouts,
-    (() => {
-      const details = formatTileInspectionDetails(inspectedCell);
-      const terrainLabel = terrain[inspectedCell.type].label;
-      return details ? `${terrainLabel} | ${details}` : terrainLabel;
-    })(),
-  );
-  setTextContent(tileInspectorCoordsReadouts, strings.readouts.coords(inspectedCell.x, inspectedCell.y));
+  setTextContent(tileInspectorTitleElements, terrain[inspectedCell.type].label);
+  const entries = getTileInspectorInfoEntries(inspectedCell);
+  setTileInspectorInfoSlot(0, entries[0] || null);
+  setTileInspectorInfoSlot(1, entries[1] || null);
 }
 
 function getAppSubtitleText() {
@@ -723,8 +1530,9 @@ function getDefaultUnitStamina() {
 }
 
 function getDefaultUnitName() {
+  const localized = typeof strings.units?.defaultName === "string" ? strings.units.defaultName.trim() : "";
   const configured = typeof rules.units?.default?.name === "string" ? rules.units.default.name.trim() : "";
-  return configured || "Schtroumpf";
+  return localized || configured || "Schtroumpf";
 }
 
 function normalizeUnitName(name) {
@@ -1235,6 +2043,31 @@ function closeSaveSlotPanel({ restoreFocus = false } = {}) {
   slotPanelState = null;
 }
 
+function closeBookOverlay({ restoreFocus = false } = {}) {
+  if (bookOverlay) {
+    bookOverlay.hidden = true;
+  }
+
+  if (restoreFocus && bookOverlayTriggerButton) {
+    bookOverlayTriggerButton.focus({ preventScroll: true });
+  }
+
+  bookOverlayTriggerButton = null;
+}
+
+function openBookOverlayPanel(triggerButton = null) {
+  if (!bookOverlay || !isPlayMode() || mainMenuOpen) {
+    return;
+  }
+
+  closeGameActionMenu();
+  closeSaveSlotPanel();
+  hideTileMenu();
+  bookOverlayTriggerButton = triggerButton;
+  bookOverlay.hidden = false;
+  bookOverlay.querySelector('[data-action="close-book-overlay"]')?.focus({ preventScroll: true });
+}
+
 function renderSaveSlotList() {
   if (!saveSlotList || !saveSlotEmpty) return;
 
@@ -1459,6 +2292,27 @@ function serializeStockpileState() {
   };
 }
 
+function serializeSituationMessage(entry) {
+  if (!entry || typeof entry.kind !== "string") {
+    return null;
+  }
+
+  return createSituationMessageEntry(
+    entry.kind,
+    {
+      unitName: entry.unitName,
+      current: entry.current,
+      threshold: entry.threshold,
+    },
+    clampInteger(entry.turn, 1, 999999, currentTurn),
+    clampInteger(entry.id, 1, 999999999, 1),
+  );
+}
+
+function serializeSituationMessages(entries = situationMessages) {
+  return entries.map((entry) => serializeSituationMessage(entry)).filter(Boolean);
+}
+
 function serializeUnit(currentUnit) {
   if (!currentUnit) return null;
 
@@ -1513,6 +2367,7 @@ function serializeCurrentState() {
     buildings: serializeBuildings(),
     units: getUnits().map((currentUnit) => serializeUnit(currentUnit)).filter(Boolean),
     stockpile: serializeStockpileState(),
+    situationMessages: serializeSituationMessages(),
     foodShortageTurns: Math.max(0, clampInteger(foodShortageTurns, 0, 999999, 0)),
     turn: currentTurn,
     autoAdvanceTurns,
@@ -2068,6 +2923,7 @@ function createGeneratedState(mode, buildCells = buildGeneratedMapCells) {
     buildings: serializeBuildings(defaultBuildings, width, height),
     units,
     stockpile: createEmptyStockpile(),
+    situationMessages: [createSituationMessageEntry("intro", {}, 1, 1)],
     foodShortageTurns: 0,
     turn: 1,
     autoAdvanceTurns: true,
@@ -2283,6 +3139,35 @@ function preserveTask(task) {
   };
 }
 
+function normalizeSituationMessage(entry, index = 0) {
+  if (!entry || typeof entry.kind !== "string") {
+    throw new Error("Missing situation message entry.");
+  }
+
+  if (!["intro", "houseStarted", "houseCompleted", "foodShortage", "foodRecovered", "unitLeft"].includes(entry.kind)) {
+    throw new Error(`Unsupported situation message kind: ${entry.kind}`);
+  }
+
+  return createSituationMessageEntry(
+    entry.kind,
+    {
+      unitName: entry.unitName,
+      current: entry.current,
+      threshold: entry.threshold,
+    },
+    clampInteger(entry.turn, 1, 999999, 1),
+    clampInteger(entry.id, 1, 999999999, index + 1),
+  );
+}
+
+function normalizeSituationMessagesState(rawMessages) {
+  if (!Array.isArray(rawMessages)) {
+    throw new Error("Missing situation message data.");
+  }
+
+  return rawMessages.map((entry, index) => normalizeSituationMessage(entry, index));
+}
+
 function normalizeStockpileState(rawStockpile) {
   return {
     stone: Math.max(0, clampInteger(rawStockpile?.stone, 0, 999999, 0)),
@@ -2445,6 +3330,7 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   buildings = normalizeBuildingsState(nextState.buildings);
   units = normalizeUnitsState(nextState.units, mode);
   stockpile = normalizeStockpileState(nextState.stockpile);
+  situationMessages = normalizeSituationMessagesState(nextState.situationMessages);
   clampStockpileToCapacity();
   foodShortageTurns = Math.max(
     0,
@@ -2456,12 +3342,16 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   currentTurn = Math.max(1, clampInteger(nextState.turn, 1, 999999, 1));
   autoAdvanceTurns =
     typeof nextState.autoAdvanceTurns === "boolean" ? nextState.autoAdvanceTurns : true;
+  situationMessageViewIndex = situationMessages.length > 0 ? situationMessages.length - 1 : -1;
+  setSituationMessageVisibility(situationMessages.length > 0);
+  clearSituationMessageTyping();
 
   setTextContent(mapSizeReadouts, strings.readouts.mapSize(map.width, map.height));
   resetTileReadout();
   invalidateStaticLayer();
   invalidateStaticUnitsLayer();
   updateUnitReadout();
+  updateSituationMessagePanel({ restartTyping: true });
   updateTurnControls();
   updateInteractionModeUi();
   layoutCanvas();
@@ -2793,7 +3683,7 @@ function canAdvanceTurn() {
 }
 
 function updateTurnReadout() {
-  setTextContent(turnReadouts, strings.readouts.turn(currentTurn));
+  setTextContent(turnReadouts, strings.readouts.turn(currentTurn, formatJulianTurnDate(currentTurn)));
 }
 
 function updateTurnControls() {
@@ -2927,6 +3817,10 @@ function queueUnitBuildHouseTask(destinationCell, currentUnit = getSelectedUnit(
 
   if (cell && !cell.visited) {
     cell.visited = true;
+  }
+
+  if (targetMode === "new") {
+    addSituationMessage("houseStarted");
   }
 
   invalidateStaticLayer();
@@ -3111,7 +4005,10 @@ function resolveBuildHouseTask(currentUnit) {
   invalidateStaticLayer();
 
   if (nextCompleteness >= 1) {
-    spawnUnitFromHouse(building);
+    const spawnedUnit = spawnUnitFromHouse(building);
+    if (spawnedUnit) {
+      addSituationMessage("houseCompleted", { unitName: spawnedUnit.name });
+    }
     clearCompletedTask(currentUnit);
   }
 }
@@ -3294,13 +4191,13 @@ function removeRandomUnitForFoodShortage() {
   const currentUnits = getUnits();
 
   if (currentUnits.length === 0) {
-    return false;
+    return null;
   }
 
   const removedUnit = currentUnits[Math.floor(Math.random() * currentUnits.length)];
 
   if (!removedUnit) {
-    return false;
+    return null;
   }
 
   abandonUnitHome(getUnitHomeBuildingId(removedUnit));
@@ -3313,10 +4210,11 @@ function removeRandomUnitForFoodShortage() {
   syncActiveUnit();
   invalidateStaticUnitsLayer();
   updateUnitReadout();
-  return true;
+  return removedUnit;
 }
 
 function consumeFoodForTurn() {
+  const previousShortageTurns = foodShortageTurns;
   const requiredFood = getUnits().reduce(
     (sum, currentUnit) => sum + getUnitFoodConsumptionPerTurn(currentUnit),
     0,
@@ -3331,6 +4229,9 @@ function consumeFoodForTurn() {
 
   if (availableFood >= requiredFood) {
     stockpile.food = availableFood - requiredFood;
+    if (previousShortageTurns > 0) {
+      addSituationMessage("foodRecovered");
+    }
     foodShortageTurns = 0;
     return;
   }
@@ -3339,9 +4240,18 @@ function consumeFoodForTurn() {
   foodShortageTurns += 1;
 
   if (foodShortageTurns >= getFoodShortageThreshold()) {
-    removeRandomUnitForFoodShortage();
+    const removedUnit = removeRandomUnitForFoodShortage();
+    if (removedUnit) {
+      addSituationMessage("unitLeft", { unitName: removedUnit.name });
+    }
     foodShortageTurns = getFoodShortageResetTurns();
+    return;
   }
+
+  addSituationMessage("foodShortage", {
+    current: foodShortageTurns,
+    threshold: getFoodShortageThreshold(),
+  });
 }
 
 function applyVillageEconomyForTurn() {
@@ -3638,6 +4548,10 @@ function loadTileImages() {
     loadImage(imagePath, resourceOverlayImages);
   }
 
+  for (const imagePath of Object.values(resourceUiIcons)) {
+    loadImage(imagePath, resourceIconImages);
+  }
+
   loadImage(unitSprite.idleImage, unitImages);
   loadImage(unitSprite.northImage, unitImages);
   loadImage(unitSprite.southImage, unitImages);
@@ -3723,12 +4637,16 @@ function loadImage(imagePath, registry) {
   image.onload = () => {
     invalidateStaticLayer();
     invalidateStaticUnitsLayer();
+    updateStockpileReadout();
+    updateTileInspectorReadout();
     draw();
   };
   image.onerror = () => {
     console.warn(`Could not load image: ${imagePath}`);
     invalidateStaticLayer();
     invalidateStaticUnitsLayer();
+    updateStockpileReadout();
+    updateTileInspectorReadout();
     draw();
   };
   image.src = imagePath;
@@ -4106,32 +5024,51 @@ function canUnitEnter(cell, currentUnit = null, occupiedKeys = null) {
 function updateUnitReadout() {
   const selectedUnit = getSelectedUnit();
   const displayedUnit = selectedUnit || unit;
+  const setCancelButtonState = (visible, disabled = false) => {
+    for (const button of cancelUnitTaskButtons) {
+      button.hidden = !visible;
+      button.disabled = disabled || isReplayPhase();
+    }
+  };
+  const setActionSprite = (imagePath) => {
+    for (const image of unitActionSpriteImages) {
+      if (imagePath) {
+        image.src = imagePath;
+      } else {
+        image.removeAttribute("src");
+      }
+    }
+  };
   const hideTaskRow = () => {
-    setTextContent(unitTaskReadouts, "");
+    setActionSprite("");
+    setTextContent(unitActionProgressReadouts, "");
     for (const row of unitTaskRows) {
       row.hidden = true;
     }
-    setDisabledState(cancelUnitTaskButtons, true);
+    setCancelButtonState(false, true);
   };
-  const showTaskRow = (text, disabled = false) => {
-    setTextContent(unitTaskReadouts, text);
+  const showTaskRow = (
+    imagePath,
+    progressText = "",
+    { cancelVisible = false, cancelDisabled = false } = {},
+  ) => {
+    setActionSprite(imagePath);
+    setTextContent(unitActionProgressReadouts, progressText);
     for (const row of unitTaskRows) {
       row.hidden = false;
     }
-    setDisabledState(cancelUnitTaskButtons, disabled || isReplayPhase());
+    setCancelButtonState(cancelVisible, cancelDisabled);
   };
-  const setUnitSummary = (text) => setTextContent(unitSummaryReadouts, text);
-  const setUnitCoords = (text) => setTextContent(unitCoordsReadouts, text);
-  const setTaskAndRefresh = (text, disabled = false) => {
-    showTaskRow(text, disabled);
+  const setUnitTitle = (text) => setTextContent(unitTitleReadouts, text);
+  const setTaskAndRefresh = (action, progressText = "", options = {}) => {
+    showTaskRow(action, progressText, options);
     updateTileInspectorReadout();
     updateUnitActionControls();
   };
-  const formatTaskWithTarget = (taskLabel, x, y) => `${taskLabel} ${x}, ${y}`;
+  setDisabledState(nextUnitButtons, !getNextIdleUnit(displayedUnit) || isReplayPhase());
 
   if (!displayedUnit) {
-    setUnitSummary(strings.readouts.unitNone);
-    setUnitCoords("");
+    setUnitTitle(strings.readouts.unitTitleNone);
     hideTaskRow();
     updateTileInspectorReadout();
     updateUnitActionControls();
@@ -4139,8 +5076,7 @@ function updateUnitReadout() {
   }
 
   if (!selectedUnit && getUnits().length > 1) {
-    setUnitSummary(strings.readouts.unitUnselected(getUnits().length));
-    setUnitCoords("");
+    setUnitTitle(strings.readouts.unitTitleNone);
     hideTaskRow();
     updateTileInspectorReadout();
     updateUnitActionControls();
@@ -4148,60 +5084,56 @@ function updateUnitReadout() {
   }
 
   const unitName = normalizeUnitName(displayedUnit.name);
-  const stateLabel = displayedUnit.move || displayedUnit.task
-    ? strings.unitStates.busy
-    : (displayedUnit.selected ? strings.unitStates.selected : strings.unitStates.idle);
+  const gatherDurationTurns = getGatherTaskDurationTurns();
+  const getGatherProgressText = (task) => {
+    const completedTurns = clampInteger(
+      gatherDurationTurns - clampInteger(task?.turnsRemaining, 0, gatherDurationTurns, gatherDurationTurns),
+      0,
+      gatherDurationTurns,
+      0,
+    );
 
-  setUnitSummary(`${unitName} | ${stateLabel}`);
-  setUnitCoords(strings.readouts.coords(displayedUnit.x, displayedUnit.y));
+    return `${completedTurns}/${gatherDurationTurns}`;
+  };
+
+  setUnitTitle(unitName);
 
   if (displayedUnit.move) {
-    setTaskAndRefresh(
-      formatTaskWithTarget(strings.tasks.move, displayedUnit.move.toX, displayedUnit.move.toY),
-      !displayedUnit.task,
-    );
+    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit));
     return;
   }
 
   if (displayedUnit.task?.type === "move") {
-    setTaskAndRefresh(formatTaskWithTarget(strings.tasks.move, displayedUnit.task.toX, displayedUnit.task.toY));
+    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
     return;
   }
 
   if (displayedUnit.task?.type === "perform") {
-    setTaskAndRefresh(strings.tasks.play);
+    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
     return;
   }
 
   if (displayedUnit.task?.type === "gatherFood") {
-    setTaskAndRefresh(
-      formatTaskWithTarget(strings.tasks.gatherFood, displayedUnit.task.toX, displayedUnit.task.toY),
-    );
+    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), getGatherProgressText(displayedUnit.task), { cancelVisible: true });
     return;
   }
 
   if (displayedUnit.task?.type === "gatherMaterials") {
-    setTaskAndRefresh(
-      formatTaskWithTarget(strings.tasks.gatherMaterials, displayedUnit.task.toX, displayedUnit.task.toY),
-    );
+    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), getGatherProgressText(displayedUnit.task), { cancelVisible: true });
     return;
   }
 
   if (displayedUnit.task?.type === "buildHouse") {
-    setTaskAndRefresh(
-      formatTaskWithTarget(strings.tasks.buildHouse, displayedUnit.task.toX, displayedUnit.task.toY),
-    );
+    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
     return;
   }
 
   if (displayedUnit.task?.type === "demolish") {
-    setTaskAndRefresh(
-      formatTaskWithTarget(strings.tasks.demolish, displayedUnit.task.toX, displayedUnit.task.toY),
-    );
+    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
     return;
   }
 
-  hideTaskRow();
+  setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit));
   updateTileInspectorReadout();
   updateUnitActionControls();
 }
@@ -4303,6 +5235,10 @@ function updateInteractionModeUi() {
     playInspector.hidden = visibleTopBarMode !== interactionModes.play;
   }
 
+  if (bookOverlay && visibleTopBarMode !== interactionModes.play) {
+    closeBookOverlay();
+  }
+
   for (const button of newRandomMapButtons) {
     button.hidden = !isEditMode();
   }
@@ -4319,6 +5255,7 @@ function updateInteractionModeUi() {
   updatePersistenceControls();
   updateTileInspectorReadout();
   updateUnitActionControls();
+  void syncBackgroundMusicPlayback();
 }
 
 function isEditMode() {
@@ -4365,6 +5302,7 @@ function openMainMenu() {
   clearPendingAutoAdvance();
   closeGameActionMenu();
   closeSaveSlotPanel();
+  closeBookOverlay();
   clearEditHoverState();
   clearUnitSelection();
   mainMenuOpen = true;
@@ -4385,6 +5323,7 @@ function setInteractionMode(nextMode) {
   mainMenuOverlay.hidden = true;
   closeGameActionMenu();
   closeSaveSlotPanel();
+  closeBookOverlay();
   clearEditHoverState();
   clearUnitSelection();
   invalidateStaticUnitsLayer();
@@ -4559,6 +5498,7 @@ function canStartNewHouseConstructionOnCell(cell) {
   return (
     Boolean(cell) &&
     cell.type === "grass" &&
+    !hasFoodResource(cell) &&
     !getBuildingAtCell(cell.x, cell.y) &&
     !getUnitAtCell(cell.x, cell.y) &&
     canAffordHouseConstruction("house")
@@ -4816,10 +5756,6 @@ function handlePlayModeClick(cell) {
   }
 
   if (selectedUnit) {
-    if (action === unitActions.wait) {
-      return;
-    }
-
     if (action === unitActions.play) {
       return;
     }
@@ -5429,6 +6365,43 @@ function getAnimatedTaskUnitImage(currentUnit, frameIndex = 0) {
   return frames[offsetFrameIndex % frames.length] || unitSprite.idleImage;
 }
 
+function getMovePreviewUnitImage(currentUnit) {
+  const task = currentUnit?.task;
+  const direction = currentUnit?.move?.direction || (
+    task?.type === "move"
+      ? getMoveDirection(currentUnit.x, currentUnit.y, task.toX, task.toY)
+      : (currentUnit?.facing || "west")
+  );
+  let moveFrames = unitSprite.moveFrames;
+  let fallbackImage = unitSprite.idleImage;
+
+  if (usesNorthUnitSprite(direction)) {
+    moveFrames = unitSprite.northMoveFrames;
+    fallbackImage = unitSprite.northImage;
+  } else if (usesSouthUnitSprite(direction)) {
+    moveFrames = unitSprite.southMoveFrames;
+    fallbackImage = unitSprite.southImage;
+  }
+
+  return moveFrames[1] || moveFrames[0] || fallbackImage;
+}
+
+function getUnitInspectorSpriteImage(currentUnit) {
+  if (!currentUnit) {
+    return "";
+  }
+
+  if (currentUnit.move || currentUnit.task?.type === "move") {
+    return getMovePreviewUnitImage(currentUnit);
+  }
+
+  if (currentUnit.task) {
+    return getAnimatedTaskUnitImage(currentUnit, 0);
+  }
+
+  return getStationaryUnitImage(currentUnit, performance.now(), 0);
+}
+
 function getStationaryUnitImage(currentUnit, now = performance.now(), explicitFrameIndex = null) {
   if (isUnitWorking(currentUnit)) {
     const frameIndex =
@@ -5574,9 +6547,11 @@ function getViewportVisualCenter() {
 function updatePlayOverlayLayout() {
   const inspectorOccupiedWidth = getPlayInspectorOccupiedWidth();
   const centerOffset = inspectorOccupiedWidth / 2;
+  const topBarsHeight = topBarsContainer?.offsetHeight || 0;
 
   if (appShell) {
     appShell.style.setProperty("--play-safe-center-offset", `${-centerOffset}px`);
+    appShell.style.setProperty("--top-bars-height", `${topBarsHeight}px`);
   }
 }
 
@@ -5827,18 +6802,6 @@ function drawPathIntersectionCap(point, pathState) {
   ctx.fill();
 }
 
-function getStrongerPathState(firstState, secondState) {
-  if (firstState === "full" || secondState === "full") {
-    return "full";
-  }
-
-  if (firstState === "preview" || secondState === "preview") {
-    return "preview";
-  }
-
-  return null;
-}
-
 function getVisiblePathStateBetween(fromCell, toCell) {
   if (!fromCell || !toCell || !isCellVisibleToPlayer(fromCell) || !isCellVisibleToPlayer(toCell)) {
     return null;
@@ -5991,12 +6954,12 @@ function getPathCrossingAtCorner(cell, corner) {
   const verticalState = getPathDescriptorState(descriptors.vertical);
   const horizontalState = getPathDescriptorState(descriptors.horizontal);
 
-  if (!verticalState || !horizontalState) {
+  if (verticalState !== "full" || horizontalState !== "full") {
     return null;
   }
 
   return {
-    pathState: getStrongerPathState(verticalState, horizontalState),
+    pathState: "full",
     point:
       findPolylineIntersectionPoint(
         getPathDescriptorPoints(descriptors.vertical),
@@ -7274,6 +8237,10 @@ variantMenuOptions.addEventListener("click", (event) => {
 });
 
 document.addEventListener("pointerdown", (event) => {
+  if (shouldPlayBackgroundMusic() && backgroundMusic.paused) {
+    void syncBackgroundMusicPlayback();
+  }
+
   if (
     saveSlotOverlay &&
     !saveSlotOverlay.hidden &&
@@ -7300,7 +8267,16 @@ document.addEventListener("pointerdown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (shouldPlayBackgroundMusic() && backgroundMusic.paused) {
+    void syncBackgroundMusicPlayback();
+  }
+
   if (event.key !== "Escape") return;
+
+  if (bookOverlay && !bookOverlay.hidden) {
+    closeBookOverlay({ restoreFocus: true });
+    return;
+  }
 
   if (saveSlotOverlay && !saveSlotOverlay.hidden) {
     closeSaveSlotPanel({ restoreFocus: true });
@@ -7339,6 +8315,14 @@ document.addEventListener("visibilitychange", () => {
   if (shouldAnimateWorkingUnits() || shouldAnimateSelectionMarker() || getMovingUnit()?.move) {
     scheduleAnimation();
   }
+});
+
+bookOverlay?.addEventListener("click", (event) => {
+  if (event.target !== bookOverlay) {
+    return;
+  }
+
+  closeBookOverlay({ restoreFocus: true });
 });
 
 mainMenuOverlay.addEventListener("click", (event) => {
@@ -7403,6 +8387,16 @@ for (const button of nextTurnButtons) {
   });
 }
 
+for (const button of nextUnitButtons) {
+  button.addEventListener("click", () => {
+    if (isReplayPhase()) return;
+    selectNextIdleUnit({
+      defaultAction: unitActions.walk,
+      scrollIntoView: true,
+    });
+  });
+}
+
 for (const button of unitActionButtons) {
   button.addEventListener("click", () => {
     const selectedUnit = getSelectedUnit();
@@ -7411,15 +8405,6 @@ for (const button of unitActionButtons) {
 
     const action = normalizeUnitAction(button.dataset.unitAction);
     const currentAction = getCurrentSelectedUnitAction();
-
-    if (action === unitActions.wait) {
-      selectNextIdleUnit({
-        fromUnit: selectedUnit,
-        defaultAction: unitActions.walk,
-        scrollIntoView: true,
-      });
-      return;
-    }
 
     if (action === unitActions.play) {
       queueUnitPlayTask(selectedUnit);
@@ -7443,6 +8428,57 @@ for (const button of cancelUnitTaskButtons) {
   button.addEventListener("click", () => {
     if (isReplayPhase()) return;
     cancelUnitTask();
+  });
+}
+
+for (const button of openBookOverlayButtons) {
+  button.addEventListener("click", () => {
+    openBookOverlayPanel(button);
+  });
+}
+
+for (const button of closeBookOverlayButtons) {
+  button.addEventListener("click", () => {
+    closeBookOverlay({ restoreFocus: true });
+  });
+}
+
+for (const button of toggleSituationMessageButtons) {
+  button.addEventListener("click", () => {
+    if (situationMessageVisible && getViewedSituationMessage()) {
+      hideSituationMessage();
+      return;
+    }
+
+    revealLatestSituationMessage({ restartTyping: true });
+  });
+}
+
+for (const button of previousSituationMessageButtons) {
+  button.addEventListener("click", () => {
+    if (situationMessages.length === 0) {
+      return;
+    }
+
+    const nextIndex = situationMessageVisible
+      ? Math.max(0, situationMessageViewIndex - 1)
+      : Math.max(0, situationMessages.length - 1);
+
+    showSituationMessageAtIndex(nextIndex, { restartTyping: true });
+  });
+}
+
+for (const button of nextSituationMessageButtons) {
+  button.addEventListener("click", () => {
+    if (situationMessages.length === 0) {
+      return;
+    }
+
+    const nextIndex = situationMessageVisible
+      ? Math.min(situationMessages.length - 1, situationMessageViewIndex + 1)
+      : situationMessages.length - 1;
+
+    showSituationMessageAtIndex(nextIndex, { restartTyping: true });
   });
 }
 
@@ -7531,6 +8567,37 @@ for (const input of autoPassInputs) {
     autoAdvanceTurns = event.target.checked;
     updateTurnControls();
     maybeAutoAdvanceTurn();
+  });
+}
+
+for (const input of musicEnabledInputs) {
+  input.addEventListener("change", (event) => {
+    audioSettings.musicEnabled = Boolean(event.target.checked);
+    saveAudioSettings();
+    updateAudioControls();
+    void syncBackgroundMusicPlayback();
+  });
+}
+
+for (const input of musicVolumeInputs) {
+  input.addEventListener("input", (event) => {
+    audioSettings.volume = clampNumber(Number(event.target.value) / 100, 0, 1, defaultAudioSettings.volume);
+    saveAudioSettings();
+    updateAudioControls();
+    backgroundMusic.volume = audioSettings.volume;
+  });
+}
+
+for (const button of languageOptionButtons) {
+  button.addEventListener("click", () => {
+    const language = button.dataset.language;
+
+    if (!language || language === currentLanguage || !availableLanguages[language]) {
+      return;
+    }
+
+    saveCurrentLanguage(language);
+    window.location.reload();
   });
 }
 
