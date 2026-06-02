@@ -78,6 +78,9 @@ const musicVolumeInputs = [...document.querySelectorAll('[data-action="music-vol
 const cancelUnitTaskButtons = [...document.querySelectorAll('[data-action="cancel-unit-task"]')];
 const openBookOverlayButtons = [...document.querySelectorAll('[data-action="open-book-overlay"]')];
 const closeBookOverlayButtons = [...document.querySelectorAll('[data-action="close-book-overlay"]')];
+const previousBookPageButtons = [...document.querySelectorAll('[data-action="turn-book-page-previous"]')];
+const nextBookPageButtons = [...document.querySelectorAll('[data-action="turn-book-page-next"]')];
+const bookPageLayers = [...document.querySelectorAll('[data-book-page-layer]')];
 const toggleSituationMessageButtons = [...document.querySelectorAll('[data-action="toggle-situation-message"]')];
 const previousSituationMessageButtons = [...document.querySelectorAll('[data-action="previous-situation-message"]')];
 const nextSituationMessageButtons = [...document.querySelectorAll('[data-action="next-situation-message"]')];
@@ -417,6 +420,7 @@ let situationMessageViewIndex = -1;
 let situationMessageTypingTimeoutId = 0;
 let situationMessageTypingToken = 0;
 let bookOverlayTriggerButton = null;
+let bookPageTurnOffset = 0;
 let activeGameMenuButton = null;
 let slotPanelState = null;
 const tileImages = {};
@@ -440,6 +444,12 @@ const currentFileNames = {
 };
 const autosaveSlotName = "autosave";
 const situationMessageTypingDelayMs = 18;
+const bookBasePageCountPerSide = 4;
+const bookMaximumPageCountPerSide = 8;
+const bookMaximumPageTurnOffset = bookMaximumPageCountPerSide - bookBasePageCountPerSide;
+const bookMinimumPageTurnOffset = -bookMaximumPageTurnOffset;
+const bookEntityHiddenClass = "book-entity-hidden";
+const bookLayerWithSpineClass = "book-layer-with-spine";
 const julianTurnEpoch = {
   year: 1468,
   month: 5,
@@ -973,6 +983,10 @@ function applyStaticText() {
   setAttributeForElements(openBookOverlayButtons, "title", strings.actions.openBook);
   setAttributeForElements(closeBookOverlayButtons, "aria-label", strings.actions.closeBook);
   setAttributeForElements(closeBookOverlayButtons, "title", strings.actions.closeBook);
+  setAttributeForElements(previousBookPageButtons, "aria-label", strings.actions.previousPage);
+  setAttributeForElements(previousBookPageButtons, "title", strings.actions.previousPage);
+  setAttributeForElements(nextBookPageButtons, "aria-label", strings.actions.nextPage);
+  setAttributeForElements(nextBookPageButtons, "title", strings.actions.nextPage);
   setAttributeForElements(previousSituationMessageButtons, "aria-label", strings.actions.previousMessage);
   setAttributeForElements(previousSituationMessageButtons, "title", strings.actions.previousMessage);
   setAttributeForElements(nextSituationMessageButtons, "aria-label", strings.actions.nextMessage);
@@ -2055,6 +2069,68 @@ function closeBookOverlay({ restoreFocus = false } = {}) {
   bookOverlayTriggerButton = null;
 }
 
+function updateBookTurnButtons() {
+  const previousDisabled = bookPageTurnOffset >= bookMaximumPageTurnOffset;
+  const nextDisabled = bookPageTurnOffset <= bookMinimumPageTurnOffset;
+
+  for (const button of previousBookPageButtons) {
+    button.disabled = previousDisabled;
+  }
+
+  for (const button of nextBookPageButtons) {
+    button.disabled = nextDisabled;
+  }
+}
+
+function isBookPageLayerVisible(layerIndex, side) {
+  const magnitude = Math.abs(bookPageTurnOffset);
+  const topVisibleLayer = bookMaximumPageCountPerSide - bookBasePageCountPerSide + 1 - magnitude;
+  const dominantSide = bookPageTurnOffset >= 0 ? "left" : "right";
+  const weakerSideBottomVisibleLayer = bookMaximumPageCountPerSide - magnitude * 2;
+
+  if (side === dominantSide) {
+    return layerIndex >= topVisibleLayer && layerIndex <= bookMaximumPageCountPerSide;
+  }
+
+  return layerIndex >= topVisibleLayer && layerIndex <= weakerSideBottomVisibleLayer;
+}
+
+function updateBookPageStack() {
+  const topVisibleLayer = bookMaximumPageCountPerSide - bookBasePageCountPerSide + 1 - Math.abs(bookPageTurnOffset);
+
+  for (const layer of bookPageLayers) {
+    const layerIndex = Number(layer.dataset.bookPageLayer);
+    if (!Number.isInteger(layerIndex)) continue;
+
+    const leftPage = layer.querySelector('[data-book-page-side="left"]');
+    const rightPage = layer.querySelector('[data-book-page-side="right"]');
+    const leftVisible = isBookPageLayerVisible(layerIndex, "left");
+    const rightVisible = isBookPageLayerVisible(layerIndex, "right");
+
+    if (leftPage) {
+      leftPage.classList.toggle(bookEntityHiddenClass, !leftVisible);
+    }
+
+    if (rightPage) {
+      rightPage.classList.toggle(bookEntityHiddenClass, !rightVisible);
+    }
+
+    layer.classList.toggle(bookLayerWithSpineClass, layerIndex === topVisibleLayer && (leftVisible || rightVisible));
+  }
+
+  updateBookTurnButtons();
+}
+
+function turnBookPage(direction) {
+  const nextOffset = Math.max(bookMinimumPageTurnOffset, Math.min(bookMaximumPageTurnOffset, bookPageTurnOffset + direction));
+  if (nextOffset === bookPageTurnOffset) {
+    return;
+  }
+
+  bookPageTurnOffset = nextOffset;
+  updateBookPageStack();
+}
+
 function openBookOverlayPanel(triggerButton = null) {
   if (!bookOverlay || !isPlayMode() || mainMenuOpen) {
     return;
@@ -2064,6 +2140,7 @@ function openBookOverlayPanel(triggerButton = null) {
   closeSaveSlotPanel();
   hideTileMenu();
   bookOverlayTriggerButton = triggerButton;
+  updateBookPageStack();
   bookOverlay.hidden = false;
   bookOverlay.querySelector('[data-action="close-book-overlay"]')?.focus({ preventScroll: true });
 }
@@ -8443,6 +8520,18 @@ for (const button of closeBookOverlayButtons) {
   });
 }
 
+for (const button of previousBookPageButtons) {
+  button.addEventListener("click", () => {
+    turnBookPage(1);
+  });
+}
+
+for (const button of nextBookPageButtons) {
+  button.addEventListener("click", () => {
+    turnBookPage(-1);
+  });
+}
+
 for (const button of toggleSituationMessageButtons) {
   button.addEventListener("click", () => {
     if (situationMessageVisible && getViewedSituationMessage()) {
@@ -8616,6 +8705,7 @@ for (const button of zoomInButtons) {
 window.addEventListener("resize", resizeCanvas);
 
 applyStaticText();
+updateBookPageStack();
 populateTerrainMenu();
 void requestPersistentStorage();
 applyStateSnapshot(createDefaultState(interactionModes.edit), interactionModes.edit, { recenter: false });
