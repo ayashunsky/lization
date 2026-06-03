@@ -420,7 +420,8 @@ let situationMessageViewIndex = -1;
 let situationMessageTypingTimeoutId = 0;
 let situationMessageTypingToken = 0;
 let bookOverlayTriggerButton = null;
-let bookPageTurnOffset = 0;
+let bookPageTurnAnimation = null;
+let bookPageTurnAnimationTimeoutId = 0;
 let activeGameMenuButton = null;
 let slotPanelState = null;
 const tileImages = {};
@@ -444,12 +445,16 @@ const currentFileNames = {
 };
 const autosaveSlotName = "autosave";
 const situationMessageTypingDelayMs = 18;
-const bookBasePageCountPerSide = 4;
-const bookMaximumPageCountPerSide = 8;
-const bookMaximumPageTurnOffset = bookMaximumPageCountPerSide - bookBasePageCountPerSide;
-const bookMinimumPageTurnOffset = -bookMaximumPageTurnOffset;
+const bookTotalPageCount = 24;
+const bookVisiblePageLayerCount = 8;
 const bookEntityHiddenClass = "book-entity-hidden";
 const bookLayerWithSpineClass = "book-layer-with-spine";
+const bookPageContentClass = "book-page-content";
+const bookPageContentHiddenClass = "book-page-content-hidden";
+const bookPageTurnOverlayClass = "book-page-turn-overlay";
+const bookPageTurnFramesPerPhase = 8;
+const bookPageTurnFrameDurationMs = 38;
+const bookPageTurnCollapsedScale = 0.52;
 const julianTurnEpoch = {
   year: 1468,
   month: 5,
@@ -479,6 +484,8 @@ const julianTurnEpochJdn = getJulianDayNumber(
   julianTurnEpoch.day,
 );
 
+let bookState = createInitialBookState();
+
 function setTextContent(elements, text) {
   for (const element of elements) {
     element.textContent = text;
@@ -501,6 +508,16 @@ function setAttributeForElements(elements, name, value) {
   for (const element of elements) {
     element.setAttribute(name, value);
   }
+}
+
+function createInitialBookState(totalPageCount = bookTotalPageCount) {
+  const normalizedTotalPageCount = Math.max(2, Math.floor(totalPageCount / 2) * 2);
+  const leftPageNumber = normalizedTotalPageCount / 2;
+
+  return {
+    leftPageNumber,
+    rightPageNumber: leftPageNumber + 1,
+  };
 }
 
 function getJulianDayNumber(year, month, day) {
@@ -2058,6 +2075,8 @@ function closeSaveSlotPanel({ restoreFocus = false } = {}) {
 }
 
 function closeBookOverlay({ restoreFocus = false } = {}) {
+  cancelBookPageTurnAnimation();
+
   if (bookOverlay) {
     bookOverlay.hidden = true;
   }
@@ -2069,9 +2088,36 @@ function closeBookOverlay({ restoreFocus = false } = {}) {
   bookOverlayTriggerButton = null;
 }
 
+function createBookPageContentElement(side) {
+  const content = document.createElement("div");
+  content.className = bookPageContentClass;
+  content.dataset.bookPageContentSide = side;
+  return content;
+}
+
+function initializeBookPageContent() {
+  for (const layer of bookPageLayers) {
+    for (const side of ["left", "right"]) {
+      if (layer.querySelector(`.${bookPageContentClass}[data-book-page-content-side="${side}"]`)) {
+        continue;
+      }
+
+      layer.append(createBookPageContentElement(side));
+    }
+  }
+}
+
 function updateBookTurnButtons() {
-  const previousDisabled = bookPageTurnOffset >= bookMaximumPageTurnOffset;
-  const nextDisabled = bookPageTurnOffset <= bookMinimumPageTurnOffset;
+  let previousDisabled = false;
+  let nextDisabled = false;
+
+  if (bookPageTurnAnimation) {
+    previousDisabled = true;
+    nextDisabled = true;
+  } else {
+    previousDisabled = !canTurnBookPage(bookState, -1);
+    nextDisabled = !canTurnBookPage(bookState, 1);
+  }
 
   for (const button of previousBookPageButtons) {
     button.disabled = previousDisabled;
@@ -2082,21 +2128,313 @@ function updateBookTurnButtons() {
   }
 }
 
-function isBookPageLayerVisible(layerIndex, side) {
-  const magnitude = Math.abs(bookPageTurnOffset);
-  const topVisibleLayer = bookMaximumPageCountPerSide - bookBasePageCountPerSide + 1 - magnitude;
-  const dominantSide = bookPageTurnOffset >= 0 ? "left" : "right";
-  const weakerSideBottomVisibleLayer = bookMaximumPageCountPerSide - magnitude * 2;
+function getBookPageCountsForState(state = bookState) {
+  const actualLeftCount = Number.isInteger(state?.leftPageNumber)
+    ? Math.max(0, Math.floor((state.leftPageNumber + 1) / 2))
+    : 0;
+  const actualRightCount = Number.isInteger(state?.rightPageNumber)
+    ? Math.max(0, Math.floor((bookTotalPageCount - state.rightPageNumber + 2) / 2))
+    : 0;
+  const actualTotalCount = actualLeftCount + actualRightCount;
 
-  if (side === dominantSide) {
-    return layerIndex >= topVisibleLayer && layerIndex <= bookMaximumPageCountPerSide;
+  if (actualTotalCount <= bookVisiblePageLayerCount) {
+    return {
+      left: actualLeftCount,
+      right: actualRightCount,
+    };
   }
 
-  return layerIndex >= topVisibleLayer && layerIndex <= weakerSideBottomVisibleLayer;
+  const leftQuota = actualLeftCount * bookVisiblePageLayerCount / actualTotalCount;
+  const rightQuota = actualRightCount * bookVisiblePageLayerCount / actualTotalCount;
+
+  let leftCount = Math.floor(leftQuota);
+  let rightCount = Math.floor(rightQuota);
+  let remainingCount = bookVisiblePageLayerCount - leftCount - rightCount;
+
+  while (remainingCount > 0) {
+    const leftRemainder = leftQuota - leftCount;
+    const rightRemainder = rightQuota - rightCount;
+
+    if (
+      leftRemainder > rightRemainder
+      || (leftRemainder === rightRemainder && actualLeftCount > 0 && actualLeftCount <= actualRightCount)
+    ) {
+      leftCount += 1;
+    } else {
+      rightCount += 1;
+    }
+
+    remainingCount -= 1;
+  }
+
+  return {
+    left: leftCount,
+    right: rightCount,
+  };
 }
 
-function updateBookPageStack() {
-  const topVisibleLayer = bookMaximumPageCountPerSide - bookBasePageCountPerSide + 1 - Math.abs(bookPageTurnOffset);
+function getVisibleBookStatePageNumbers(state = bookState) {
+  const counts = getBookPageCountsForState(state);
+
+  return {
+    left: Array.from({ length: counts.left }, (_, index) => state.leftPageNumber - index * 2),
+    right: Array.from({ length: counts.right }, (_, index) => state.rightPageNumber + index * 2),
+  };
+}
+
+function getTopVisibleBookLayerIndex(state = bookState) {
+  const counts = getBookPageCountsForState(state);
+  const visibleLayerCount = Math.max(counts.left, counts.right);
+  return bookVisiblePageLayerCount - visibleLayerCount + 1;
+}
+
+function isBookPageLayerVisible(layerIndex, side, state = bookState) {
+  const counts = getBookPageCountsForState(state);
+  const topVisibleLayer = getTopVisibleBookLayerIndex(state);
+  const sideCount = counts[side];
+
+  if (sideCount <= 0) {
+    return false;
+  }
+
+  return layerIndex >= topVisibleLayer && layerIndex < topVisibleLayer + sideCount;
+}
+
+function canTurnBookPage(state = bookState, direction = 1) {
+  if (direction > 0) {
+    return Number.isInteger(state?.rightPageNumber) && state.rightPageNumber < bookTotalPageCount;
+  }
+
+  return Number.isInteger(state?.leftPageNumber) && state.leftPageNumber > 1;
+}
+
+function getBookStateAfterPageTurn(state = bookState, direction = 1) {
+  if (!canTurnBookPage(state, direction)) {
+    return state;
+  }
+
+  return {
+    leftPageNumber: state.leftPageNumber + direction * 2,
+    rightPageNumber: state.rightPageNumber + direction * 2,
+  };
+}
+
+function getBookPageLayerByIndex(layerIndex) {
+  return bookPageLayers.find((layer) => Number(layer.dataset.bookPageLayer) === layerIndex) || null;
+}
+
+function getBookPageSideContent(layer, side) {
+  return layer?.querySelector(`.${bookPageContentClass}[data-book-page-content-side="${side}"]`) || null;
+}
+
+function getBookPageTurnOverlayElements(layer, side) {
+  if (!layer) {
+    return {
+      page: null,
+      content: null,
+    };
+  }
+
+  return {
+    page: layer.querySelector(`.book-page-entity.${bookPageTurnOverlayClass}[data-book-page-side="${side}"]`),
+    content: layer.querySelector(`.${bookPageContentClass}.${bookPageTurnOverlayClass}[data-book-page-content-side="${side}"]`),
+  };
+}
+
+function fillBookPageSideContent(content, pageNumber) {
+  if (!content) return;
+
+  content.replaceChildren();
+
+  if (!Number.isInteger(pageNumber)) {
+    content.classList.add(bookPageContentHiddenClass);
+    return;
+  }
+
+  const pageNumberElement = document.createElement("div");
+  pageNumberElement.className = "book-page-number";
+  pageNumberElement.textContent = String(pageNumber);
+  content.append(pageNumberElement);
+  content.classList.remove(bookPageContentHiddenClass);
+}
+
+function getBookPageNumberForLayer(layerIndex, side, state = bookState) {
+  const topVisibleLayer = getTopVisibleBookLayerIndex(state);
+  const slotIndex = layerIndex - topVisibleLayer;
+
+  if (slotIndex < 0) {
+    return null;
+  }
+
+  const pageNumbers = getVisibleBookStatePageNumbers(state);
+  return pageNumbers[side][slotIndex] ?? null;
+}
+
+function updateBookPageLayerContent(layer, layerIndex, leftVisible, rightVisible, state = bookState) {
+  const leftContent = getBookPageSideContent(layer, "left");
+  const rightContent = getBookPageSideContent(layer, "right");
+
+  fillBookPageSideContent(leftContent, leftVisible ? getBookPageNumberForLayer(layerIndex, "left", state) : null);
+  fillBookPageSideContent(rightContent, rightVisible ? getBookPageNumberForLayer(layerIndex, "right", state) : null);
+}
+
+function applyBookPageLayerSideTransform(layer, side, scale, skewDegrees) {
+  if (!layer) return;
+
+  layer.style.setProperty(`--book-page-${side}-scale`, String(scale));
+  layer.style.setProperty(`--book-page-${side}-skew`, `${skewDegrees}deg`);
+}
+
+function clearBookPageTurnOverlayTransforms(layer, side) {
+  const { page, content } = getBookPageTurnOverlayElements(layer, side);
+
+  if (page) {
+    page.style.removeProperty("transform");
+    page.style.removeProperty("transform-origin");
+  }
+
+  if (content) {
+    content.style.removeProperty("transform");
+    content.style.removeProperty("transform-origin");
+  }
+}
+
+function removeBookPageTurnOverlay(layer, side) {
+  const { page, content } = getBookPageTurnOverlayElements(layer, side);
+  page?.remove();
+  content?.remove();
+}
+
+function ensureBookPageTurnOverlay(layer, side) {
+  if (!layer) {
+    return {
+      page: null,
+      content: null,
+    };
+  }
+
+  const existing = getBookPageTurnOverlayElements(layer, side);
+  if (existing.page || existing.content) {
+    return existing;
+  }
+
+  const sourcePage = layer.querySelector(`.book-page-entity:not(.${bookPageTurnOverlayClass})[data-book-page-side="${side}"]`);
+  const sourceContent = layer.querySelector(`.${bookPageContentClass}:not(.${bookPageTurnOverlayClass})[data-book-page-content-side="${side}"]`);
+
+  const overlay = {
+    page: null,
+    content: null,
+  };
+
+  if (sourcePage) {
+    overlay.page = sourcePage.cloneNode(true);
+    overlay.page.classList.remove(bookEntityHiddenClass);
+    overlay.page.classList.add(bookPageTurnOverlayClass);
+    layer.append(overlay.page);
+  }
+
+  if (sourceContent) {
+    overlay.content = sourceContent.cloneNode(true);
+    overlay.content.classList.remove(bookPageContentHiddenClass);
+    overlay.content.classList.add(bookPageTurnOverlayClass);
+    layer.append(overlay.content);
+  }
+
+  return overlay;
+}
+
+function getBookAnimationBackgroundState(startState, nextState, direction) {
+  if (direction > 0) {
+    return {
+      leftPageNumber: startState.leftPageNumber,
+      rightPageNumber: nextState.rightPageNumber,
+    };
+  }
+
+  return {
+    leftPageNumber: nextState.leftPageNumber,
+    rightPageNumber: startState.rightPageNumber,
+  };
+}
+
+function cloneBookState(state) {
+  return {
+    leftPageNumber: state?.leftPageNumber ?? null,
+    rightPageNumber: state?.rightPageNumber ?? null,
+  };
+}
+
+function getBookAnimationLayerIndex(backgroundState) {
+  return getTopVisibleBookLayerIndex(backgroundState);
+}
+
+function getBookAnimatedPageNumber(animation, side = animation?.activeSide) {
+  if (!animation || !side) {
+    return null;
+  }
+
+  if (animation.direction > 0) {
+    return side === "right" ? animation.startState.rightPageNumber : animation.nextState.leftPageNumber;
+  }
+
+  return side === "left" ? animation.startState.leftPageNumber : animation.nextState.rightPageNumber;
+}
+
+function updateBookTurnOverlayContent(layer, side, pageNumber) {
+  const { content } = ensureBookPageTurnOverlay(layer, side);
+  fillBookPageSideContent(content, pageNumber);
+}
+
+function applyBookPageTurnOverlayTransform(layer, side, scale, skewDegrees, pageNumber = getBookAnimatedPageNumber(bookPageTurnAnimation, side)) {
+  const { page, content } = ensureBookPageTurnOverlay(layer, side);
+  const transform = `scaleX(${scale}) skewY(${skewDegrees}deg)`;
+
+  if (page) {
+    page.style.transformOrigin = "50% center";
+    page.style.transform = transform;
+  }
+
+  if (content) {
+    fillBookPageSideContent(content, pageNumber);
+    content.style.transformOrigin = side === "left" ? "right center" : "left center";
+    content.style.transform = transform;
+  }
+}
+
+function getBookPageTurnSkewDegrees(side) {
+  return side === "right" ? -12 : 12;
+}
+
+function clearBookPageTurnAnimationState() {
+  if (bookPageTurnAnimation?.layerIndex) {
+    const animationLayer = getBookPageLayerByIndex(bookPageTurnAnimation.layerIndex);
+    clearBookPageTurnOverlayTransforms(animationLayer, "left");
+    clearBookPageTurnOverlayTransforms(animationLayer, "right");
+    removeBookPageTurnOverlay(animationLayer, "left");
+    removeBookPageTurnOverlay(animationLayer, "right");
+  }
+
+  if (bookPageTurnAnimationTimeoutId) {
+    clearTimeout(bookPageTurnAnimationTimeoutId);
+    bookPageTurnAnimationTimeoutId = 0;
+  }
+
+  bookPageTurnAnimation = null;
+}
+
+function cancelBookPageTurnAnimation() {
+  if (!bookPageTurnAnimation) {
+    return;
+  }
+
+  clearBookPageTurnAnimationState();
+  updateBookPageStack(bookState);
+}
+
+function updateBookPageStack(state = bookState, { spineLayerIndex = null } = {}) {
+  const effectiveSpineLayerIndex = Number.isInteger(spineLayerIndex)
+    ? spineLayerIndex
+    : getTopVisibleBookLayerIndex(state);
 
   for (const layer of bookPageLayers) {
     const layerIndex = Number(layer.dataset.bookPageLayer);
@@ -2104,8 +2442,8 @@ function updateBookPageStack() {
 
     const leftPage = layer.querySelector('[data-book-page-side="left"]');
     const rightPage = layer.querySelector('[data-book-page-side="right"]');
-    const leftVisible = isBookPageLayerVisible(layerIndex, "left");
-    const rightVisible = isBookPageLayerVisible(layerIndex, "right");
+    const leftVisible = isBookPageLayerVisible(layerIndex, "left", state);
+    const rightVisible = isBookPageLayerVisible(layerIndex, "right", state);
 
     if (leftPage) {
       leftPage.classList.toggle(bookEntityHiddenClass, !leftVisible);
@@ -2115,20 +2453,183 @@ function updateBookPageStack() {
       rightPage.classList.toggle(bookEntityHiddenClass, !rightVisible);
     }
 
-    layer.classList.toggle(bookLayerWithSpineClass, layerIndex === topVisibleLayer && (leftVisible || rightVisible));
+    updateBookPageLayerContent(layer, layerIndex, leftVisible, rightVisible, state);
+    layer.classList.toggle(bookLayerWithSpineClass, layerIndex === effectiveSpineLayerIndex);
   }
 
   updateBookTurnButtons();
 }
 
-function turnBookPage(direction) {
-  const nextOffset = Math.max(bookMinimumPageTurnOffset, Math.min(bookMaximumPageTurnOffset, bookPageTurnOffset + direction));
-  if (nextOffset === bookPageTurnOffset) {
+function finishBookPageTurnAnimation() {
+  if (bookPageTurnAnimation?.nextState) {
+    bookState = cloneBookState(bookPageTurnAnimation.nextState);
+  }
+
+  clearBookPageTurnAnimationState();
+  updateBookPageStack(bookState);
+}
+
+function renderBookPageTurnAnimationFrame() {
+  if (!bookPageTurnAnimation) {
     return;
   }
 
-  bookPageTurnOffset = nextOffset;
-  updateBookPageStack();
+  const animation = bookPageTurnAnimation;
+  const activeLayer = getBookPageLayerByIndex(animation.layerIndex);
+  const skew = getBookPageTurnSkewDegrees(animation.activeSide);
+  const progress = animation.frame / bookPageTurnFramesPerPhase;
+
+  clearBookPageTurnOverlayTransforms(activeLayer, "left");
+  clearBookPageTurnOverlayTransforms(activeLayer, "right");
+
+  if (animation.phase === "out") {
+    const scale = 1 - (1 - bookPageTurnCollapsedScale) * progress;
+    applyBookPageTurnOverlayTransform(
+      activeLayer,
+      animation.activeSide,
+      scale,
+      skew * progress,
+      getBookAnimatedPageNumber(animation, animation.activeSide),
+    );
+    return;
+  }
+
+  const scale = bookPageTurnCollapsedScale + (1 - bookPageTurnCollapsedScale) * progress;
+  applyBookPageTurnOverlayTransform(
+    activeLayer,
+    animation.activeSide,
+    scale,
+    skew * (1 - progress),
+    getBookAnimatedPageNumber(animation, animation.activeSide),
+  );
+}
+
+function stepBookPageTurnAnimation() {
+  const animation = bookPageTurnAnimation;
+  if (!animation) {
+    return;
+  }
+
+  if (animation.phase === "out") {
+    if (animation.frame < bookPageTurnFramesPerPhase) {
+      animation.frame += 1;
+      renderBookPageTurnAnimationFrame();
+      updateBookTurnButtons();
+      return;
+    }
+
+    const animationLayer = getBookPageLayerByIndex(animation.layerIndex);
+    clearBookPageTurnOverlayTransforms(animationLayer, animation.outgoingSide);
+    removeBookPageTurnOverlay(animationLayer, animation.outgoingSide);
+
+    if (!animationLayer) {
+      finishBookPageTurnAnimation();
+      return;
+    }
+
+    animation.phase = "in";
+    animation.frame = 0;
+    animation.activeSide = animation.incomingSide;
+    ensureBookPageTurnOverlay(animationLayer, animation.incomingSide);
+    updateBookTurnOverlayContent(
+      animationLayer,
+      animation.incomingSide,
+      getBookAnimatedPageNumber(animation, animation.incomingSide),
+    );
+    renderBookPageTurnAnimationFrame();
+    updateBookTurnButtons();
+    return;
+  }
+
+  if (animation.frame < bookPageTurnFramesPerPhase) {
+    animation.frame += 1;
+    renderBookPageTurnAnimationFrame();
+
+    if (animation.frame >= bookPageTurnFramesPerPhase) {
+      finishBookPageTurnAnimation();
+      return;
+    }
+
+    updateBookTurnButtons();
+    return;
+  }
+
+  finishBookPageTurnAnimation();
+}
+
+function scheduleBookPageTurnAnimationStep() {
+  if (!bookPageTurnAnimation) {
+    return;
+  }
+
+  if (bookPageTurnAnimationTimeoutId) {
+    clearTimeout(bookPageTurnAnimationTimeoutId);
+  }
+
+  bookPageTurnAnimationTimeoutId = setTimeout(() => {
+    bookPageTurnAnimationTimeoutId = 0;
+
+    if (!bookPageTurnAnimation) {
+      return;
+    }
+
+    stepBookPageTurnAnimation();
+
+    if (bookPageTurnAnimation) {
+      scheduleBookPageTurnAnimationStep();
+    }
+  }, bookPageTurnFrameDurationMs);
+}
+
+function startBookPageTurnAnimation(direction) {
+  if (bookPageTurnAnimation) {
+    return;
+  }
+
+  const nextState = getBookStateAfterPageTurn(bookState, direction);
+  if (nextState === bookState) {
+    return;
+  }
+
+  const outgoingSide = direction > 0 ? "right" : "left";
+  const incomingSide = direction > 0 ? "left" : "right";
+  const startState = cloneBookState(bookState);
+  const backgroundState = getBookAnimationBackgroundState(startState, nextState, direction);
+  const layerIndex = getBookAnimationLayerIndex(backgroundState);
+  const animationLayer = getBookPageLayerByIndex(layerIndex);
+
+  if (!animationLayer) {
+    bookState = cloneBookState(nextState);
+    updateBookPageStack(bookState);
+    return;
+  }
+
+  bookPageTurnAnimation = {
+    direction,
+    startState,
+    phase: "out",
+    frame: 0,
+    nextState: cloneBookState(nextState),
+    backgroundState,
+    layerIndex,
+    outgoingSide,
+    incomingSide,
+    activeSide: outgoingSide,
+  };
+
+  updateBookPageStack(backgroundState, { spineLayerIndex: layerIndex });
+  ensureBookPageTurnOverlay(animationLayer, outgoingSide);
+  updateBookTurnOverlayContent(
+    animationLayer,
+    outgoingSide,
+    getBookAnimatedPageNumber(bookPageTurnAnimation, outgoingSide),
+  );
+  updateBookTurnButtons();
+  stepBookPageTurnAnimation();
+
+  if (bookPageTurnAnimation) {
+    scheduleBookPageTurnAnimationStep();
+  }
 }
 
 function openBookOverlayPanel(triggerButton = null) {
@@ -2140,6 +2641,7 @@ function openBookOverlayPanel(triggerButton = null) {
   closeSaveSlotPanel();
   hideTileMenu();
   bookOverlayTriggerButton = triggerButton;
+  initializeBookPageContent();
   updateBookPageStack();
   bookOverlay.hidden = false;
   bookOverlay.querySelector('[data-action="close-book-overlay"]')?.focus({ preventScroll: true });
@@ -8522,13 +9024,13 @@ for (const button of closeBookOverlayButtons) {
 
 for (const button of previousBookPageButtons) {
   button.addEventListener("click", () => {
-    turnBookPage(1);
+    startBookPageTurnAnimation(-1);
   });
 }
 
 for (const button of nextBookPageButtons) {
   button.addEventListener("click", () => {
-    turnBookPage(-1);
+    startBookPageTurnAnimation(1);
   });
 }
 
@@ -8705,6 +9207,7 @@ for (const button of zoomInButtons) {
 window.addEventListener("resize", resizeCanvas);
 
 applyStaticText();
+initializeBookPageContent();
 updateBookPageStack();
 populateTerrainMenu();
 void requestPersistentStorage();

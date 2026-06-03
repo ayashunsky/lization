@@ -58,6 +58,11 @@ window.APP_LOCALIZATION = {
       play: {
         storesTitle: "Ressources",
       },
+      bookDemo: {
+        title: "Notes du village",
+        paragraphOne: "Les chemins rendent les deplacements plus rapides quand le terrain devient bien connu.",
+        paragraphTwo: "La pierre, le bois et la nourriture soutiennent le village jour apres jour.",
+      },
       modes: {
         menu: "Menu",
         play: "Jouer",
@@ -206,6 +211,11 @@ window.APP_LOCALIZATION = {
       },
       play: {
         storesTitle: "Resources",
+      },
+      bookDemo: {
+        title: "Village Notes",
+        paragraphOne: "Paths make travel faster once the ground becomes well known.",
+        paragraphTwo: "Stone, lumber, and food keep the village going day after day.",
       },
       modes: {
         menu: "Menu",
@@ -356,6 +366,11 @@ window.APP_LOCALIZATION = {
       play: {
         storesTitle: "Recursos",
       },
+      bookDemo: {
+        title: "Notas del poblado",
+        paragraphOne: "Los caminos aceleran el viaje cuando el terreno se vuelve bien conocido.",
+        paragraphTwo: "La piedra, la madera y la comida sostienen el poblado dia tras dia.",
+      },
       modes: {
         menu: "Menu",
         play: "Jugar",
@@ -504,6 +519,11 @@ window.APP_LOCALIZATION = {
       },
       play: {
         storesTitle: "Ресурсы",
+      },
+      bookDemo: {
+        title: "Записки деревни",
+        paragraphOne: "Тропы ускоряют путь, когда местность становится хорошо знакомой.",
+        paragraphTwo: "Камень, дерево и еда поддерживают деревню день за днем.",
       },
       modes: {
         menu: "Меню",

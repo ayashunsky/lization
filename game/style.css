@@ -836,13 +836,20 @@ p {
   display: block;
 }
 
+.book-page-layer {
+  --book-page-left-scale: 1;
+  --book-page-left-skew: 0deg;
+  --book-page-right-scale: 1;
+  --book-page-right-skew: 0deg;
+}
+
 .book-page-layer::after {
   content: "";
   position: absolute;
   left: 50%;
-  top: 7.6%;
+  top: 7.0%;
   bottom: 11.7%;
-  width: 3px;
+  width: 2px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.92);
   transform: translateX(-50%);
@@ -863,8 +870,81 @@ p {
   height: 100%;
 }
 
+.book-page-layer .book-page-entity[data-book-page-side="left"],
+.book-page-layer .book-page-entity[data-book-page-side="right"] {
+  transform-origin: 50% center;
+}
+
+.book-page-layer .book-page-content[data-book-page-content-side="left"] {
+  transform-origin: right center;
+  transform: scaleX(var(--book-page-left-scale)) skewY(var(--book-page-left-skew));
+}
+
+.book-page-layer .book-page-content[data-book-page-content-side="right"] {
+  transform-origin: left center;
+  transform: scaleX(var(--book-page-right-scale)) skewY(var(--book-page-right-skew));
+}
+
+.book-page-layer .book-page-entity[data-book-page-side="left"] {
+  transform: scaleX(var(--book-page-left-scale)) skewY(var(--book-page-left-skew));
+}
+
+.book-page-layer .book-page-entity[data-book-page-side="right"] {
+  transform: scaleX(var(--book-page-right-scale)) skewY(var(--book-page-right-skew));
+}
+
 .book-page-entity.book-entity-hidden {
   display: none;
+}
+
+.book-page-turn-overlay {
+  pointer-events: none;
+}
+
+.book-page-entity.book-page-turn-overlay {
+  z-index: 3;
+}
+
+.book-page-content {
+  position: absolute;
+  top: 15%;
+  bottom: 18%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  overflow: hidden;
+  color: rgba(48, 36, 20, 0.94);
+  font-size: calc(1.2rem * var(--ui-font-scale));
+  line-height: 1;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+.book-page-content[data-book-page-content-side="left"] {
+  left: 7%;
+  right: 52%;
+  text-align: left;
+}
+
+.book-page-content[data-book-page-content-side="right"] {
+  left: 52%;
+  right: 7%;
+  text-align: left;
+}
+
+.book-page-content-hidden {
+  display: none;
+}
+
+.book-page-content.book-page-turn-overlay {
+  z-index: 4;
+}
+
+.book-page-number {
+  font-size: calc(1.56rem * var(--ui-font-scale));
+  font-weight: 700;
+  color: rgba(74, 49, 22, 0.92);
 }
 
 .book-page-layer[data-book-page-layer="1"] {
