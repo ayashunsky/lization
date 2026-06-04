@@ -1,0 +1,31 @@
+{
+  "meta": { "minimumPageCount": 16 },
+  "bookmarks": [],
+  "sequences": {},
+  "pages": [
+    { "id": "page-01", "file": "page-01.html", "showPageNumber": false },
+    { "id": "page-02", "file": "page-02.html", "showPageNumber": false },
+    { "id": "page-03", "file": "page-03.html", "showPageNumber": false },
+    { "id": "page-04", "file": "page-04.html", "showPageNumber": false },
+    { "id": "page-05", "file": "page-05.html", "showPageNumber": false },
+    { "id": "page-06", "file": "page-06.html", "showPageNumber": false },
+    { "id": "page-07", "file": "page-07.html", "showPageNumber": false },
+    { "id": "page-08", "file": "page-08.html", "showPageNumber": false },
+    { "id": "page-09", "file": "page-09.html", "showPageNumber": false },
+    { "id": "page-10", "file": "page-10.html", "showPageNumber": false },
+    { "id": "page-11", "file": "page-11.html", "showPageNumber": false },
+    { "id": "page-12", "file": "page-12.html" },
+    { "id": "page-13", "file": "page-13.html" },
+    { "id": "page-14", "file": "page-14.html" },
+    { "id": "page-15", "file": "page-15.html" },
+    { "id": "page-16", "file": "page-16.html" },
+    { "id": "page-17", "file": "page-17.html" },
+    { "id": "page-18", "file": "page-18.html" },
+    { "id": "page-19", "file": "page-19.html" },
+    { "id": "page-20", "file": "page-20.html" },
+    { "id": "page-21", "file": "page-21.html" },
+    { "id": "page-22", "file": "page-22.html" },
+    { "id": "page-23", "file": "page-23.html" },
+    { "id": "page-24", "file": "page-24.html", "showPageNumber": false }
+  ]
+}
