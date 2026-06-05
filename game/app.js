@@ -166,26 +166,9 @@ const unitSprite = {
     "assets/units/unit_stone_sprite.png",
     "assets/units/unit_stone_sprite_1.png",
   ],
-  northEastFishingFrames: [
+  sideFishingFrames: [
     "assets/units/unit_fishing_sprite.png",
-  ],
-  eastFishingFrames: [
-    "assets/units/unit_fishing_sprite.png",
-  ],
-  southEastFishingFrames: [
-    "assets/units/unit_fishing_sprite.png",
-  ],
-  southFishingFrames: [
-    "assets/units/unit_fishing_sprite.png",
-  ],
-  southWestFishingFrames: [
-    "assets/units/unit_fishing_sprite.png",
-  ],
-  westFishingFrames: [
-    "assets/units/unit_fishing_sprite.png",
-  ],
-  northWestFishingFrames: [
-    "assets/units/unit_fishing_sprite.png",
+    "assets/units/unit_fishing_sprite_1.png",
   ],
   northFishingFrames: [
     "assets/units/unit_fishing_north_sprite.png",
@@ -210,38 +193,51 @@ const unitSprite = {
   height: 44,
   anchorX: 18,
   anchorY: 44,
+  fishingRenderSpec: {
+    width: 44.5,
+    height: 54.5,
+    anchorX: 22.25,
+    anchorY: 54.5,
+    groundOffset: 0.75,
+  },
+  fishingDirectionRenderOverrides: {
+    south: {
+      anchorX: 22.25,
+      anchorY: 40.5,
+    },
+  },
   fishingDirections: {
     north: {
       frameSet: "northFishingFrames",
       mirror: false,
     },
     northEast: {
-      frameSet: "northEastFishingFrames",
-      mirror: false,
+      frameSet: "sideFishingFrames",
+      mirror: true,
     },
     east: {
-      frameSet: "eastFishingFrames",
-      mirror: false,
+      frameSet: "sideFishingFrames",
+      mirror: true,
     },
     southEast: {
-      frameSet: "southEastFishingFrames",
-      mirror: false,
+      frameSet: "sideFishingFrames",
+      mirror: true,
     },
     south: {
-      frameSet: "southFishingFrames",
-      mirror: false,
+      frameSet: "sideFishingFrames",
+      mirror: true,
     },
     southWest: {
-      frameSet: "southWestFishingFrames",
-      mirror: true,
+      frameSet: "sideFishingFrames",
+      mirror: false,
     },
     west: {
-      frameSet: "westFishingFrames",
-      mirror: true,
+      frameSet: "sideFishingFrames",
+      mirror: false,
     },
     northWest: {
-      frameSet: "northWestFishingFrames",
-      mirror: true,
+      frameSet: "sideFishingFrames",
+      mirror: false,
     },
   },
   groundOffset: 0.75,
@@ -7623,7 +7619,14 @@ function drawMovingUnit(now = performance.now()) {
 
   if (!screen) return;
 
-  drawUnitAtScreen(screen, ctx, imagePath, shouldMirrorUnitImage(imagePath, direction, movingUnit), !movingUnit.selected);
+  drawUnitAtScreen(
+    screen,
+    ctx,
+    imagePath,
+    shouldMirrorUnitImage(imagePath, direction, movingUnit),
+    !movingUnit.selected,
+    movingUnit,
+  );
 }
 
 function drawSelectedStationaryUnit(now = performance.now()) {
@@ -7647,6 +7650,7 @@ function drawSelectedStationaryUnit(now = performance.now()) {
     imagePath,
     shouldMirrorUnitImage(imagePath, direction, selectedUnit),
     false,
+    selectedUnit,
   );
 }
 
@@ -7667,6 +7671,7 @@ function drawStationaryUnits(drawContext = ctx, frameIndex = 0) {
       imagePath,
       shouldMirrorUnitImage(imagePath, direction, stationaryUnit),
       !stationaryUnit.selected,
+      stationaryUnit,
     );
   }
 }
@@ -7843,7 +7848,21 @@ function getMovingUnitImage(currentUnit = unit, direction = "west", now = perfor
   return moveFrames[frameIndex] || fallbackImage;
 }
 
-function getUnitSpriteRenderSpec(imagePath) {
+function getUnitSpriteRenderSpec(imagePath, currentUnit = null) {
+  if (isFishingTask(currentUnit)) {
+    const direction = getRawUnitTaskDirection(currentUnit);
+    const fishingSpec = unitSprite.fishingRenderSpec || {};
+    const directionOverride = unitSprite.fishingDirectionRenderOverrides?.[direction] || {};
+
+    return {
+      width: fishingSpec.width ?? unitSprite.width,
+      height: fishingSpec.height ?? unitSprite.height,
+      anchorX: directionOverride.anchorX ?? fishingSpec.anchorX ?? unitSprite.anchorX,
+      anchorY: directionOverride.anchorY ?? fishingSpec.anchorY ?? unitSprite.anchorY,
+      groundOffset: directionOverride.groundOffset ?? fishingSpec.groundOffset ?? unitSprite.groundOffset,
+    };
+  }
+
   return {
     width: unitSprite.width,
     height: unitSprite.height,
@@ -7859,9 +7878,10 @@ function drawUnitAtScreen(
   imagePath = unitSprite.idleImage,
   mirrorX = false,
   showShadow = true,
+  currentUnit = null,
 ) {
   const image = unitImages[imagePath];
-  const renderSpec = getUnitSpriteRenderSpec(imagePath);
+  const renderSpec = getUnitSpriteRenderSpec(imagePath, currentUnit);
   const drawWidth = renderSpec.width * zoomLevels[zoomIndex];
   const drawHeight = renderSpec.height * zoomLevels[zoomIndex];
   const drawX = screen.x - renderSpec.anchorX * zoomLevels[zoomIndex];
