@@ -35,8 +35,8 @@
 }
 
 @font-face {
-  font-family: "Brahms Gotisch Cyr";
-  src: url("assets/fonts/BrahmsGotischCyr.otf") format("opentype");
+  font-family: "Inkulinati 210706";
+  src: url("assets/fonts/Inkulinati-Regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -70,6 +70,25 @@ body {
   width: 100vw;
   height: 100vh;
   min-width: 320px;
+}
+
+.app-shell.intro-book-mode {
+  background: #000;
+}
+
+.app-shell.intro-book-mode .top-bars,
+.app-shell.intro-book-mode .viewport,
+.app-shell.intro-book-mode .play-inspector,
+.app-shell.intro-book-mode .unit-action-bar,
+.app-shell.intro-book-mode #gameActionMenu,
+.app-shell.intro-book-mode #saveSlotOverlay {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.app-shell.intro-book-mode .book-turn-controls {
+  display: none !important;
 }
 
 .top-bars {
@@ -159,7 +178,7 @@ p {
 }
 
 .fancy-message {
-  font-family: "Brahms Gotisch Cyr", "Brush Script MT", cursive;
+  font-family: "Inkulinati 210706", "Brush Script MT", cursive;
 }
 
 .readouts {
@@ -786,6 +805,10 @@ p {
   background: rgba(9, 12, 11, 0.58);
 }
 
+.app-shell.intro-book-mode .book-overlay {
+  background: #000;
+}
+
 .book-overlay[hidden] {
   display: none;
 }
@@ -926,10 +949,11 @@ p {
   padding: 0;
   overflow: hidden;
   color: rgba(48, 36, 20, 0.94);
-  font-family: "Brahms Gotisch Cyr", "Oldania ADF Std", "TriodPostnaja", Georgia, serif;
+  font-family: "Inkulinati 210706", "Oldania ADF Std", "TriodPostnaja", Georgia, serif;
   font-size: calc(0.55rem * var(--ui-font-scale));
-  line-height: 1.3;
-  letter-spacing: 0;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  word-spacing: 0.15em;
   pointer-events: auto;
   user-select: text;
 }
@@ -1417,12 +1441,37 @@ p {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(12, 15, 14, 0.52);
-  backdrop-filter: blur(4px);
+  background: #000;
 }
 
 .main-menu-overlay[hidden] {
   display: none;
+}
+
+.main-menu-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  color: rgba(236, 242, 237, 0.92);
+  font-size: calc(1.1rem * var(--ui-font-scale));
+  text-align: center;
+  pointer-events: none;
+}
+
+.main-menu-loading[hidden] {
+  display: none;
+}
+
+.main-menu-overlay.is-loading .main-menu {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.main-menu-overlay.is-loading .main-menu-loading {
+  display: grid;
 }
 
 .main-menu {

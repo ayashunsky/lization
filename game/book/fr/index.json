@@ -1,7 +1,7 @@
 {
   "meta": { "minimumPageCount": 16 },
   "bookmarks": [],
-  "sequences": {},
+  "sequences": { "intro": ["page-02", "page-03", "page-04", "page-05", "page-06", "page-07", "page-08", "page-09", "page-10", "page-11"] },
   "pages": [
     { "id": "page-01", "file": "page-01.html", "showPageNumber": false },
     { "id": "page-02", "file": "page-02.html", "showPageNumber": false },

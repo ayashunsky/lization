@@ -75,6 +75,7 @@ window.APP_LOCALIZATION = {
         loadGame: "Charger une partie",
         edit: "Editeur",
         importExport: "Import/Export",
+        loading: "Chargement...",
         visual: "Visuel",
       },
       saveSlots: {
@@ -229,6 +230,7 @@ window.APP_LOCALIZATION = {
         loadGame: "Load game",
         edit: "Editor",
         importExport: "Import/Export",
+        loading: "Loading...",
         visual: "Visual",
       },
       saveSlots: {
@@ -383,6 +385,7 @@ window.APP_LOCALIZATION = {
         loadGame: "Cargar partida",
         edit: "Editor",
         importExport: "Importar/Exportar",
+        loading: "Cargando...",
         visual: "Visual",
       },
       saveSlots: {
@@ -537,6 +540,7 @@ window.APP_LOCALIZATION = {
         loadGame: "Загрузить игру",
         edit: "Редактор",
         importExport: "Импорт/Экспорт",
+        loading: "Загрузка...",
         visual: "Вид",
       },
       saveSlots: {

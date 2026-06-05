@@ -4,6 +4,7 @@ const viewport = document.querySelector(".viewport");
 const appShell = document.querySelector(".app-shell");
 const topBarsContainer = document.querySelector(".top-bars");
 const mainMenuOverlay = document.querySelector("#mainMenuOverlay");
+const mainMenuLoadingElements = [...document.querySelectorAll('[data-role="main-menu-loading"]')];
 const playInspector = document.querySelector("#playInspector");
 const bookOverlay = document.querySelector("#bookOverlay");
 const unitActionBar = document.querySelector("#unitActionBar");
@@ -105,6 +106,7 @@ const staticLayerCtx = staticLayerCanvas.getContext("2d");
 const staticUnitsLayerCanvases = [document.createElement("canvas"), document.createElement("canvas")];
 const staticUnitsLayerContexts = staticUnitsLayerCanvases.map((layerCanvas) => layerCanvas.getContext("2d"));
 const backgroundMusic = new Audio("assets/audio/music.mp3");
+const introMusic = new Audio("assets/audio/intro.mp3");
 
 const rules = window.APP_RULES;
 const localization = window.APP_LOCALIZATION;
@@ -420,8 +422,15 @@ let situationMessageViewIndex = -1;
 let situationMessageTypingTimeoutId = 0;
 let situationMessageTypingToken = 0;
 let bookOverlayTriggerButton = null;
+let bookOverlayRestoreState = null;
+let bookOverlayIntroMode = false;
 let bookPageTurnAnimation = null;
 let bookPageTurnAnimationTimeoutId = 0;
+let bookSequencePlayback = null;
+let bookSequencePlaybackTimeoutId = 0;
+let introMusicSegmentPlaybackActive = false;
+let visualAssetsLoaded = false;
+let visualAssetsLoadPromise = null;
 let activeGameMenuButton = null;
 let slotPanelState = null;
 const tileImages = {};
@@ -430,6 +439,7 @@ const shoreOverlayImages = {};
 const resourceOverlayImages = {};
 const resourceIconImages = {};
 const unitImages = {};
+const imageLoadPromises = new WeakMap();
 const saveVersion = 9;
 const storageKeys = {
   filePrefix: "schtroumpfilization:save-file:v1:",
@@ -456,6 +466,11 @@ const bookPageTurnFramesPerPhase = 8;
 const bookPageTurnFrameDurationMs = 38;
 const bookPageTurnCollapsedScale = 0.52;
 const bookMinimumPageCount = 16;
+const bookIntroSequenceId = "intro";
+const bookSequenceInitialPauseMs = 10000;
+const bookSequenceTurnPauseMs = 14000;
+const introMusicSegmentStartTime = 16;
+const introMusicSegmentEndTime = 101;
 const julianTurnEpoch = {
   year: 1468,
   month: 5,
@@ -478,6 +493,21 @@ let audioSettings = loadAudioSettings();
 backgroundMusic.loop = true;
 backgroundMusic.preload = "auto";
 backgroundMusic.volume = audioSettings.volume;
+introMusic.loop = false;
+introMusic.preload = "auto";
+introMusic.volume = audioSettings.volume;
+introMusic.addEventListener("timeupdate", () => {
+  if (!introMusicSegmentPlaybackActive) {
+    return;
+  }
+
+  if (introMusic.currentTime >= introMusicSegmentEndTime) {
+    completeIntroMusicSegmentPlayback();
+  }
+});
+introMusic.addEventListener("ended", () => {
+  completeIntroMusicSegmentPlayback();
+});
 
 const julianTurnEpochJdn = getJulianDayNumber(
   julianTurnEpoch.year,
@@ -505,6 +535,20 @@ function setCheckedState(elements, checked) {
   for (const element of elements) {
     element.checked = checked;
   }
+}
+
+function updateWatchIntroButton() {
+  if (!mainMenuItems.watchIntro) {
+    return;
+  }
+
+  if (!bookDocument?.loaded) {
+    mainMenuItems.watchIntro.disabled = false;
+    return;
+  }
+
+  const sequencePages = bookDocument?.sequences?.[bookIntroSequenceId];
+  mainMenuItems.watchIntro.disabled = !Array.isArray(sequencePages) || sequencePages.length < 2;
 }
 
 function setAttributeForElements(elements, name, value) {
@@ -795,6 +839,7 @@ async function ensureBookContentLoaded() {
         bookDocument = documentDefinition;
         bookTotalPageCount = documentDefinition.pages.length;
         bookState = createInitialBookState(bookTotalPageCount);
+        updateWatchIntroButton();
 
         if (bookOverlay && !bookOverlay.hidden) {
           cancelBookPageTurnAnimation();
@@ -805,6 +850,7 @@ async function ensureBookContentLoaded() {
       })
       .catch((error) => {
         console.error(error);
+        updateWatchIntroButton();
         return bookDocument;
       });
   }
@@ -1149,11 +1195,70 @@ function updateAudioControls() {
 }
 
 function shouldPlayBackgroundMusic() {
-  return isPlayMode() && !mainMenuOpen && audioSettings.musicEnabled;
+  return isPlayMode() && !mainMenuOpen && !bookOverlayIntroMode && audioSettings.musicEnabled;
+}
+
+function completeIntroMusicSegmentPlayback() {
+  if (!introMusicSegmentPlaybackActive) {
+    return;
+  }
+
+  introMusicSegmentPlaybackActive = false;
+  introMusic.pause();
+
+  try {
+    introMusic.currentTime = introMusicSegmentEndTime;
+  } catch {
+    // Ignore metadata readiness issues on teardown.
+  }
+
+  if (!bookSequencePlayback || bookSequencePlayback.sequenceId !== bookIntroSequenceId) {
+    return;
+  }
+
+  bookSequencePlayback.awaitingAudioCompletion = false;
+
+  if (bookSequencePlayback.pendingCloseAfterAudio) {
+    closeBookOverlay();
+  }
+}
+
+function stopIntroMusicSegmentPlayback() {
+  introMusicSegmentPlaybackActive = false;
+  introMusic.pause();
+
+  try {
+    introMusic.currentTime = introMusicSegmentStartTime;
+  } catch {
+    // Ignore metadata readiness issues on teardown.
+  }
+}
+
+async function startIntroMusicSegmentPlayback() {
+  stopIntroMusicSegmentPlayback();
+
+  introMusic.volume = audioSettings.volume;
+
+  try {
+    introMusic.currentTime = introMusicSegmentStartTime;
+  } catch {
+    // Ignore metadata readiness issues; playback will still be attempted.
+  }
+
+  introMusicSegmentPlaybackActive = true;
+
+  try {
+    await introMusic.play();
+    return true;
+  } catch {
+    introMusicSegmentPlaybackActive = false;
+    return false;
+  }
 }
 
 async function syncBackgroundMusicPlayback() {
   backgroundMusic.volume = audioSettings.volume;
+  introMusic.volume = audioSettings.volume;
 
   if (!shouldPlayBackgroundMusic()) {
     backgroundMusic.pause();
@@ -1275,6 +1380,7 @@ function applyStaticText() {
   setTextContent([mainMenuItems.loadGame], strings.menu.loadGame);
   setTextContent([mainMenuItems.edit], strings.menu.edit);
   setTextContent([mainMenuItems.importExport], strings.menu.importExport);
+  setTextContent(mainMenuLoadingElements, strings.menu.loading);
   setTextContent([variantMenuTitle], strings.menu.visual);
   setAttributeForElements(languageSelectorGroups, "aria-label", strings.language.selectorLabel);
   setAttributeForElements(zoomControlGroups, "aria-label", strings.aria.zoomControls);
@@ -1284,6 +1390,7 @@ function applyStaticText() {
   setAttributeForElements(musicVolumeInputs, "aria-label", strings.aria.musicVolume);
   setAttributeForElements(musicEnabledInputs, "title", strings.aria.musicToggle);
   setAttributeForElements(musicVolumeInputs, "title", strings.aria.musicVolume);
+  updateWatchIntroButton();
   setAttributeForElements(nextUnitButtons, "aria-label", strings.actions.nextUnit);
   setAttributeForElements(nextUnitButtons, "title", strings.actions.nextUnit);
   setAttributeForElements(cancelUnitTaskButtons, "aria-label", strings.actions.cancel);
@@ -1322,6 +1429,28 @@ function applyStaticText() {
 
   updateAudioControls();
   updateSituationMessagePanel();
+}
+
+function setMainMenuLoadingState(isLoading) {
+  if (!mainMenuOverlay) {
+    return;
+  }
+
+  mainMenuOverlay.classList.toggle("is-loading", isLoading);
+
+  for (const element of mainMenuLoadingElements) {
+    element.hidden = !isLoading;
+  }
+}
+
+async function runMainMenuLoadingAction(action) {
+  setMainMenuLoadingState(true);
+
+  try {
+    await action();
+  } finally {
+    setMainMenuLoadingState(false);
+  }
 }
 
 function sanitizeFileName(fileName) {
@@ -2367,10 +2496,23 @@ function closeSaveSlotPanel({ restoreFocus = false } = {}) {
 }
 
 function closeBookOverlay({ restoreFocus = false } = {}) {
+  cancelBookSequencePlayback();
   cancelBookPageTurnAnimation();
+  bookOverlayIntroMode = false;
 
   if (bookOverlay) {
     bookOverlay.hidden = true;
+  }
+
+  if (bookOverlayRestoreState) {
+    interactionMode = bookOverlayRestoreState.interactionMode;
+    mainMenuOpen = bookOverlayRestoreState.mainMenuOpen;
+    mainMenuOverlay.hidden = !mainMenuOpen;
+    bookOverlayRestoreState = null;
+    updateInteractionModeUi();
+    draw();
+  } else {
+    updateInteractionModeUi();
   }
 
   if (restoreFocus && bookOverlayTriggerButton) {
@@ -2403,7 +2545,7 @@ function updateBookTurnButtons() {
   let previousDisabled = false;
   let nextDisabled = false;
 
-  if (bookPageTurnAnimation) {
+  if (bookPageTurnAnimation || bookSequencePlayback) {
     previousDisabled = true;
     nextDisabled = true;
   } else {
@@ -2584,6 +2726,7 @@ function jumpBookToPageNumber(pageNumber) {
     return false;
   }
 
+  cancelBookSequencePlayback();
   cancelBookPageTurnAnimation();
   bookState = nextState;
   updateBookPageStack(bookState);
@@ -2623,6 +2766,192 @@ function getBookTargetPageIdFromLink(link) {
   }
 
   return getBookPageNumberById(href) ? href : null;
+}
+
+function getBookSequencePageNumbers(sequenceId) {
+  const sequenceEntries = bookDocument?.sequences?.[sequenceId];
+  if (!Array.isArray(sequenceEntries)) {
+    return [];
+  }
+
+  return sequenceEntries
+    .map((pageId) => getBookPageNumberById(pageId))
+    .filter((pageNumber) => Number.isInteger(pageNumber));
+}
+
+function getBookStateKey(state) {
+  return `${state?.leftPageNumber ?? ""}/${state?.rightPageNumber ?? ""}`;
+}
+
+function getBookSequenceSpreadStates(sequenceId) {
+  const spreadStates = [];
+  let previousKey = null;
+
+  for (const pageNumber of getBookSequencePageNumbers(sequenceId)) {
+    const state = getBookStateForPageNumber(pageNumber);
+    if (!state) {
+      continue;
+    }
+
+    const stateKey = getBookStateKey(state);
+    if (stateKey === previousKey) {
+      continue;
+    }
+
+    spreadStates.push(cloneBookState(state));
+    previousKey = stateKey;
+  }
+
+  return spreadStates;
+}
+
+function clearBookSequencePlaybackTimeout() {
+  if (!bookSequencePlaybackTimeoutId) {
+    return;
+  }
+
+  clearTimeout(bookSequencePlaybackTimeoutId);
+  bookSequencePlaybackTimeoutId = 0;
+}
+
+function cancelBookSequencePlayback() {
+  clearBookSequencePlaybackTimeout();
+  stopIntroMusicSegmentPlayback();
+
+  if (!bookSequencePlayback) {
+    return;
+  }
+
+  bookSequencePlayback = null;
+  updateBookTurnButtons();
+}
+
+function scheduleBookSequencePlaybackStep(delayMs = bookSequenceTurnPauseMs) {
+  if (!bookSequencePlayback) {
+    return;
+  }
+
+  clearBookSequencePlaybackTimeout();
+  bookSequencePlaybackTimeoutId = setTimeout(() => {
+    bookSequencePlaybackTimeoutId = 0;
+    playNextBookSequenceTurn();
+  }, delayMs);
+}
+
+function scheduleBookSequencePlaybackClose(delayMs = bookSequenceTurnPauseMs) {
+  if (!bookSequencePlayback) {
+    return;
+  }
+
+  clearBookSequencePlaybackTimeout();
+  bookSequencePlaybackTimeoutId = setTimeout(() => {
+    bookSequencePlaybackTimeoutId = 0;
+
+    if (!bookSequencePlayback) {
+      return;
+    }
+
+    if (bookSequencePlayback.awaitingAudioCompletion) {
+      bookSequencePlayback.pendingCloseAfterAudio = true;
+      return;
+    }
+
+    closeBookOverlay();
+  }, delayMs);
+}
+
+function finalizeBookSequencePlaybackStep() {
+  if (!bookSequencePlayback) {
+    return;
+  }
+
+  if (Number.isInteger(bookSequencePlayback.pendingSpreadIndex)) {
+    bookSequencePlayback.currentSpreadIndex = bookSequencePlayback.pendingSpreadIndex;
+    bookSequencePlayback.pendingSpreadIndex = null;
+  }
+
+  if (bookSequencePlayback.currentSpreadIndex >= bookSequencePlayback.spreadStates.length - 1) {
+    scheduleBookSequencePlaybackClose();
+    return;
+  }
+
+  scheduleBookSequencePlaybackStep();
+}
+
+function playNextBookSequenceTurn() {
+  if (!bookSequencePlayback || bookPageTurnAnimation) {
+    return;
+  }
+
+  const nextSpreadIndex = bookSequencePlayback.currentSpreadIndex + 1;
+  const nextState = bookSequencePlayback.spreadStates[nextSpreadIndex];
+  const currentState = bookSequencePlayback.spreadStates[bookSequencePlayback.currentSpreadIndex];
+
+  if (!nextState || !currentState) {
+    cancelBookSequencePlayback();
+    return;
+  }
+
+  const direction = (nextState.leftPageNumber ?? 0) >= (currentState.leftPageNumber ?? 0) ? 1 : -1;
+  bookSequencePlayback.pendingSpreadIndex = nextSpreadIndex;
+  startBookPageTurnAnimation(direction);
+
+  if (!bookPageTurnAnimation) {
+    bookState = cloneBookState(nextState);
+    updateBookPageStack(bookState);
+    finalizeBookSequencePlaybackStep();
+  }
+}
+
+function startBookSequencePlayback(sequenceId = bookIntroSequenceId) {
+  const spreadStates = getBookSequenceSpreadStates(sequenceId);
+  if (!spreadStates.length) {
+    return false;
+  }
+
+  cancelBookSequencePlayback();
+  cancelBookPageTurnAnimation();
+  bookState = cloneBookState(spreadStates[0]);
+  updateBookPageStack(bookState);
+
+  bookSequencePlayback = {
+    sequenceId,
+    spreadStates,
+    currentSpreadIndex: 0,
+    pendingSpreadIndex: null,
+    awaitingAudioCompletion: false,
+    pendingCloseAfterAudio: false,
+  };
+
+  updateBookTurnButtons();
+
+  if (sequenceId === bookIntroSequenceId) {
+    bookSequencePlayback.awaitingAudioCompletion = true;
+    void startIntroMusicSegmentPlayback().then((didStart) => {
+      if (!bookSequencePlayback || bookSequencePlayback.sequenceId !== sequenceId) {
+        stopIntroMusicSegmentPlayback();
+        return;
+      }
+
+      if (didStart) {
+        return;
+      }
+
+      bookSequencePlayback.awaitingAudioCompletion = false;
+
+      if (bookSequencePlayback.pendingCloseAfterAudio) {
+        closeBookOverlay();
+      }
+    });
+  }
+
+  if (spreadStates.length > 1) {
+    scheduleBookSequencePlaybackStep(bookSequenceInitialPauseMs);
+  } else {
+    scheduleBookSequencePlaybackClose();
+  }
+
+  return true;
 }
 
 function fillBookPageSideContent(content, pageNumber) {
@@ -2867,6 +3196,7 @@ function finishBookPageTurnAnimation() {
 
   clearBookPageTurnAnimationState();
   updateBookPageStack(bookState);
+  finalizeBookSequencePlaybackStep();
 }
 
 function renderBookPageTurnAnimationFrame() {
@@ -3032,8 +3362,8 @@ function startBookPageTurnAnimation(direction) {
   }
 }
 
-async function openBookOverlayPanel(triggerButton = null) {
-  if (!bookOverlay || !isPlayMode() || mainMenuOpen) {
+async function openBookOverlayPanel(triggerButton = null, { allowNonPlayMode = false, allowMainMenuOpen = false } = {}) {
+  if (!bookOverlay || ((!allowNonPlayMode && !isPlayMode()) || (!allowMainMenuOpen && mainMenuOpen))) {
     return;
   }
 
@@ -3047,6 +3377,39 @@ async function openBookOverlayPanel(triggerButton = null) {
   bookOverlay.querySelector('[data-action="close-book-overlay"]')?.focus({ preventScroll: true });
   await ensureBookContentLoaded();
   updateBookPageStack(bookState);
+}
+
+async function playBookSequence(sequenceId = bookIntroSequenceId, triggerButton = null) {
+  const shouldSuspendMainMenu = mainMenuOpen && !mainMenuOverlay.hidden;
+  bookOverlayIntroMode = true;
+  if (shouldSuspendMainMenu) {
+    bookOverlayRestoreState = {
+      interactionMode,
+      mainMenuOpen,
+    };
+    interactionMode = interactionModes.play;
+    mainMenuOpen = false;
+    mainMenuOverlay.hidden = true;
+    updateInteractionModeUi();
+    draw();
+  }
+
+  await openBookOverlayPanel(triggerButton, { allowNonPlayMode: true, allowMainMenuOpen: true });
+
+  if (!bookOverlay || bookOverlay.hidden) {
+    if (shouldSuspendMainMenu) {
+      interactionMode = bookOverlayRestoreState?.interactionMode ?? interactionMode;
+      mainMenuOpen = bookOverlayRestoreState?.mainMenuOpen ?? true;
+      mainMenuOverlay.hidden = !mainMenuOpen;
+      bookOverlayRestoreState = null;
+    }
+    bookOverlayIntroMode = false;
+    updateInteractionModeUi();
+    draw();
+    return false;
+  }
+
+  return startBookSequencePlayback(sequenceId);
 }
 
 function renderSaveSlotList() {
@@ -3160,6 +3523,8 @@ async function commitSaveSlotPanel() {
       window.alert(strings.messages.obsoleteSave(fileName));
       return false;
     }
+
+    await ensureVisualAssetsLoaded();
 
     if ((mainMenuOpen || interactionMode !== targetMode) && Object.values(interactionModes).includes(targetMode)) {
       setInteractionMode(targetMode);
@@ -5511,67 +5876,86 @@ function maybeAutoAdvanceTurn() {
 }
 
 function loadTileImages() {
+  const pendingLoads = [];
+
   for (const [type, spec] of Object.entries(terrain)) {
     for (const variant of getTerrainVariants(type)) {
-      loadImage(variant.image, tileImages);
+      pendingLoads.push(loadImage(variant.image, tileImages));
     }
   }
 
   for (const imagePath of getBuildingImagePaths()) {
-    loadImage(imagePath, buildingImages);
+    pendingLoads.push(loadImage(imagePath, buildingImages));
   }
 
   for (const imagePath of getShoreOverlayPaths()) {
-    loadImage(imagePath, shoreOverlayImages);
+    pendingLoads.push(loadImage(imagePath, shoreOverlayImages));
   }
 
   for (const imagePath of getFoodOverlayImagePaths()) {
-    loadImage(imagePath, resourceOverlayImages);
+    pendingLoads.push(loadImage(imagePath, resourceOverlayImages));
   }
 
   for (const imagePath of Object.values(resourceUiIcons)) {
-    loadImage(imagePath, resourceIconImages);
+    pendingLoads.push(loadImage(imagePath, resourceIconImages));
   }
 
-  loadImage(unitSprite.idleImage, unitImages);
-  loadImage(unitSprite.northImage, unitImages);
-  loadImage(unitSprite.southImage, unitImages);
+  pendingLoads.push(loadImage(unitSprite.idleImage, unitImages));
+  pendingLoads.push(loadImage(unitSprite.northImage, unitImages));
+  pendingLoads.push(loadImage(unitSprite.southImage, unitImages));
 
   for (const imagePath of unitSprite.workFrames) {
-    loadImage(imagePath, unitImages);
+    pendingLoads.push(loadImage(imagePath, unitImages));
   }
 
   for (const imagePath of unitSprite.landFoodFrames) {
-    loadImage(imagePath, unitImages);
+    pendingLoads.push(loadImage(imagePath, unitImages));
   }
 
   for (const imagePath of unitSprite.lumberFrames) {
-    loadImage(imagePath, unitImages);
+    pendingLoads.push(loadImage(imagePath, unitImages));
   }
 
   for (const imagePath of unitSprite.stoneFrames) {
-    loadImage(imagePath, unitImages);
+    pendingLoads.push(loadImage(imagePath, unitImages));
   }
 
   for (const imagePath of getAllFishingFrameImagePaths()) {
-    loadImage(imagePath, unitImages);
+    pendingLoads.push(loadImage(imagePath, unitImages));
   }
 
   for (const imagePath of unitSprite.playFrames) {
-    loadImage(imagePath, unitImages);
+    pendingLoads.push(loadImage(imagePath, unitImages));
   }
 
   for (const imagePath of unitSprite.northMoveFrames) {
-    loadImage(imagePath, unitImages);
+    pendingLoads.push(loadImage(imagePath, unitImages));
   }
 
   for (const imagePath of unitSprite.southMoveFrames) {
-    loadImage(imagePath, unitImages);
+    pendingLoads.push(loadImage(imagePath, unitImages));
   }
 
   for (const imagePath of unitSprite.moveFrames) {
-    loadImage(imagePath, unitImages);
+    pendingLoads.push(loadImage(imagePath, unitImages));
   }
+
+  return Promise.allSettled(pendingLoads).then(() => {
+    visualAssetsLoaded = true;
+    draw();
+  });
+}
+
+function ensureVisualAssetsLoaded() {
+  if (visualAssetsLoaded) {
+    return Promise.resolve();
+  }
+
+  if (!visualAssetsLoadPromise) {
+    visualAssetsLoadPromise = loadTileImages();
+  }
+
+  return visualAssetsLoadPromise;
 }
 
 function getFoodOverlayImagePaths() {
@@ -5612,26 +5996,48 @@ function getShoreOverlayPaths() {
 }
 
 function loadImage(imagePath, registry) {
-  if (!imagePath || registry[imagePath]) return;
+  if (!imagePath) {
+    return Promise.resolve(null);
+  }
+
+  if (registry[imagePath]) {
+    return imageLoadPromises.get(registry[imagePath]) || Promise.resolve(registry[imagePath]);
+  }
 
   const image = new Image();
-  image.onload = () => {
+  let settleImageLoad;
+  let didSettle = false;
+  const promise = new Promise((resolve) => {
+    settleImageLoad = () => {
+      if (didSettle) return;
+      didSettle = true;
+      resolve(image);
+    };
+  });
+  const handleImageSettled = () => {
     invalidateStaticLayer();
     invalidateStaticUnitsLayer();
     updateStockpileReadout();
     updateTileInspectorReadout();
     draw();
+    settleImageLoad();
+  };
+  image.onload = () => {
+    handleImageSettled();
   };
   image.onerror = () => {
     console.warn(`Could not load image: ${imagePath}`);
-    invalidateStaticLayer();
-    invalidateStaticUnitsLayer();
-    updateStockpileReadout();
-    updateTileInspectorReadout();
-    draw();
+    handleImageSettled();
   };
   image.src = imagePath;
   registry[imagePath] = image;
+  imageLoadPromises.set(image, promise);
+
+  if (image.complete) {
+    handleImageSettled();
+  }
+
+  return promise;
 }
 
 function chooseWeightedId(items) {
@@ -6205,6 +6611,7 @@ function ensureIdleUnitSelection({ force = false, scrollIntoView = false, defaul
 }
 
 function updateInteractionModeUi() {
+  appShell?.classList.toggle("intro-book-mode", bookOverlayIntroMode);
   const visibleTopBarMode = getVisibleTopBarMode();
 
   for (const [mode, topBar] of Object.entries(topBars)) {
@@ -6288,6 +6695,7 @@ function openMainMenu() {
   clearUnitSelection();
   mainMenuOpen = true;
   mainMenuOverlay.hidden = false;
+  setMainMenuLoadingState(false);
   updateInteractionModeUi();
   mainMenuOverlay.querySelector(".main-menu-item:not(:disabled)")?.focus({ preventScroll: true });
   draw();
@@ -6302,6 +6710,7 @@ function setInteractionMode(nextMode) {
   interactionMode = nextMode;
   mainMenuOpen = false;
   mainMenuOverlay.hidden = true;
+  setMainMenuLoadingState(false);
   closeGameActionMenu();
   closeSaveSlotPanel();
   closeBookOverlay();
@@ -9324,13 +9733,24 @@ mainMenuOverlay.addEventListener("click", (event) => {
 
   const action = button.dataset.menuAction;
 
+  if (action === "watch-intro") {
+    void playBookSequence(bookIntroSequenceId, button);
+    return;
+  }
+
   if (action === "play") {
-    activateMode(interactionModes.play);
+    void runMainMenuLoadingAction(async () => {
+      await ensureVisualAssetsLoaded();
+      activateMode(interactionModes.play);
+    });
     return;
   }
 
   if (action === "start-new-game") {
-    startNewGeneratedState(interactionModes.play);
+    void runMainMenuLoadingAction(async () => {
+      await ensureVisualAssetsLoaded();
+      startNewGeneratedState(interactionModes.play);
+    });
     return;
   }
 
@@ -9345,7 +9765,10 @@ mainMenuOverlay.addEventListener("click", (event) => {
   }
 
   if (action === "edit") {
-    activateMode(interactionModes.edit);
+    void runMainMenuLoadingAction(async () => {
+      await ensureVisualAssetsLoaded();
+      activateMode(interactionModes.edit);
+    });
   }
 });
 
@@ -9589,6 +10012,7 @@ for (const input of musicVolumeInputs) {
     saveAudioSettings();
     updateAudioControls();
     backgroundMusic.volume = audioSettings.volume;
+    introMusic.volume = audioSettings.volume;
   });
 }
 
@@ -9628,5 +10052,5 @@ void ensureBookContentLoaded();
 applyStateSnapshot(createDefaultState(interactionModes.edit), interactionModes.edit, { recenter: false });
 resetTileReadout();
 updateInteractionModeUi();
-loadTileImages();
+void ensureVisualAssetsLoaded();
 resizeCanvas();
