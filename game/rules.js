@@ -1,14 +1,27 @@
 window.APP_RULES = {
   units: {
     default: {
+      typeId: "villager",
+      spriteTypeId: "villager",
       name: "Schtroumpf",
       stamina: 2,
       foodConsumptionPerTurn: 1,
+      allowedActions: ["walk", "play", "gatherFood", "gatherMaterials", "buildHouse", "demolish"],
       workPointsPerTurn: {
         buildHouse: 20,
         demolish: 25,
         gatherFood: 4,
         gatherMaterials: 12,
+      },
+    },
+    types: {
+      villager: {
+        spriteTypeId: "villager",
+      },
+      grandSchtroumpf: {
+        spriteTypeId: "grandSchtroumpf",
+        name: "Grand Schtroumpf",
+        allowedActions: ["walk", "layFoundation"],
       },
     },
   },
@@ -30,11 +43,36 @@ window.APP_RULES = {
       height: 1,
     },
     house: {
+      width: 1,
+      height: 1,
       walkable: false,
+      foundationActionAvailable: true,
       constructionCost: 100,
       buildCost: {
         stone: 20,
         lumber: 30,
+      },
+      constructionVisualThresholds: {
+        initialMax: 0.34,
+        halfMax: 0.79,
+      },
+      abandonedDecayPerTurn: 0.025,
+    },
+    laboratory: {
+      width: 2,
+      height: 2,
+      footprint: [
+        [],
+        ["south"],
+        ["southEast"],
+        ["southWest"],
+      ],
+      walkable: false,
+      foundationActionAvailable: true,
+      constructionCost: 400,
+      buildCost: {
+        stone: 80,
+        lumber: 120,
       },
       constructionVisualThresholds: {
         initialMax: 0.34,

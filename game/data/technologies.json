@@ -1,0 +1,22 @@
+{
+  "technologies": [
+    {
+      "id": "house_construction",
+      "cost": 30,
+      "icon": "../assets/buildings/house_01.png",
+      "prerequisites": {
+        "tech": [],
+        "events": []
+      }
+    },
+    {
+      "id": "laboratory_construction",
+      "cost": 120,
+      "icon": "../assets/buildings/laboratory_01.png",
+      "prerequisites": {
+        "tech": ["house_construction"],
+        "events": []
+      }
+    }
+  ]
+}

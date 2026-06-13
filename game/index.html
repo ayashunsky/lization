@@ -55,15 +55,17 @@
         <header class="top-bar" data-bar-mode="edit" hidden>
           <div class="top-bar-side top-bar-side-left">
             <button class="menu-button" data-action="toggle-game-menu" type="button" aria-haspopup="menu" aria-expanded="false"></button>
-            <span data-role="file-readout"></span>
+            <span class="file-readout-group">
+              <span data-role="file-readout"></span>
+              <span class="file-dirty-marker" data-role="file-dirty-marker" hidden>*</span>
+            </span>
+            <span data-role="map-size"></span>
           </div>
           <div class="top-bar-title">
             <h1 data-role="app-title"></h1>
             <p data-role="app-subtitle"></p>
           </div>
           <div class="readouts" aria-live="polite">
-            <span data-role="map-size"></span>
-            <span data-role="hover-readout"></span>
             <div class="zoom-controls">
               <button data-action="zoom-out" type="button">-</button>
               <span data-role="zoom-level"></span>
@@ -75,19 +77,109 @@
 
       <section class="viewport">
         <canvas id="mapCanvas"></canvas>
-        <div id="tileMenu" class="tile-menu" hidden>
-          <p id="tileMenuTitle" class="tile-menu-title"></p>
-          <div id="terrainMenuOptions" class="terrain-options" role="menu"></div>
-          <div id="variantMenu" class="variant-menu" hidden>
-            <p id="variantMenuTitle" class="tile-menu-title"></p>
-            <div id="variantMenuOptions" class="terrain-options" role="menu"></div>
+      </section>
+
+      <aside id="editInspector" class="edit-inspector" hidden>
+        <p id="tileMenuTitle" class="tile-menu-title"></p>
+        <span class="edit-inspector-readout" data-role="hover-readout"></span>
+        <div id="tileMenu" class="tile-menu">
+          <div class="edit-section edit-section-tight">
+            <div class="edit-dropdown-group">
+              <button class="menu-button edit-dropdown-toggle" data-action="toggle-editor-dropdown" data-editor-dropdown="terrain" type="button" aria-expanded="false">
+                <span data-role="editor-terrain-label"></span>
+              </button>
+              <div class="edit-dropdown-menu" data-role="editor-dropdown-menu" data-editor-dropdown-menu="terrain" hidden>
+                <div id="terrainMenuOptions" class="terrain-options" role="menu"></div>
+              </div>
+            </div>
+            <div class="edit-dropdown-group">
+              <button class="menu-button edit-dropdown-toggle" data-action="toggle-editor-dropdown" data-editor-dropdown="visual" type="button" aria-expanded="false">
+                <span data-role="editor-visual-label"></span>
+              </button>
+              <div class="edit-dropdown-menu" data-role="editor-dropdown-menu" data-editor-dropdown-menu="visual" hidden>
+                <div id="variantMenu" class="variant-menu">
+                  <p id="variantMenuTitle" class="tile-menu-title"></p>
+                  <div id="variantMenuOptions" class="terrain-options" role="menu"></div>
+                </div>
+              </div>
+            </div>
+            <div class="edit-field-panel" data-role="editor-resource-panel" hidden>
+              <div class="edit-field-row edit-field-row-resource">
+                <span class="edit-field-inline-title" data-role="editor-resource-title"></span>
+                <label class="edit-number-field edit-number-field-inline" data-role="editor-resource-current-field">
+                  <span class="edit-field-label-hidden" data-role="editor-current-label"></span>
+                  <input class="edit-number-input" data-action="editor-resource-current" type="number" step="1">
+                </label>
+                <span class="edit-field-separator" data-role="editor-resource-separator" aria-hidden="true">/</span>
+                <label class="edit-number-field edit-number-field-inline" data-role="editor-resource-total-field">
+                  <span class="edit-field-label-hidden" data-role="editor-total-label"></span>
+                  <input class="edit-number-input" data-action="editor-resource-total" type="number" step="1">
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="edit-section">
+            <div class="edit-dropdown-group">
+              <button class="menu-button edit-dropdown-toggle" data-action="toggle-editor-dropdown" data-editor-dropdown="food" type="button" aria-expanded="false">
+                <span data-role="editor-food-label"></span>
+              </button>
+              <div class="edit-dropdown-menu" data-role="editor-dropdown-menu" data-editor-dropdown-menu="food" hidden>
+                <div id="foodMenuOptions" class="terrain-options" role="menu"></div>
+              </div>
+            </div>
+            <div class="edit-field-panel" data-role="editor-food-panel" hidden>
+              <div class="edit-field-row edit-field-row-inline">
+                <label class="edit-number-field edit-number-field-inline">
+                  <span class="edit-field-label-hidden" data-role="editor-current-label"></span>
+                  <input class="edit-number-input" data-action="editor-food-current" type="number" step="1">
+                </label>
+                <span class="edit-field-separator" aria-hidden="true">/</span>
+                <label class="edit-number-field edit-number-field-inline">
+                  <span class="edit-field-label-hidden" data-role="editor-total-label"></span>
+                  <input class="edit-number-input" data-action="editor-food-total" type="number" step="1">
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="edit-section">
+            <div class="edit-dropdown-group">
+              <button class="menu-button edit-dropdown-toggle" data-action="toggle-editor-dropdown" data-editor-dropdown="building" type="button" aria-expanded="false">
+                <span data-role="editor-building-label"></span>
+              </button>
+              <div class="edit-dropdown-menu" data-role="editor-dropdown-menu" data-editor-dropdown-menu="building" hidden>
+                <div id="buildingMenuOptions" class="terrain-options" role="menu"></div>
+              </div>
+            </div>
+            <div class="edit-field-panel" data-role="editor-building-panel" hidden>
+              <div class="edit-building-state-row">
+                <label class="edit-number-field edit-number-field-inline">
+                  <span class="edit-field-label-hidden" data-role="editor-completion-label"></span>
+                  <input class="edit-number-input" data-action="editor-building-completion" type="number" min="0" max="100" step="1">
+                  <span class="edit-field-suffix" aria-hidden="true">%</span>
+                </label>
+                <label class="toggle-control edit-toggle-control">
+                  <input data-action="editor-building-abandoned" type="checkbox">
+                  <span data-role="editor-abandoned-label"></span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
-      </section>
+        <div class="edit-unit-preview is-empty" data-role="editor-unit-preview">
+          <img class="edit-unit-sprite" data-role="editor-unit-sprite" alt="">
+          <div class="edit-unit-meta">
+            <span class="edit-unit-name" data-role="editor-unit-name"></span>
+            <button class="menu-button edit-unit-action" data-role="editor-unit-action" type="button" disabled></button>
+          </div>
+        </div>
+      </aside>
 
       <nav id="unitActionBar" class="unit-action-bar" aria-label="Unit actions" hidden>
         <button class="unit-action-button" data-action="select-unit-action" data-unit-action="walk" type="button">
           <span aria-hidden="true">➜</span>
+        </button>
+        <button class="unit-action-button" data-action="select-unit-action" data-unit-action="layFoundation" type="button">
+          <span aria-hidden="true">▦</span>
         </button>
         <button class="unit-action-button" data-action="select-unit-action" data-unit-action="play" type="button">
           <span aria-hidden="true">♪</span>
@@ -104,6 +196,7 @@
         <button class="unit-action-button" data-action="select-unit-action" data-unit-action="demolish" type="button">
           <span aria-hidden="true">✕</span>
         </button>
+        <div id="foundationActionMenu" class="foundation-action-menu" hidden></div>
       </nav>
 
       <aside id="playInspector" class="play-inspector" hidden>
