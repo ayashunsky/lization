@@ -8,6 +8,12 @@ const mainMenuLoadingElements = [...document.querySelectorAll('[data-role="main-
 const playInspector = document.querySelector("#playInspector");
 const editInspector = document.querySelector("#editInspector");
 const bookOverlay = document.querySelector("#bookOverlay");
+const bookTransientHint = document.querySelector("#bookTransientHint");
+const bookTransientHintTextElements = [...document.querySelectorAll('[data-role="book-transient-hint-text"]')];
+const bookVisual = document.querySelector(".book-visual");
+const bookBookmarkBackBar = document.querySelector("#bookBookmarkBarBack");
+const bookBookmarkFrontBar = document.querySelector("#bookBookmarkBarFront");
+const bookBookmarkBars = [bookBookmarkBackBar, bookBookmarkFrontBar].filter(Boolean);
 const unitActionBar = document.querySelector("#unitActionBar");
 const foundationActionMenu = document.querySelector("#foundationActionMenu");
 const gameActionMenu = document.querySelector("#gameActionMenu");
@@ -17,6 +23,10 @@ const saveSlotTitle = document.querySelector("#saveSlotTitle");
 const saveSlotInput = document.querySelector("#saveSlotInput");
 const saveSlotList = document.querySelector("#saveSlotList");
 const saveSlotEmpty = document.querySelector("#saveSlotEmpty");
+const editorResearchOverlay = document.querySelector("#editorResearchOverlay");
+const editorResearchPanel = document.querySelector("#editorResearchPanel");
+const editorResearchList = document.querySelector("#editorResearchList");
+const editorResearchEmpty = document.querySelector("#editorResearchEmpty");
 const appTitleElements = [...document.querySelectorAll('[data-role="app-title"]')];
 const appSubtitleElements = [...document.querySelectorAll('[data-role="app-subtitle"]')];
 const storesTitleElements = [...document.querySelectorAll('[data-role="stores-title"]')];
@@ -45,6 +55,11 @@ const editorUnitPreviewElements = [...document.querySelectorAll('[data-role="edi
 const editorUnitSpriteImages = [...document.querySelectorAll('[data-role="editor-unit-sprite"]')];
 const editorUnitNameElements = [...document.querySelectorAll('[data-role="editor-unit-name"]')];
 const editorUnitActionElements = [...document.querySelectorAll('[data-role="editor-unit-action"]')];
+const openEditorResearchButtons = [...document.querySelectorAll('[data-action="open-editor-research"]')];
+const closeEditorResearchButtons = [...document.querySelectorAll('[data-action="close-editor-research"]')];
+const clearEditorResearchGoalButtons = [...document.querySelectorAll('[data-action="clear-editor-research-goal"]')];
+const editorResearchTitleElements = [...document.querySelectorAll('[data-role="editor-research-title"]')];
+const editorResearchGoalElements = [...document.querySelectorAll('[data-role="editor-research-goal"]')];
 const editorResourcePanels = [...document.querySelectorAll('[data-role="editor-resource-panel"]')];
 const editorResourceTitleElements = [...document.querySelectorAll('[data-role="editor-resource-title"]')];
 const editorResourceSeparators = [...document.querySelectorAll('[data-role="editor-resource-separator"]')];
@@ -139,6 +154,7 @@ const staticUnitsLayerCanvases = [document.createElement("canvas"), document.cre
 const staticUnitsLayerContexts = staticUnitsLayerCanvases.map((layerCanvas) => layerCanvas.getContext("2d"));
 const backgroundMusic = new Audio("assets/audio/music.mp3");
 const introMusic = new Audio("assets/audio/intro.mp3");
+const researchBookBookmarkId = "techs";
 
 const rules = window.APP_RULES;
 const localization = window.APP_LOCALIZATION;
@@ -174,164 +190,14 @@ const unitActions = {
   walk: "walk",
   layFoundation: "layFoundation",
   play: "play",
+  research: "research",
   gatherFood: "gatherFood",
   gatherMaterials: "gatherMaterials",
   buildHouse: "buildHouse",
   demolish: "demolish",
 };
 const orderedUnitActions = Object.freeze(Object.values(unitActions));
-const unitSpriteConfigs = {
-  villager: {
-    idleImage: "assets/units/unit_sprite.png",
-    northImage: "assets/units/unit_back_sprite.png",
-    southImage: "assets/units/unit_front_sprite.png",
-    workFrames: [
-      "assets/units/unit_work_sprite.png",
-      "assets/units/unit_work_sprite_1.png",
-    ],
-    landFoodFrames: [
-      "assets/units/unit_food_sprite.png",
-      "assets/units/unit_food_sprite_1.png",
-    ],
-    lumberFrames: [
-      "assets/units/unit_lumber_sprite.png",
-      "assets/units/unit_lumber_sprite_1.png",
-    ],
-    stoneFrames: [
-      "assets/units/unit_stone_sprite.png",
-      "assets/units/unit_stone_sprite_1.png",
-    ],
-    sideFishingFrames: [
-      "assets/units/unit_fishing_sprite.png",
-      "assets/units/unit_fishing_sprite_1.png",
-    ],
-    northFishingFrames: [
-      "assets/units/unit_fishing_north_sprite.png",
-      "assets/units/unit_fishing_north_sprite_1.png",
-    ],
-    southFishingFrames: [
-      "assets/units/unit_fishing_south_sprite.png",
-      "assets/units/unit_fishing_south_sprite_1.png",
-    ],
-    playFrames: [
-      "assets/units/unit_play_sprite.png",
-      "assets/units/unit_play_sprite_1.png",
-    ],
-    workFrameDuration: 180,
-    northMoveFrames: [
-      "assets/units/unit_back_step_sprite.png",
-      "assets/units/unit_back_step_sprite_2.png",
-    ],
-    southMoveFrames: [
-      "assets/units/unit_front_step_sprite.png",
-      "assets/units/unit_front_step_sprite_2.png",
-    ],
-    moveFrames: ["assets/units/unit_sprite.png", "assets/units/unit_step_sprite.png"],
-    moveFrameSequence: [0, 1, 0, 1, 0, 1, 0, 1, 0],
-    width: 36,
-    height: 44,
-    anchorX: 18,
-    anchorY: 44,
-    fishingRenderSpec: {
-      width: 44.5,
-      height: 54.5,
-      anchorX: 22.25,
-      anchorY: 54.5,
-      groundOffset: 0.75,
-    },
-    fishingDirectionRenderOverrides: {
-      south: {
-        anchorX: 22.25,
-        anchorY: 34.5,
-      },
-    },
-    fishingDirections: {
-      north: {
-        frameSet: "northFishingFrames",
-        mirror: false,
-      },
-      northEast: {
-        frameSet: "sideFishingFrames",
-        mirror: true,
-      },
-      east: {
-        frameSet: "sideFishingFrames",
-        mirror: true,
-      },
-      southEast: {
-        frameSet: "sideFishingFrames",
-        mirror: true,
-      },
-      south: {
-        frameSet: "southFishingFrames",
-        mirror: false,
-      },
-      southWest: {
-        frameSet: "sideFishingFrames",
-        mirror: false,
-      },
-      west: {
-        frameSet: "sideFishingFrames",
-        mirror: false,
-      },
-      northWest: {
-        frameSet: "sideFishingFrames",
-        mirror: false,
-      },
-    },
-    groundOffset: 0.75,
-    moveDuration: 720,
-  },
-  grandSchtroumpf: {
-    idleImage: "assets/units/unit_grand_schtroumpf_sprite.png",
-    northImage: "assets/units/unit_grand_schtroumpf_back_sprite.png",
-    southImage: "assets/units/unit_grand_schtroumpf_front_sprite.png",
-    workFrames: [
-      "assets/units/unit_grand_schtroumpf_sprite.png",
-      "assets/units/unit_grand_schtroumpf_step_sprite.png",
-    ],
-    landFoodFrames: [
-      "assets/units/unit_grand_schtroumpf_sprite.png",
-      "assets/units/unit_grand_schtroumpf_step_sprite.png",
-    ],
-    lumberFrames: [
-      "assets/units/unit_grand_schtroumpf_sprite.png",
-      "assets/units/unit_grand_schtroumpf_step_sprite.png",
-    ],
-    stoneFrames: [
-      "assets/units/unit_grand_schtroumpf_sprite.png",
-      "assets/units/unit_grand_schtroumpf_step_sprite.png",
-    ],
-    sideFishingFrames: [
-      "assets/units/unit_grand_schtroumpf_sprite.png",
-      "assets/units/unit_grand_schtroumpf_step_sprite.png",
-    ],
-    northFishingFrames: [
-      "assets/units/unit_grand_schtroumpf_sprite.png",
-      "assets/units/unit_grand_schtroumpf_step_sprite.png",
-    ],
-    southFishingFrames: [
-      "assets/units/unit_grand_schtroumpf_front_sprite.png",
-      "assets/units/unit_grand_schtroumpf_front_sprite.png",
-    ],
-    playFrames: [
-      "assets/units/unit_grand_schtroumpf_sprite.png",
-      "assets/units/unit_grand_schtroumpf_step_sprite.png",
-    ],
-    northMoveFrames: [
-      "assets/units/unit_grand_schtroumpf_back_step_sprite.png",
-      "assets/units/unit_grand_schtroumpf_back_step_sprite_2.png",
-    ],
-    southMoveFrames: [
-      "assets/units/unit_grand_schtroumpf_front_step_sprite.png",
-      "assets/units/unit_grand_schtroumpf_front_step_sprite_2.png",
-    ],
-    moveFrames: [
-      "assets/units/unit_grand_schtroumpf_sprite.png",
-      "assets/units/unit_grand_schtroumpf_step_sprite.png",
-    ],
-  },
-};
+let unitSpriteConfigs = createDefaultUnitSpriteConfigs();
 
 const map = {
   width: 42,
@@ -422,37 +288,6 @@ const terrain = {
   },
 };
 
-const buildingCatalog = {
-  house: {
-    renderMode: "singleTile",
-    subtypes: [
-      { id: "house_01", image: "assets/buildings/house_01.png" },
-      { id: "house_02", image: "assets/buildings/house_02.png" },
-      { id: "house_03", image: "assets/buildings/house_03.png" },
-      { id: "house_04", image: "assets/buildings/house_04.png" },
-    ],
-    abandonedImage: "assets/buildings/house_abandoned.png",
-    constructionImages: {
-      initial: "assets/buildings/house_construct.png",
-      half: "assets/buildings/house_half.png",
-    },
-  },
-  laboratory: {
-    renderMode: "footprintImageNative",
-    constructionRenderMode: "footprintImageNative",
-    nativeScaleAt100Zoom: 0.5,
-    nativeOffsetYAt100Zoom: -10,
-    subtypes: [
-      { id: "laboratory_01", image: "assets/buildings/laboratory_01.png" },
-    ],
-    abandonedImage: "assets/buildings/house_abandoned.png",
-    constructionImages: {
-      initial: "assets/buildings/house_construct.png",
-      half: "assets/buildings/laboratory_half.png",
-    },
-  },
-};
-
 const transitionRules = [
   {
     baseType: "water",
@@ -515,7 +350,7 @@ let turnReplayStartStates = new Map();
 let turnReplayFinalStates = new Map();
 let turnReplayMoveTargets = new Map();
 let selectedUnitAction = unitActions.walk;
-let selectedFoundationBuildingType = "house";
+let selectedFoundationBuildingType = null;
 let inspectedPlayCell = null;
 let stockpile = { stone: 0, lumber: 0, food: 0 };
 let foodShortageTurns = 0;
@@ -573,6 +408,8 @@ const bookMinimumPageCount = 16;
 const bookIntroSequenceId = "intro";
 const bookSequenceInitialPauseMs = 10000;
 const bookSequenceTurnPauseMs = 14000;
+const buildingManifestPath = "data/buildings.json";
+const unitManifestPath = "data/units.json";
 const technologyManifestPath = "data/technologies.json";
 const introMusicSegmentStartTime = 16;
 const introMusicSegmentEndTime = 101;
@@ -589,6 +426,7 @@ const resourceUiIcons = {
   lumber: "assets/resources/lumber_icon.png",
   food: "assets/resources/food_icon.png",
 };
+const stockpileResourceTypes = ["stone", "lumber", "food"];
 const defaultAudioSettings = {
   musicEnabled: true,
   volume: 0.55,
@@ -623,10 +461,17 @@ const julianTurnEpochJdn = getJulianDayNumber(
 let bookDocument = createDefaultBookDocument();
 let bookContentLoadPromise = null;
 let bookState = createInitialBookState();
+let bookTechArrowMarkerSequence = 0;
 let technologyCatalog = createDefaultTechnologyCatalog();
 let technologyCatalogLoadPromise = null;
+let buildingCatalog = createDefaultBuildingCatalog();
+let buildingDefinitionsLoadPromise = null;
+let unitDefinitionsLoadPromise = null;
+let unitSpawnRules = [];
 let researchState = createDefaultResearchState();
 let editStateDirty = false;
+let editorResearchReturnFocusButton = null;
+let pendingBookResearchAssignmentUnitId = null;
 
 function setTextContent(elements, text) {
   for (const element of elements) {
@@ -688,6 +533,916 @@ function resolveBookAssetPath(path, manifestPath) {
   return new URL(path, new URL(manifestPath, window.location.href)).toString();
 }
 
+function resolveBuildingAssetPath(path, manifestPath = buildingManifestPath) {
+  if (typeof path !== "string" || !path.trim()) {
+    return null;
+  }
+
+  return new URL(path.trim(), new URL(manifestPath, window.location.href)).toString();
+}
+
+function resolveUnitAssetPath(path, manifestPath = unitManifestPath) {
+  if (typeof path !== "string" || !path.trim()) {
+    return null;
+  }
+
+  return new URL(path.trim(), new URL(manifestPath, window.location.href)).toString();
+}
+
+function createDefaultUnitSpriteConfigs() {
+  return {};
+}
+
+function createDefaultUnitRulesConfig() {
+  return {
+    default: {
+      typeId: "",
+    },
+    types: {},
+  };
+}
+
+function createDefaultUnitSpawnRules() {
+  return [];
+}
+
+function normalizeLocalizedLabelsMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const normalized = Object.fromEntries(
+    Object.entries(value)
+      .map(([languageId, label]) => [
+        typeof languageId === "string" ? languageId.trim() : "",
+        typeof label === "string" ? label.trim() : "",
+      ])
+      .filter(([languageId, label]) => languageId && label),
+  );
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function resolveLocalizedLabel(labels, fallback = "", languageId = currentLanguage) {
+  const normalizedLanguageId = typeof languageId === "string" && languageId.trim()
+    ? languageId.trim()
+    : currentLanguage;
+  const defaultLanguageId = typeof localization?.defaultLanguage === "string" && localization.defaultLanguage.trim()
+    ? localization.defaultLanguage.trim()
+    : "fr";
+  const resolved =
+    labels?.[normalizedLanguageId] ||
+    labels?.[defaultLanguageId] ||
+    Object.values(labels || {}).find((label) => typeof label === "string" && label.trim()) ||
+    fallback;
+
+  return typeof resolved === "string" ? resolved.trim() : "";
+}
+
+function normalizeUnitActionList(actions) {
+  return Array.isArray(actions)
+    ? actions
+      .map((action) => (typeof action === "string" ? action.trim() : ""))
+      .filter(Boolean)
+    : undefined;
+}
+
+function normalizeUnitWorkPointsConfig(workPoints) {
+  if (!workPoints || typeof workPoints !== "object" || Array.isArray(workPoints)) {
+    return undefined;
+  }
+
+  const entries = Object.fromEntries(
+    Object.entries(workPoints)
+      .map(([taskType, value]) => {
+        const normalizedTaskType = typeof taskType === "string" ? taskType.trim() : "";
+        const normalizedValue = Number(value);
+        return normalizedTaskType && Number.isFinite(normalizedValue)
+          ? [normalizedTaskType, normalizedValue]
+          : null;
+      })
+      .filter(Boolean),
+  );
+
+  return Object.keys(entries).length > 0 ? entries : undefined;
+}
+
+function normalizeUnitModifiers(entries) {
+  if (!Array.isArray(entries)) {
+    return undefined;
+  }
+
+  const normalized = entries
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const when = normalizeRuleRequirements(entry.when);
+      const set = normalizeUnitRulesConfig(entry.set);
+      const addActions = normalizeUnitActionList(entry.addActions);
+      const removeActions = normalizeUnitActionList(entry.removeActions);
+
+      if (
+        Object.keys(when).length === 0 &&
+        Object.keys(set).length === 0 &&
+        !addActions &&
+        !removeActions
+      ) {
+        return null;
+      }
+
+      return {
+        ...(Object.keys(when).length > 0 ? { when } : {}),
+        ...(Object.keys(set).length > 0 ? { set } : {}),
+        ...(addActions ? { addActions } : {}),
+        ...(removeActions ? { removeActions } : {}),
+      };
+    })
+    .filter(Boolean);
+
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeUnitRulesConfig(entry) {
+  const unitEntry = entry && typeof entry === "object" ? entry : {};
+  const normalized = {};
+  const spriteTypeId = typeof unitEntry.spriteTypeId === "string" ? unitEntry.spriteTypeId.trim() : "";
+  const name = typeof unitEntry.name === "string" ? unitEntry.name.trim() : "";
+  const labels = normalizeLocalizedLabelsMap(unitEntry.labels);
+  const stamina = Number(unitEntry.stamina);
+  const foodConsumptionPerTurn = Number(unitEntry.foodConsumptionPerTurn);
+  const researchPointsPerTurn = Number(unitEntry.researchPointsPerTurn);
+  const allowedActions = normalizeUnitActionList(unitEntry.allowedActions);
+  const workPointsPerTurn = normalizeUnitWorkPointsConfig(unitEntry.workPointsPerTurn);
+  const availability = normalizeRuleRequirements(unitEntry.availability);
+  const rawActionRequirements =
+    unitEntry.actionRequirements && typeof unitEntry.actionRequirements === "object" && !Array.isArray(unitEntry.actionRequirements)
+      ? unitEntry.actionRequirements
+      : null;
+  const actionRequirements = rawActionRequirements
+    ? Object.fromEntries(
+      Object.entries(rawActionRequirements)
+        .map(([actionId, requirements]) => {
+          const normalizedActionId = normalizePendingUnitAction(actionId);
+          const normalizedRequirements = normalizeRuleRequirements(requirements);
+          return normalizedActionId && Object.keys(normalizedRequirements).length > 0
+            ? [normalizedActionId, normalizedRequirements]
+            : null;
+        })
+        .filter(Boolean),
+    )
+    : undefined;
+  const modifiers = normalizeUnitModifiers(unitEntry.modifiers);
+
+  if (spriteTypeId) {
+    normalized.spriteTypeId = spriteTypeId;
+  }
+
+  if (name) {
+    normalized.name = name;
+  }
+
+  if (labels) {
+    normalized.labels = labels;
+  }
+
+  if (Number.isFinite(stamina)) {
+    normalized.stamina = stamina;
+  }
+
+  if (Number.isFinite(foodConsumptionPerTurn)) {
+    normalized.foodConsumptionPerTurn = foodConsumptionPerTurn;
+  }
+
+  if (Number.isFinite(researchPointsPerTurn)) {
+    normalized.researchPointsPerTurn = researchPointsPerTurn;
+  }
+
+  if (allowedActions) {
+    normalized.allowedActions = allowedActions;
+  }
+
+  if (workPointsPerTurn) {
+    normalized.workPointsPerTurn = workPointsPerTurn;
+  }
+
+  if (Object.keys(availability).length > 0) {
+    normalized.availability = availability;
+  }
+
+  if (actionRequirements && Object.keys(actionRequirements).length > 0) {
+    normalized.actionRequirements = actionRequirements;
+  }
+
+  if (modifiers) {
+    normalized.modifiers = modifiers;
+  }
+
+  return normalized;
+}
+
+function normalizeUnitFramePaths(value, manifestPath = unitManifestPath) {
+  return Array.isArray(value)
+    ? value.map((path) => resolveUnitAssetPath(path, manifestPath)).filter(Boolean)
+    : undefined;
+}
+
+function normalizeFishingDirectionEntries(entries) {
+  if (!entries || typeof entries !== "object" || Array.isArray(entries)) {
+    return undefined;
+  }
+
+  const normalized = {};
+
+  for (const [direction, config] of Object.entries(entries)) {
+    const normalizedDirection = typeof direction === "string" ? direction.trim() : "";
+
+    if (!normalizedDirection || !config || typeof config !== "object" || Array.isArray(config)) {
+      continue;
+    }
+
+    const frameSet = typeof config.frameSet === "string" ? config.frameSet.trim() : "";
+    if (!frameSet) {
+      continue;
+    }
+
+    normalized[normalizedDirection] = {
+      frameSet,
+      mirror: Boolean(config.mirror),
+    };
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizeNumericObject(entry) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    return undefined;
+  }
+
+  const normalized = {};
+
+  for (const [key, value] of Object.entries(entry)) {
+    const normalizedKey = typeof key === "string" ? key.trim() : "";
+    const normalizedValue = Number(value);
+
+    if (!normalizedKey || !Number.isFinite(normalizedValue)) {
+      continue;
+    }
+
+    normalized[normalizedKey] = normalizedValue;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizeNestedNumericObjects(entry) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    return undefined;
+  }
+
+  const normalized = {};
+
+  for (const [key, value] of Object.entries(entry)) {
+    const normalizedKey = typeof key === "string" ? key.trim() : "";
+    const normalizedValue = normalizeNumericObject(value);
+
+    if (!normalizedKey || !normalizedValue) {
+      continue;
+    }
+
+    normalized[normalizedKey] = normalizedValue;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizeUnitSpriteTypeConfig(entry, manifestPath = unitManifestPath) {
+  const spriteEntry = entry && typeof entry === "object" ? entry : {};
+  const normalized = {};
+  const singleImageFields = ["idleImage", "northImage", "southImage"];
+  const frameArrayFields = [
+    "workFrames",
+    "researchFrames",
+    "landFoodFrames",
+    "lumberFrames",
+    "stoneFrames",
+    "sideFishingFrames",
+    "northFishingFrames",
+    "southFishingFrames",
+    "playFrames",
+    "northMoveFrames",
+    "southMoveFrames",
+    "moveFrames",
+  ];
+  const numericFields = ["workFrameDuration", "width", "height", "anchorX", "anchorY", "groundOffset", "moveDuration"];
+
+  for (const field of singleImageFields) {
+    const resolved = resolveUnitAssetPath(spriteEntry[field], manifestPath);
+    if (resolved) {
+      normalized[field] = resolved;
+    }
+  }
+
+  for (const field of frameArrayFields) {
+    const resolved = normalizeUnitFramePaths(spriteEntry[field], manifestPath);
+    if (resolved) {
+      normalized[field] = resolved;
+    }
+  }
+
+  for (const field of numericFields) {
+    const value = Number(spriteEntry[field]);
+    if (Number.isFinite(value)) {
+      normalized[field] = value;
+    }
+  }
+
+  if (Array.isArray(spriteEntry.moveFrameSequence)) {
+    normalized.moveFrameSequence = spriteEntry.moveFrameSequence
+      .map((value) => Math.floor(Number(value)))
+      .filter((value) => Number.isFinite(value));
+  }
+
+  const fishingRenderSpec = normalizeNumericObject(spriteEntry.fishingRenderSpec);
+  if (fishingRenderSpec) {
+    normalized.fishingRenderSpec = fishingRenderSpec;
+  }
+
+  const fishingDirectionRenderOverrides = normalizeNestedNumericObjects(spriteEntry.fishingDirectionRenderOverrides);
+  if (fishingDirectionRenderOverrides) {
+    normalized.fishingDirectionRenderOverrides = fishingDirectionRenderOverrides;
+  }
+
+  const fishingDirections = normalizeFishingDirectionEntries(spriteEntry.fishingDirections);
+  if (fishingDirections) {
+    normalized.fishingDirections = fishingDirections;
+  }
+
+  return normalized;
+}
+
+function normalizeUnitDefinitionsManifest(manifest, manifestPath = unitManifestPath) {
+  const normalizedRules = createDefaultUnitRulesConfig();
+  const defaultEntry = manifest?.default && typeof manifest.default === "object" ? manifest.default : {};
+  const configuredDefaultTypeId = typeof defaultEntry.typeId === "string" ? defaultEntry.typeId.trim() : "";
+
+  normalizedRules.default = {
+    typeId: configuredDefaultTypeId || normalizedRules.default.typeId,
+    ...normalizeUnitRulesConfig(defaultEntry),
+  };
+
+  const types = manifest?.types && typeof manifest.types === "object" && !Array.isArray(manifest.types)
+    ? manifest.types
+    : {};
+
+  for (const [typeId, entry] of Object.entries(types)) {
+    const normalizedTypeId = typeof typeId === "string" ? typeId.trim() : "";
+    if (!normalizedTypeId || !entry || typeof entry !== "object") {
+      continue;
+    }
+
+    normalizedRules.types[normalizedTypeId] = normalizeUnitRulesConfig(entry);
+  }
+
+  if (!normalizedRules.types[normalizedRules.default.typeId]) {
+    const [firstTypeId] = Object.keys(normalizedRules.types);
+    normalizedRules.default.typeId = firstTypeId || normalizedRules.default.typeId || "default";
+  }
+
+  const rawSpriteTypes = manifest?.spriteTypes && typeof manifest.spriteTypes === "object" && !Array.isArray(manifest.spriteTypes)
+    ? manifest.spriteTypes
+    : {};
+  const normalizedSpriteTypes = createDefaultUnitSpriteConfigs();
+
+  for (const [spriteTypeId, entry] of Object.entries(rawSpriteTypes)) {
+    const normalizedSpriteTypeId = typeof spriteTypeId === "string" ? spriteTypeId.trim() : "";
+    if (!normalizedSpriteTypeId || !entry || typeof entry !== "object") {
+      continue;
+    }
+
+    normalizedSpriteTypes[normalizedSpriteTypeId] = normalizeUnitSpriteTypeConfig(entry, manifestPath);
+  }
+
+  const rawSpawnRules = Array.isArray(manifest?.spawnRules) ? manifest.spawnRules : [];
+  const normalizedSpawnRules = rawSpawnRules
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const when = normalizeRuleRequirements(entry.when);
+      const rawChoices = Array.isArray(entry.choices) ? entry.choices : [];
+      const choices = rawChoices
+        .map((choice) => {
+          if (!choice || typeof choice !== "object") {
+            return null;
+          }
+
+          const type = typeof choice.type === "string" ? choice.type.trim() : "";
+          const weight = Math.max(0, Number(choice.weight) || 0);
+          const requirements = normalizeRuleRequirements(choice.requirements);
+
+          return type
+            ? {
+              id: type,
+              weight,
+              ...(Object.keys(requirements).length > 0 ? { requirements } : {}),
+            }
+            : null;
+        })
+        .filter(Boolean);
+
+      return choices.length > 0
+        ? {
+          ...(Object.keys(when).length > 0 ? { when } : {}),
+          choices,
+        }
+        : null;
+    })
+    .filter(Boolean);
+
+  return {
+    rules: normalizedRules,
+    spriteTypes: normalizedSpriteTypes,
+    spawnRules: normalizedSpawnRules,
+  };
+}
+
+async function loadUnitDefinitions() {
+  const response = await fetch(unitManifestPath, { cache: "no-cache" });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load unit manifest: ${response.status}`);
+  }
+
+  return normalizeUnitDefinitionsManifest(await response.json(), unitManifestPath);
+}
+
+async function ensureUnitDefinitionsLoaded() {
+  if (Object.keys(unitSpriteConfigs).length > 0 && Object.keys(rules.units?.types || {}).length > 0) {
+    return {
+      rules: rules.units,
+      spriteTypes: unitSpriteConfigs,
+    };
+  }
+
+  if (!unitDefinitionsLoadPromise) {
+    unitDefinitionsLoadPromise = loadUnitDefinitions()
+      .then((definitions) => {
+        rules.units = definitions.rules;
+        unitSpriteConfigs = definitions.spriteTypes;
+        unitSpawnRules = definitions.spawnRules || createDefaultUnitSpawnRules();
+        return definitions;
+      })
+      .finally(() => {
+        unitDefinitionsLoadPromise = null;
+      });
+  }
+
+  return unitDefinitionsLoadPromise;
+}
+
+function createDefaultBuildingCatalog() {
+  return {};
+}
+
+function createDefaultBuildingRulesConfig() {
+  return {
+    default: {
+      width: 1,
+      height: 1,
+    },
+  };
+}
+
+function normalizeRuleIdList(value) {
+  const normalized = Array.isArray(value)
+    ? [...new Set(value.map((entry) => (typeof entry === "string" ? entry.trim() : "")).filter(Boolean))]
+    : [];
+
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeRuleCountMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const normalized = Object.fromEntries(
+    Object.entries(value)
+      .map(([key, amount]) => {
+        const normalizedKey = typeof key === "string" ? key.trim() : "";
+        const normalizedAmount = Math.max(0, Math.floor(Number(amount) || 0));
+        return normalizedKey ? [normalizedKey, normalizedAmount] : null;
+      })
+      .filter(Boolean),
+  );
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizeRuleRequirements(entry) {
+  const requirements = entry && typeof entry === "object" ? entry : {};
+  const nextUnitNumberEquals = Number(requirements.nextUnitNumberEquals);
+  const normalized = {
+    requiredTechs: normalizeRuleIdList(requirements.requiredTechs),
+    requiredEvents: normalizeRuleIdList(requirements.requiredEvents),
+    requiredBuildingsMin: normalizeRuleCountMap(requirements.requiredBuildingsMin),
+    requiredUnitsPresent: normalizeRuleIdList(requirements.requiredUnitsPresent),
+    requiredUnitsAbsent: normalizeRuleIdList(requirements.requiredUnitsAbsent),
+    ...(Number.isFinite(nextUnitNumberEquals) ? { nextUnitNumberEquals: Math.max(0, Math.floor(nextUnitNumberEquals)) } : {}),
+  };
+
+  return Object.fromEntries(Object.entries(normalized).filter(([, value]) => value !== undefined));
+}
+
+function normalizeRuleLimits(entry) {
+  const limits = entry && typeof entry === "object" ? entry : {};
+  const maxCount = Number(limits.maxCount);
+  const rawCountByBuilding = limits.countByBuilding && typeof limits.countByBuilding === "object"
+    ? limits.countByBuilding
+    : null;
+  const countByBuildingType = typeof rawCountByBuilding?.building === "string" ? rawCountByBuilding.building.trim() : "";
+  const countByBuildingBase = Math.max(0, Math.floor(Number(rawCountByBuilding?.base) || 0));
+  const countByBuildingPerBuilding = Math.max(0, Math.floor(Number(rawCountByBuilding?.perBuilding) || 0));
+  const normalized = {};
+
+  if (Number.isFinite(maxCount)) {
+    normalized.maxCount = Math.max(0, Math.floor(maxCount));
+  }
+
+  if (countByBuildingType) {
+    normalized.countByBuilding = {
+      building: countByBuildingType,
+      base: countByBuildingBase,
+      perBuilding: countByBuildingPerBuilding,
+    };
+  }
+
+  return normalized;
+}
+
+function normalizeBuildingRulesModifierSet(entry) {
+  const rulesEntry = entry && typeof entry === "object" ? entry : {};
+  const normalized = {};
+
+  if (Object.prototype.hasOwnProperty.call(rulesEntry, "walkable")) {
+    normalized.walkable = Boolean(rulesEntry.walkable);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(rulesEntry, "foundationActionAvailable")) {
+    normalized.foundationActionAvailable = Boolean(rulesEntry.foundationActionAvailable);
+  }
+
+  if (Number.isFinite(Number(rulesEntry.constructionCost))) {
+    normalized.constructionCost = Math.max(1, Math.floor(Number(rulesEntry.constructionCost)));
+  }
+
+  if (rulesEntry.buildCost && typeof rulesEntry.buildCost === "object") {
+    const buildCost = {};
+
+    if (Number.isFinite(Number(rulesEntry.buildCost.stone))) {
+      buildCost.stone = Math.max(0, Math.floor(Number(rulesEntry.buildCost.stone)));
+    }
+
+    if (Number.isFinite(Number(rulesEntry.buildCost.lumber))) {
+      buildCost.lumber = Math.max(0, Math.floor(Number(rulesEntry.buildCost.lumber)));
+    }
+
+    if (Object.keys(buildCost).length > 0) {
+      normalized.buildCost = buildCost;
+    }
+  }
+
+  const resourceStorageCapacities = normalizeRuleCountMap(rulesEntry.resourceStorageCapacities);
+  if (resourceStorageCapacities) {
+    normalized.resourceStorageCapacities = resourceStorageCapacities;
+  }
+
+  if (rulesEntry.constructionVisualThresholds && typeof rulesEntry.constructionVisualThresholds === "object") {
+    const constructionVisualThresholds = {};
+    const initialMax = Number(rulesEntry.constructionVisualThresholds.initialMax);
+    const halfMax = Number(rulesEntry.constructionVisualThresholds.halfMax);
+
+    if (Number.isFinite(initialMax)) {
+      constructionVisualThresholds.initialMax = clamp(initialMax, 0, 1);
+    }
+
+    if (Number.isFinite(halfMax)) {
+      constructionVisualThresholds.halfMax = clamp(halfMax, 0, 1);
+    }
+
+    if (Object.keys(constructionVisualThresholds).length > 0) {
+      normalized.constructionVisualThresholds = constructionVisualThresholds;
+    }
+  }
+
+  if (Number.isFinite(Number(rulesEntry.abandonedDecayPerTurn))) {
+    normalized.abandonedDecayPerTurn = clamp(Number(rulesEntry.abandonedDecayPerTurn), 0, 1);
+  }
+
+  return normalized;
+}
+
+function normalizeBuildingRuleModifiers(entries) {
+  if (!Array.isArray(entries)) {
+    return undefined;
+  }
+
+  const normalized = entries
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const when = normalizeRuleRequirements(entry.when);
+      const set = normalizeBuildingRulesModifierSet(entry.set);
+
+      if (Object.keys(when).length === 0 && Object.keys(set).length === 0) {
+        return null;
+      }
+
+      return {
+        ...(Object.keys(when).length > 0 ? { when } : {}),
+        ...(Object.keys(set).length > 0 ? { set } : {}),
+      };
+    })
+    .filter(Boolean);
+
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeBuildingSubtypeVariant(entry, manifestPath = buildingManifestPath) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const id = typeof entry.id === "string" ? entry.id.trim() : "";
+  const image = resolveBuildingAssetPath(entry.image, manifestPath);
+
+  if (!id || !image) {
+    return null;
+  }
+
+  return { id, image };
+}
+
+function normalizeBuildingUnitRenderOffsetEntry(entry) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    return null;
+  }
+
+  const x = Number(entry.x);
+  const y = Number(entry.y);
+
+  if (!Number.isFinite(x) && !Number.isFinite(y)) {
+    return null;
+  }
+
+  return {
+    x: Number.isFinite(x) ? x : 0,
+    y: Number.isFinite(y) ? y : 0,
+  };
+}
+
+function normalizeBuildingStageTileImages(entries, manifestPath = buildingManifestPath) {
+  if (!Array.isArray(entries)) {
+    return undefined;
+  }
+
+  return entries.map((entry) => {
+    if (typeof entry !== "string") {
+      return null;
+    }
+
+    const resolvedPath = resolveBuildingAssetPath(entry, manifestPath);
+    return resolvedPath || null;
+  });
+}
+
+function normalizeBuildingVisualConfig(entry, manifestPath = buildingManifestPath) {
+  const visual = entry && typeof entry === "object" ? entry : {};
+  const allowedRenderModes = new Set(["singleTile", "footprintImage", "footprintImageNative", "perTile"]);
+  const renderMode = typeof visual.renderMode === "string" && allowedRenderModes.has(visual.renderMode)
+    ? visual.renderMode
+    : "singleTile";
+  const constructionRenderMode = typeof visual.constructionRenderMode === "string" && allowedRenderModes.has(visual.constructionRenderMode)
+    ? visual.constructionRenderMode
+    : undefined;
+  const subtypes = Array.isArray(visual.subtypes)
+    ? visual.subtypes.map((subtype) => normalizeBuildingSubtypeVariant(subtype, manifestPath)).filter(Boolean)
+    : [];
+  const abandonedImage = resolveBuildingAssetPath(visual.abandonedImage, manifestPath);
+  const initialConstructionImage = resolveBuildingAssetPath(visual.constructionImages?.initial, manifestPath);
+  const halfConstructionImage = resolveBuildingAssetPath(visual.constructionImages?.half, manifestPath);
+  const nativeScaleAt100Zoom = Number(visual.nativeScaleAt100Zoom);
+  const nativeOffsetYAt100Zoom = Number(visual.nativeOffsetYAt100Zoom);
+  const initialConstructionStage = visual.constructionStages?.initial;
+  const halfConstructionStage = visual.constructionStages?.half;
+  const unitRenderOffsets = Array.isArray(visual.unitRenderOffsets)
+    ? visual.unitRenderOffsets.map((offset) => normalizeBuildingUnitRenderOffsetEntry(offset))
+    : undefined;
+  const initialConstructionStageTileImages = normalizeBuildingStageTileImages(initialConstructionStage?.tileImages, manifestPath);
+  const halfConstructionStageTileImages = normalizeBuildingStageTileImages(halfConstructionStage?.tileImages, manifestPath);
+  const initialConstructionStageRenderMode =
+    typeof initialConstructionStage?.renderMode === "string" && allowedRenderModes.has(initialConstructionStage.renderMode)
+      ? initialConstructionStage.renderMode
+      : undefined;
+  const halfConstructionStageRenderMode =
+    typeof halfConstructionStage?.renderMode === "string" && allowedRenderModes.has(halfConstructionStage.renderMode)
+      ? halfConstructionStage.renderMode
+      : undefined;
+  const initialConstructionStageYOffsetFactor = Number(initialConstructionStage?.yOffsetFactor);
+  const halfConstructionStageYOffsetFactor = Number(halfConstructionStage?.yOffsetFactor);
+
+  return {
+    renderMode,
+    ...(constructionRenderMode ? { constructionRenderMode } : {}),
+    ...(Number.isFinite(nativeScaleAt100Zoom) ? { nativeScaleAt100Zoom } : {}),
+    ...(Number.isFinite(nativeOffsetYAt100Zoom) ? { nativeOffsetYAt100Zoom } : {}),
+    subtypes,
+    ...(unitRenderOffsets && unitRenderOffsets.some(Boolean) ? { unitRenderOffsets } : {}),
+    ...(abandonedImage ? { abandonedImage } : {}),
+    constructionImages: {
+      ...(initialConstructionImage ? { initial: initialConstructionImage } : {}),
+      ...(halfConstructionImage ? { half: halfConstructionImage } : {}),
+    },
+    constructionStages: {
+      initial: {
+        ...(initialConstructionStageRenderMode ? { renderMode: initialConstructionStageRenderMode } : {}),
+        ...(Number.isFinite(initialConstructionStageYOffsetFactor) ? { yOffsetFactor: initialConstructionStageYOffsetFactor } : {}),
+        ...(initialConstructionStageTileImages ? { tileImages: initialConstructionStageTileImages } : {}),
+      },
+      half: {
+        ...(halfConstructionStageRenderMode ? { renderMode: halfConstructionStageRenderMode } : {}),
+        ...(Number.isFinite(halfConstructionStageYOffsetFactor) ? { yOffsetFactor: halfConstructionStageYOffsetFactor } : {}),
+        ...(halfConstructionStageTileImages ? { tileImages: halfConstructionStageTileImages } : {}),
+      },
+    },
+  };
+}
+
+function normalizeBuildingUiConfig(entry, labels = undefined) {
+  const ui = entry && typeof entry === "object" ? entry : {};
+  const icon = typeof ui.icon === "string" ? ui.icon.trim() : "";
+
+  return {
+    icon: icon || "•",
+    ...(labels ? { labels } : {}),
+  };
+}
+
+function normalizeBuildingRulesEntry(entry) {
+  const rulesEntry = entry && typeof entry === "object" ? entry : {};
+  const width = Math.max(1, Math.floor(Number(rulesEntry.width) || 1));
+  const height = Math.max(1, Math.floor(Number(rulesEntry.height) || 1));
+  const footprint = Array.isArray(rulesEntry.footprint)
+    ? rulesEntry.footprint
+      .map((path) => Array.isArray(path)
+        ? path.map((direction) => (typeof direction === "string" ? direction.trim() : "")).filter(Boolean)
+        : null)
+      .filter(Boolean)
+    : undefined;
+  const placementTerrains = Array.isArray(rulesEntry.placementTerrains)
+    ? rulesEntry.placementTerrains
+      .map((terrainList) => {
+        if (typeof terrainList === "string") {
+          const normalizedTerrain = terrainList.trim();
+          return normalizedTerrain ? [normalizedTerrain] : null;
+        }
+
+        if (!Array.isArray(terrainList)) {
+          return null;
+        }
+
+        const normalizedTerrains = [...new Set(
+          terrainList
+            .map((terrainType) => (typeof terrainType === "string" ? terrainType.trim() : ""))
+            .filter(Boolean),
+        )];
+
+        return normalizedTerrains.length > 0 ? normalizedTerrains : null;
+      })
+    : undefined;
+  const buildCostStone = Math.max(0, Math.floor(Number(rulesEntry.buildCost?.stone) || 0));
+  const buildCostLumber = Math.max(0, Math.floor(Number(rulesEntry.buildCost?.lumber) || 0));
+  const resourceStorageCapacities = rulesEntry.resourceStorageCapacities && typeof rulesEntry.resourceStorageCapacities === "object"
+    ? Object.fromEntries(
+      Object.entries(rulesEntry.resourceStorageCapacities)
+        .map(([resourceType, value]) => {
+          const normalizedResourceType = typeof resourceType === "string" ? resourceType.trim() : "";
+          const normalizedValue = Math.max(0, Math.floor(Number(value) || 0));
+          return normalizedResourceType ? [normalizedResourceType, normalizedValue] : null;
+        })
+        .filter(Boolean),
+    )
+    : undefined;
+  const constructionCost = Math.max(1, Math.floor(Number(rulesEntry.constructionCost) || 100));
+  const initialMax = Number(rulesEntry.constructionVisualThresholds?.initialMax);
+  const halfMax = Number(rulesEntry.constructionVisualThresholds?.halfMax);
+  const abandonedDecayPerTurn = Number(rulesEntry.abandonedDecayPerTurn);
+
+  return {
+    width,
+    height,
+    ...(footprint && footprint.length > 0 ? { footprint } : {}),
+    ...(placementTerrains && placementTerrains.some((terrainList) => Array.isArray(terrainList) && terrainList.length > 0)
+      ? { placementTerrains }
+      : {}),
+    walkable: Boolean(rulesEntry.walkable),
+    foundationActionAvailable: Boolean(rulesEntry.foundationActionAvailable),
+    constructionCost,
+    buildCost: {
+      stone: buildCostStone,
+      lumber: buildCostLumber,
+    },
+    ...(resourceStorageCapacities && Object.keys(resourceStorageCapacities).length > 0 ? { resourceStorageCapacities } : {}),
+    constructionVisualThresholds: {
+      initialMax: Number.isFinite(initialMax) ? initialMax : 0.34,
+      halfMax: Number.isFinite(halfMax) ? halfMax : 0.79,
+    },
+    abandonedDecayPerTurn: Number.isFinite(abandonedDecayPerTurn) ? abandonedDecayPerTurn : 0,
+  };
+}
+
+function normalizeBuildingDefinitionsManifest(manifest, manifestPath = buildingManifestPath) {
+  const normalizedRules = createDefaultBuildingRulesConfig();
+  const defaultEntry = manifest?.default && typeof manifest.default === "object" ? manifest.default : {};
+
+  normalizedRules.default = {
+    width: Math.max(1, Math.floor(Number(defaultEntry.width) || normalizedRules.default.width)),
+    height: Math.max(1, Math.floor(Number(defaultEntry.height) || normalizedRules.default.height)),
+  };
+
+  const types = manifest?.types && typeof manifest.types === "object" && !Array.isArray(manifest.types)
+    ? manifest.types
+    : {};
+  const normalizedVisuals = createDefaultBuildingCatalog();
+
+  for (const [typeId, definition] of Object.entries(types)) {
+    const normalizedTypeId = typeof typeId === "string" ? typeId.trim() : "";
+    if (!normalizedTypeId || !definition || typeof definition !== "object") {
+      continue;
+    }
+
+    const labels = normalizeLocalizedLabelsMap(definition.labels);
+    const availability = normalizeRuleRequirements(definition.availability);
+    const limits = normalizeRuleLimits(definition.limits);
+    const modifiers = normalizeBuildingRuleModifiers(definition.modifiers);
+
+    normalizedRules[normalizedTypeId] = {
+      ...normalizeBuildingRulesEntry(definition.rules),
+      ...(Object.keys(availability).length > 0 ? { availability } : {}),
+      ...(Object.keys(limits).length > 0 ? { limits } : {}),
+      ...(modifiers ? { modifiers } : {}),
+    };
+    normalizedVisuals[normalizedTypeId] = {
+      ...normalizeBuildingVisualConfig(definition.visual, manifestPath),
+      ...normalizeBuildingUiConfig(definition.ui, labels),
+    };
+  }
+
+  return {
+    rules: normalizedRules,
+    visuals: normalizedVisuals,
+  };
+}
+
+async function loadBuildingDefinitions() {
+  const response = await fetch(buildingManifestPath, { cache: "no-cache" });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load building manifest: ${response.status}`);
+  }
+
+  return normalizeBuildingDefinitionsManifest(await response.json(), buildingManifestPath);
+}
+
+async function ensureBuildingDefinitionsLoaded() {
+  if (Object.keys(buildingCatalog).length > 0 && Object.keys(rules.buildings || {}).length > 1) {
+    return {
+      rules: rules.buildings,
+      visuals: buildingCatalog,
+    };
+  }
+
+  if (!buildingDefinitionsLoadPromise) {
+    buildingDefinitionsLoadPromise = loadBuildingDefinitions()
+      .then((definitions) => {
+        rules.buildings = definitions.rules;
+        buildingCatalog = definitions.visuals;
+        return definitions;
+      })
+      .finally(() => {
+        buildingDefinitionsLoadPromise = null;
+      });
+  }
+
+  return buildingDefinitionsLoadPromise;
+}
+
 function resolveBookPageAssetUrl(reference, pageUrl) {
   if (typeof reference !== "string") {
     return reference;
@@ -744,6 +1499,273 @@ function normalizeBookPageHtml(rawHtml, pageUrl) {
   return template.innerHTML;
 }
 
+function getBookBindingValueAtPath(rootValue, pathSegments = []) {
+  let currentValue = rootValue;
+
+  for (const rawSegment of pathSegments) {
+    const segment = typeof rawSegment === "string" ? rawSegment.trim() : "";
+
+    if (!segment || currentValue == null) {
+      return null;
+    }
+
+    if (Array.isArray(currentValue)) {
+      const index = Number.parseInt(segment, 10);
+
+      if (!Number.isInteger(index) || index < 0 || index >= currentValue.length) {
+        return null;
+      }
+
+      currentValue = currentValue[index];
+      continue;
+    }
+
+    if (typeof currentValue !== "object") {
+      return null;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(currentValue, segment)) {
+      return null;
+    }
+
+    currentValue = currentValue[segment];
+  }
+
+  return currentValue;
+}
+
+function formatBookBindingValue(value) {
+  if (value == null) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    return String(value);
+  }
+
+  if (typeof value === "function") {
+    return "";
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => formatBookBindingValue(item)).filter(Boolean).join(", ");
+  }
+
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "";
+    }
+  }
+
+  return String(value);
+}
+
+function getResolvedBookBindingTechnologyId(technologyId) {
+  return typeof technologyId === "string" && technologyId.trim()
+    ? technologyId.trim()
+    : null;
+}
+
+function getResolvedBookBindingBuildingTypeId(typeId) {
+  return typeof typeId === "string" && typeId.trim()
+    ? typeId.trim()
+    : null;
+}
+
+function getResolvedBookBindingUnitTypeId(typeId) {
+  const normalizedTypeId = typeof typeId === "string" ? typeId.trim() : "";
+
+  if (!normalizedTypeId || normalizedTypeId === "default") {
+    return getDefaultUnitTypeId();
+  }
+
+  return normalizeUnitTypeId(normalizedTypeId);
+}
+
+function createBookBindingTechnologyView(technologyId) {
+  const resolvedTechnologyId = getResolvedBookBindingTechnologyId(technologyId);
+  const technology = resolvedTechnologyId ? getTechnologyDefinition(resolvedTechnologyId) : null;
+
+  if (!technology) {
+    return null;
+  }
+
+  return {
+    ...technology,
+    id: technology.id,
+    name: getTechnologyLabel(technology),
+    label: getTechnologyLabel(technology),
+    icon: technology.icon || null,
+    prerequisiteTechIds: [...(technology.prerequisites?.tech || [])],
+    prerequisiteEventIds: [...(technology.prerequisites?.events || [])],
+  };
+}
+
+function createBookBindingBuildingView(typeId) {
+  const resolvedTypeId = getResolvedBookBindingBuildingTypeId(typeId);
+  const rulesEntry = resolvedTypeId ? getBuildingRules(resolvedTypeId) : null;
+  const spec = resolvedTypeId ? getBuildingSpec(resolvedTypeId) : null;
+
+  if (!resolvedTypeId || (!rulesEntry && !spec)) {
+    return null;
+  }
+
+  const image = spec?.subtypes?.[0]?.image || null;
+
+  return {
+    ...(rulesEntry && typeof rulesEntry === "object" ? rulesEntry : {}),
+    ...(spec && typeof spec === "object" ? spec : {}),
+    id: resolvedTypeId,
+    name: getBuildingLabel(resolvedTypeId),
+    label: getBuildingLabel(resolvedTypeId),
+    icon: image,
+    iconText: typeof spec?.icon === "string" ? spec.icon : "",
+    image,
+  };
+}
+
+function createBookBindingUnitView(typeId) {
+  const resolvedTypeId = getResolvedBookBindingUnitTypeId(typeId);
+
+  if (!resolvedTypeId || !hasDefinedUnitType(resolvedTypeId)) {
+    return null;
+  }
+
+  const config = getResolvedUnitConfig(resolvedTypeId);
+  const spriteConfig = getUnitSpriteConfig(resolvedTypeId);
+  const icon = spriteConfig?.idleImage || null;
+
+  return {
+    ...(config && typeof config === "object" ? config : {}),
+    id: resolvedTypeId,
+    typeId: resolvedTypeId,
+    name: getDefaultUnitName(resolvedTypeId),
+    label: getDefaultUnitName(resolvedTypeId),
+    icon,
+    image: icon,
+    sprite: icon,
+  };
+}
+
+function createBookBindingResourceView(resourceType) {
+  const normalizedResourceType = typeof resourceType === "string" ? resourceType.trim() : "";
+
+  if (!normalizedResourceType) {
+    return null;
+  }
+
+  const iconPath = resourceUiIcons[normalizedResourceType];
+  const foodDefinition = getFoodDefinition(normalizedResourceType);
+
+  return {
+    ...(foodDefinition && typeof foodDefinition === "object" ? foodDefinition : {}),
+    id: normalizedResourceType,
+    name: getResourceLabel(normalizedResourceType),
+    label: getResourceLabel(normalizedResourceType),
+    icon: iconPath ? new URL(iconPath, window.location.href).toString() : null,
+  };
+}
+
+function resolveBookBindingValue(reference) {
+  const normalizedReference = typeof reference === "string" ? reference.trim() : "";
+
+  if (!normalizedReference) {
+    return null;
+  }
+
+  const segments = normalizedReference.split(".").map((segment) => segment.trim()).filter(Boolean);
+  const [namespace, ...rest] = segments;
+
+  if (!namespace) {
+    return null;
+  }
+
+  if (namespace === "strings" || namespace === "string") {
+    return getBookBindingValueAtPath(strings, rest);
+  }
+
+  if (namespace === "rules" || namespace === "rule") {
+    return getBookBindingValueAtPath(rules, rest);
+  }
+
+  if (namespace === "technology" || namespace === "technologies" || namespace === "tech") {
+    const [technologyId, ...pathSegments] = rest;
+    return getBookBindingValueAtPath(createBookBindingTechnologyView(technologyId), pathSegments);
+  }
+
+  if (namespace === "building" || namespace === "buildings") {
+    const [buildingType, ...pathSegments] = rest;
+    return getBookBindingValueAtPath(createBookBindingBuildingView(buildingType), pathSegments);
+  }
+
+  if (namespace === "unit" || namespace === "units") {
+    const [unitType, ...pathSegments] = rest;
+    return getBookBindingValueAtPath(createBookBindingUnitView(unitType), pathSegments);
+  }
+
+  if (namespace === "resource" || namespace === "resources") {
+    const [resourceType, ...pathSegments] = rest;
+    return getBookBindingValueAtPath(createBookBindingResourceView(resourceType), pathSegments);
+  }
+
+  return null;
+}
+
+function applyBookBindingToElement(element, bindingTarget, bindingReference) {
+  if (!(element instanceof HTMLElement) || typeof bindingTarget !== "string") {
+    return;
+  }
+
+  const value = resolveBookBindingValue(bindingReference);
+  const formattedValue = formatBookBindingValue(value);
+  const target = bindingTarget.trim();
+
+  if (!target || target === "text") {
+    element.textContent = formattedValue;
+    return;
+  }
+
+  if (formattedValue) {
+    element.setAttribute(target, formattedValue);
+  } else {
+    element.removeAttribute(target);
+  }
+}
+
+function applyBookBindings(pageBodyElement) {
+  if (!(pageBodyElement instanceof HTMLElement)) {
+    return;
+  }
+
+  const elements = [pageBodyElement, ...pageBodyElement.querySelectorAll("*")];
+
+  for (const element of elements) {
+    if (!(element instanceof HTMLElement)) {
+      continue;
+    }
+
+    for (const attributeName of element.getAttributeNames()) {
+      if (attributeName === "data-book-bind") {
+        applyBookBindingToElement(element, "text", element.getAttribute(attributeName));
+        continue;
+      }
+
+      if (!attributeName.startsWith("data-book-bind-")) {
+        continue;
+      }
+
+      const bindingTarget = attributeName.slice("data-book-bind-".length);
+      applyBookBindingToElement(element, bindingTarget, element.getAttribute(attributeName));
+    }
+  }
+}
+
 function resolveTechnologyAssetPath(path, manifestPath = technologyManifestPath) {
   return new URL(path, new URL(manifestPath, window.location.href)).toString();
 }
@@ -766,6 +1788,62 @@ function createDefaultResearchState() {
   };
 }
 
+function normalizeResearchProgressByTechId(rawProgressByTechId) {
+  if (!rawProgressByTechId || typeof rawProgressByTechId !== "object" || Array.isArray(rawProgressByTechId)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(rawProgressByTechId)
+      .map(([technologyId, progress]) => {
+        const normalizedTechnologyId = typeof technologyId === "string" ? technologyId.trim() : "";
+        const normalizedProgress = Math.max(0, Math.floor(Number(progress) || 0));
+        return normalizedTechnologyId ? [normalizedTechnologyId, normalizedProgress] : null;
+      })
+      .filter(Boolean),
+  );
+}
+
+function normalizeResearchEventFlags(rawEventFlags) {
+  if (!rawEventFlags || typeof rawEventFlags !== "object" || Array.isArray(rawEventFlags)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(rawEventFlags)
+      .map(([eventId, value]) => {
+        const normalizedEventId = typeof eventId === "string" ? eventId.trim() : "";
+        return normalizedEventId ? [normalizedEventId, Boolean(value)] : null;
+      })
+      .filter(Boolean),
+  );
+}
+
+function normalizeResearchState(rawState) {
+  const state = rawState && typeof rawState === "object" ? rawState : {};
+  const discoveredTechIds = Array.isArray(state.discoveredTechIds)
+    ? [...new Set(state.discoveredTechIds.map((technologyId) => (typeof technologyId === "string" ? technologyId.trim() : "")).filter(Boolean))]
+    : [];
+  const discoveredTechIdSet = new Set(discoveredTechIds);
+  const selectedGoalTechId = typeof state.selectedGoalTechId === "string" && state.selectedGoalTechId.trim()
+    ? state.selectedGoalTechId.trim()
+    : null;
+  const progressByTechId = Object.fromEntries(
+    Object.entries(normalizeResearchProgressByTechId(state.progressByTechId))
+      .filter(([technologyId]) => !discoveredTechIdSet.has(technologyId)),
+  );
+
+  return {
+    discoveredTechIds,
+    progressByTechId,
+    selectedGoalTechId:
+      selectedGoalTechId && !discoveredTechIdSet.has(selectedGoalTechId)
+        ? selectedGoalTechId
+        : null,
+    eventFlags: normalizeResearchEventFlags(state.eventFlags),
+  };
+}
+
 function normalizeTechnologyManifestEntry(entry, index, manifestPath = technologyManifestPath) {
   if (!entry || typeof entry !== "object") {
     return null;
@@ -776,6 +1854,7 @@ function normalizeTechnologyManifestEntry(entry, index, manifestPath = technolog
   const icon = typeof entry.icon === "string" && entry.icon.trim()
     ? resolveTechnologyAssetPath(entry.icon.trim(), manifestPath)
     : null;
+  const labels = normalizeLocalizedLabelsMap(entry.labels);
   const rawPrerequisites = entry.prerequisites && typeof entry.prerequisites === "object" ? entry.prerequisites : {};
   const prerequisiteTechIds = Array.isArray(rawPrerequisites.tech)
     ? rawPrerequisites.tech.map((value) => (typeof value === "string" ? value.trim() : "")).filter(Boolean)
@@ -793,6 +1872,7 @@ function normalizeTechnologyManifestEntry(entry, index, manifestPath = technolog
     id,
     cost,
     icon,
+    labels,
     prerequisites: {
       tech: [...new Set(prerequisiteTechIds)],
       events: [...new Set(prerequisiteEventIds)],
@@ -892,6 +1972,18 @@ function getTechnologyDefinition(technologyId) {
   return technologyCatalog.byId?.[technologyId.trim()] || null;
 }
 
+function getTechnologyLabel(technologyOrId, languageId = currentLanguage) {
+  const technology = typeof technologyOrId === "string"
+    ? getTechnologyDefinition(technologyOrId)
+    : technologyOrId;
+
+  if (!technology || typeof technology.id !== "string" || !technology.id.trim()) {
+    return typeof technologyOrId === "string" ? technologyOrId.trim() : "";
+  }
+
+  return resolveLocalizedLabel(technology.labels, technology.id, languageId) || technology.id;
+}
+
 function isTechnologyDiscovered(technologyId, state = researchState) {
   return Boolean(technologyId) && Array.isArray(state?.discoveredTechIds) && state.discoveredTechIds.includes(technologyId);
 }
@@ -928,6 +2020,373 @@ function getTechnologyDisplayState(technologyId, state = researchState) {
   }
 
   return "locked";
+}
+
+function getTechnologyProgress(technologyId, state = researchState) {
+  if (typeof technologyId !== "string" || !technologyId.trim()) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    clampInteger(state?.progressByTechId?.[technologyId.trim()], 0, 999999999, 0),
+  );
+}
+
+function getTechnologyProgressPercent(technologyId, state = researchState) {
+  const technology = getTechnologyDefinition(technologyId);
+
+  if (!technology) {
+    return 0;
+  }
+
+  if (isTechnologyDiscovered(technology.id, state)) {
+    return 100;
+  }
+
+  const cost = Math.max(0, Math.floor(Number(technology.cost) || 0));
+
+  if (cost <= 0) {
+    return 0;
+  }
+
+  return clamp((getTechnologyProgress(technology.id, state) / cost) * 100, 0, 100);
+}
+
+function canSelectResearchGoal(technologyId, state = researchState) {
+  return getTechnologyDisplayState(technologyId, state) === "available";
+}
+
+function getSelectedResearchGoalTechnologyId(state = researchState, { requireAvailable = true } = {}) {
+  const technologyId =
+    typeof state?.selectedGoalTechId === "string" && state.selectedGoalTechId.trim()
+      ? state.selectedGoalTechId.trim()
+      : null;
+
+  if (!technologyId) {
+    return null;
+  }
+
+  if (!getTechnologyDefinition(technologyId)) {
+    return null;
+  }
+
+  if (isTechnologyDiscovered(technologyId, state)) {
+    return null;
+  }
+
+  if (requireAvailable && !canSelectResearchGoal(technologyId, state)) {
+    return null;
+  }
+
+  return technologyId;
+}
+
+function updateResearchPresentation() {
+  if (bookOverlay && !bookOverlay.hidden) {
+    updateBookPageStack(bookState);
+  }
+
+  updateEditorResearchPanel();
+  clampStockpileToCapacity();
+  updateUnitActionControls();
+  updateUnitReadout();
+  updateTurnControls();
+  draw();
+}
+
+function setSelectedResearchGoalTechnologyId(technologyId, { refresh = true } = {}) {
+  const normalizedTechnologyId =
+    typeof technologyId === "string" && technologyId.trim() ? technologyId.trim() : null;
+  const nextGoalTechnologyId = normalizedTechnologyId && canSelectResearchGoal(normalizedTechnologyId)
+    ? normalizedTechnologyId
+    : null;
+
+  if (researchState.selectedGoalTechId === nextGoalTechnologyId) {
+    return Boolean(nextGoalTechnologyId);
+  }
+
+  researchState.selectedGoalTechId = nextGoalTechnologyId;
+
+  if (nextGoalTechnologyId) {
+    hideBookTransientHint();
+  }
+
+  if (refresh) {
+    updateResearchPresentation();
+  }
+
+  return Boolean(nextGoalTechnologyId);
+}
+
+function clearSelectedResearchGoalTechnologyId(options) {
+  return setSelectedResearchGoalTechnologyId(null, options);
+}
+
+function markTechnologyDiscovered(technologyId, { refresh = true } = {}) {
+  const technology = getTechnologyDefinition(technologyId);
+
+  if (!technology || isTechnologyDiscovered(technology.id)) {
+    return false;
+  }
+
+  researchState.discoveredTechIds = [...new Set([...(researchState.discoveredTechIds || []), technology.id])];
+
+  if (researchState.progressByTechId && typeof researchState.progressByTechId === "object") {
+    delete researchState.progressByTechId[technology.id];
+  }
+
+  if (researchState.selectedGoalTechId === technology.id) {
+    researchState.selectedGoalTechId = null;
+  }
+
+  if (refresh) {
+    updateResearchPresentation();
+  }
+
+  return true;
+}
+
+function addResearchProgressToTechnology(technologyId, amount, { refresh = true } = {}) {
+  const technology = getTechnologyDefinition(technologyId);
+  const normalizedAmount = Math.max(0, Math.floor(Number(amount) || 0));
+
+  if (!technology || normalizedAmount <= 0 || isTechnologyDiscovered(technology.id)) {
+    return false;
+  }
+
+  const currentProgress = getTechnologyProgress(technology.id);
+  const nextProgress = currentProgress + normalizedAmount;
+  const cost = Math.max(0, Math.floor(Number(technology.cost) || 0));
+
+  if (cost > 0 && nextProgress >= cost) {
+    markTechnologyDiscovered(technology.id, { refresh });
+    return true;
+  }
+
+  researchState.progressByTechId = {
+    ...(researchState.progressByTechId || {}),
+    [technology.id]: nextProgress,
+  };
+
+  if (refresh) {
+    updateResearchPresentation();
+  }
+
+  return true;
+}
+
+function getEditorResearchStatusLabel(displayState) {
+  if (displayState === "discovered") {
+    return getEditorLabel("statusDiscovered");
+  }
+
+  if (displayState === "available") {
+    return getEditorLabel("statusAvailable");
+  }
+
+  if (displayState === "locked") {
+    return getEditorLabel("statusLocked");
+  }
+
+  return getEditorLabel("none");
+}
+
+function getEditorResearchGoalReadout() {
+  const selectedGoalTechnologyId = getSelectedResearchGoalTechnologyId(researchState, {
+    requireAvailable: false,
+  });
+  const selectedGoalLabel = selectedGoalTechnologyId
+    ? getTechnologyLabel(selectedGoalTechnologyId)
+    : getEditorLabel("none");
+
+  return `${getEditorLabel("goal")}: ${selectedGoalLabel}`;
+}
+
+function renderEditorResearchPanel() {
+  if (!editorResearchList || !editorResearchEmpty) {
+    return;
+  }
+
+  const technologies = Array.isArray(technologyCatalog?.technologies)
+    ? technologyCatalog.technologies
+    : [];
+
+  editorResearchList.replaceChildren();
+  editorResearchEmpty.hidden = technologies.length > 0;
+  editorResearchEmpty.textContent = getEditorLabel("noTechnologies");
+
+  for (const technology of technologies) {
+    const displayState = getTechnologyDisplayState(technology.id);
+    const technologyLabel = getTechnologyLabel(technology);
+    const isDiscovered = isTechnologyDiscovered(technology.id);
+    const isSelectedGoal = researchState.selectedGoalTechId === technology.id;
+    const canSelectGoal = canSelectResearchGoal(technology.id);
+    const item = document.createElement("article");
+    const main = document.createElement("div");
+    const header = document.createElement("div");
+    const icon = technology.icon ? document.createElement("img") : document.createElement("span");
+    const copy = document.createElement("div");
+    const name = document.createElement("div");
+    const meta = document.createElement("div");
+    const status = document.createElement("span");
+    const controls = document.createElement("div");
+    const goalButton = document.createElement("button");
+    const discoveredLabel = document.createElement("label");
+    const discoveredInput = document.createElement("input");
+    const discoveredText = document.createElement("span");
+    const progressField = document.createElement("label");
+    const progressInput = document.createElement("input");
+    const progressSuffix = document.createElement("span");
+
+    item.className = "editor-research-item";
+    item.dataset.technologyId = technology.id;
+    item.dataset.techState = displayState;
+    item.setAttribute("role", "listitem");
+
+    main.className = "editor-research-main";
+    header.className = "editor-research-header";
+    copy.className = "editor-research-copy";
+    name.className = "editor-research-name";
+    meta.className = "editor-research-meta";
+    status.className = "editor-research-status";
+    controls.className = "editor-research-controls";
+
+    if (technology.icon) {
+      icon.className = "editor-research-icon";
+      icon.src = technology.icon;
+      icon.alt = technologyLabel;
+      icon.decoding = "async";
+    } else {
+      icon.className = "editor-research-icon-placeholder";
+      icon.setAttribute("aria-hidden", "true");
+    }
+
+    name.textContent = technologyLabel;
+    status.textContent = getEditorResearchStatusLabel(displayState);
+    meta.append(status);
+
+    goalButton.type = "button";
+    goalButton.className = "menu-button editor-research-goal-button";
+    goalButton.dataset.action = "editor-research-select-goal";
+    goalButton.dataset.technologyId = technology.id;
+    goalButton.disabled = !canSelectGoal;
+    goalButton.textContent = getEditorLabel("goal");
+    goalButton.classList.toggle("is-selected", isSelectedGoal);
+    goalButton.setAttribute("aria-pressed", isSelectedGoal ? "true" : "false");
+
+    discoveredLabel.className = "toggle-control edit-toggle-control editor-research-discovered";
+    discoveredInput.dataset.action = "editor-research-discovered";
+    discoveredInput.dataset.technologyId = technology.id;
+    discoveredInput.type = "checkbox";
+    discoveredInput.checked = isDiscovered;
+    discoveredText.textContent = getEditorLabel("statusDiscovered");
+    discoveredLabel.append(discoveredInput, discoveredText);
+
+    progressField.className = "edit-number-field edit-number-field-inline editor-research-progress-field";
+    progressInput.className = "edit-number-input";
+    progressInput.dataset.action = "editor-research-progress";
+    progressInput.dataset.technologyId = technology.id;
+    progressInput.type = "number";
+    progressInput.min = "0";
+    progressInput.step = "1";
+    progressInput.disabled = isDiscovered;
+    progressInput.value = String(
+      isDiscovered
+        ? Math.max(0, Math.floor(Number(technology.cost) || 0))
+        : getTechnologyProgress(technology.id),
+    );
+    progressSuffix.className = "edit-field-suffix";
+    progressSuffix.textContent = `/${Math.max(0, Math.floor(Number(technology.cost) || 0))}`;
+    progressField.append(progressInput, progressSuffix);
+
+    copy.append(name, meta);
+    header.append(icon, copy);
+    main.append(header);
+    controls.append(goalButton, discoveredLabel, progressField);
+    item.append(main, controls);
+    editorResearchList.append(item);
+  }
+}
+
+function updateEditorResearchPanel() {
+  setTextContent(openEditorResearchButtons, getEditorLabel("technologies"));
+  setTextContent(editorResearchTitleElements, getEditorLabel("technologies"));
+  setTextContent(editorResearchGoalElements, getEditorResearchGoalReadout());
+  setTextContent(clearEditorResearchGoalButtons, getEditorLabel("clearGoal"));
+  setAttributeForElements(closeEditorResearchButtons, "aria-label", strings.actions.close);
+  if (editorResearchEmpty) {
+    editorResearchEmpty.textContent = getEditorLabel("noTechnologies");
+  }
+  setDisabledState(
+    clearEditorResearchGoalButtons,
+    !getSelectedResearchGoalTechnologyId(researchState, { requireAvailable: false }),
+  );
+
+  if (!editorResearchOverlay || editorResearchOverlay.hidden) {
+    return;
+  }
+
+  renderEditorResearchPanel();
+}
+
+function openEditorResearchPanel(triggerButton = null) {
+  if (!editorResearchOverlay || !isEditMode() || mainMenuOpen) {
+    return Promise.resolve(false);
+  }
+
+  editorResearchReturnFocusButton = triggerButton instanceof HTMLElement ? triggerButton : null;
+  closeEditorDropdowns();
+  return ensureTechnologyCatalogLoaded()
+    .then(() => {
+      if (!editorResearchOverlay || !isEditMode() || mainMenuOpen) {
+        return false;
+      }
+
+      researchState = normalizeResearchState(researchState);
+      setSelectedResearchGoalTechnologyId(researchState.selectedGoalTechId, { refresh: false });
+      editorResearchOverlay.hidden = false;
+      updateEditorResearchPanel();
+      requestAnimationFrame(() => {
+        editorResearchPanel?.querySelector(
+          '.editor-research-goal-button.is-selected, .editor-research-goal-button:not(:disabled), .slot-panel-close',
+        )?.focus({ preventScroll: true });
+      });
+      return true;
+    });
+}
+
+function closeEditorResearchPanel({ restoreFocus = false } = {}) {
+  if (editorResearchOverlay) {
+    editorResearchOverlay.hidden = true;
+  }
+
+  if (restoreFocus && editorResearchReturnFocusButton) {
+    editorResearchReturnFocusButton.focus({ preventScroll: true });
+  }
+
+  editorResearchReturnFocusButton = null;
+}
+
+function applyEditorResearchStateChange(mutator) {
+  if (typeof mutator !== "function") {
+    return false;
+  }
+
+  const previousSnapshot = JSON.stringify(serializeResearchState(researchState));
+  mutator();
+  researchState = normalizeResearchState(researchState);
+  setSelectedResearchGoalTechnologyId(researchState.selectedGoalTechId, { refresh: false });
+  const nextSnapshot = JSON.stringify(serializeResearchState(researchState));
+
+  if (nextSnapshot === previousSnapshot) {
+    updateEditorResearchPanel();
+    return false;
+  }
+
+  setEditStateDirty(true);
+  updateResearchPresentation();
+  return true;
 }
 
 function normalizeBookPageCount(count, minimumPageCount = bookMinimumPageCount) {
@@ -1298,6 +2757,10 @@ function getSituationMessageText(entry) {
       : "";
   }
 
+  if (entry.kind === "researchGoalMissing") {
+    return template.researchGoalMissing || "";
+  }
+
   return "";
 }
 
@@ -1324,6 +2787,31 @@ function setSituationMessageVisibility(visible) {
 
 function setSituationMessageText(text) {
   setTextContent(situationMessageTextElements, text);
+}
+
+function setBookTransientHintText(text) {
+  setTextContent(bookTransientHintTextElements, text);
+}
+
+function hideBookTransientHint() {
+  if (bookTransientHint) {
+    bookTransientHint.hidden = true;
+  }
+
+  setBookTransientHintText("");
+}
+
+function showBookTransientHint(text) {
+  const normalizedText = typeof text === "string" ? text.trim() : "";
+
+  if (!bookTransientHint || !normalizedText) {
+    hideBookTransientHint();
+    return false;
+  }
+
+  setBookTransientHintText(normalizedText);
+  bookTransientHint.hidden = false;
+  return true;
 }
 
 function updateSituationMessageToggleButton() {
@@ -1604,31 +3092,49 @@ function normalizePendingUnitAction(action) {
   return Object.values(unitActions).includes(action) ? action : null;
 }
 
-function getUnitAllowedActions(currentUnit = unit) {
+function getUnitAllowedActions(currentUnit = unit, context = getRuleContext()) {
   if (!currentUnit) {
     return [...orderedUnitActions];
   }
 
-  const configured = getResolvedUnitConfig(currentUnit).allowedActions;
+  const configured = getEffectiveUnitConfig(currentUnit, context).allowedActions;
 
-  if (!Array.isArray(configured) || configured.length === 0) {
+  if (!Array.isArray(configured)) {
     return [...orderedUnitActions];
   }
 
   const configuredSet = new Set(configured.map((action) => normalizePendingUnitAction(action)).filter(Boolean));
   const allowed = orderedUnitActions.filter((action) => configuredSet.has(action));
 
-  return allowed.length > 0 ? allowed : [...orderedUnitActions];
+  return allowed;
 }
 
-function canUnitUseAction(currentUnit = unit, action) {
+function canUnitUseAction(currentUnit = unit, action, context = getRuleContext()) {
   const normalizedAction = normalizePendingUnitAction(action);
 
   if (!currentUnit || !normalizedAction) {
     return false;
   }
 
-  return getUnitAllowedActions(currentUnit).includes(normalizedAction);
+  if (!getUnitAllowedActions(currentUnit, context).includes(normalizedAction)) {
+    return false;
+  }
+
+  if (normalizedAction === unitActions.research && getUnitResearchPointsPerTurn(currentUnit, context) <= 0) {
+    return false;
+  }
+
+  return matchesRequirements(getUnitActionRequirements(currentUnit, normalizedAction, context), context);
+}
+
+function getUnitResearchPointsPerTurn(currentUnit = unit, context = getRuleContext()) {
+  const configured = Number(getEffectiveUnitConfig(currentUnit, context).researchPointsPerTurn);
+
+  if (!Number.isFinite(configured)) {
+    return 0;
+  }
+
+  return Math.max(0, configured);
 }
 
 function getPreferredUnitAction(currentUnit = getSelectedUnit(), preferredAction = unitActions.walk) {
@@ -1663,6 +3169,10 @@ function getUnitActionLabel(action) {
 
   if (action === unitActions.play) {
     return strings.actions.play;
+  }
+
+  if (action === unitActions.research) {
+    return strings.actions.research;
   }
 
   if (action === unitActions.gatherFood) {
@@ -1798,6 +3308,13 @@ function applyStaticText() {
   setTextContent(editorTotalLabelElements, strings.editor.total);
   setTextContent(editorCompletionLabelElements, strings.editor.completion);
   setTextContent(editorAbandonedLabelElements, strings.editor.abandoned);
+  setTextContent(openEditorResearchButtons, getEditorLabel("technologies"));
+  setTextContent(editorResearchTitleElements, getEditorLabel("technologies"));
+  setTextContent(clearEditorResearchGoalButtons, getEditorLabel("clearGoal"));
+  setAttributeForElements(closeEditorResearchButtons, "aria-label", strings.actions.close);
+  if (editorResearchEmpty) {
+    editorResearchEmpty.textContent = getEditorLabel("noTechnologies");
+  }
   setAttributeForElements(languageSelectorGroups, "aria-label", strings.language.selectorLabel);
   setAttributeForElements(zoomControlGroups, "aria-label", strings.aria.zoomControls);
   setAttributeForElements(zoomOutButtons, "aria-label", strings.aria.zoomOut);
@@ -1848,6 +3365,7 @@ function applyStaticText() {
   updateAudioControls();
   updateSituationMessagePanel();
   updateEditInspector();
+  updateEditorResearchPanel();
 }
 
 function setMainMenuLoadingState(isLoading) {
@@ -2036,10 +3554,12 @@ function drawShortageIndicatorOnCanvas(canvas, currentTurns, thresholdTurns) {
 }
 
 function updateStockpileReadout() {
-  const capacity = getResourceStorageCapacity();
   const stoneAmount = getCurrentStockpileAmount("stone");
   const lumberAmount = getCurrentStockpileAmount("lumber");
   const foodAmount = getCurrentStockpileAmount("food");
+  const stoneCapacity = getResourceStorageCapacity("stone");
+  const lumberCapacity = getResourceStorageCapacity("lumber");
+  const foodCapacity = getResourceStorageCapacity("food");
   const shortageThreshold = getFoodShortageThreshold();
 
   for (const canvas of resourceStoneCanvases) {
@@ -2060,13 +3580,13 @@ function updateStockpileReadout() {
     }
   }
 
-  setTextContent(resourceStoneCaptions, `${stoneAmount}/${capacity}`);
-  setTextContent(resourceLumberCaptions, `${lumberAmount}/${capacity}`);
+  setTextContent(resourceStoneCaptions, `${stoneAmount}/${stoneCapacity}`);
+  setTextContent(resourceLumberCaptions, `${lumberAmount}/${lumberCapacity}`);
   setTextContent(
     resourceFoodCaptions,
     foodShortageTurns > 0
       ? `${foodShortageTurns}/${shortageThreshold}`
-      : `${foodAmount}/${capacity}`,
+      : `${foodAmount}/${foodCapacity}`,
   );
 }
 
@@ -2092,6 +3612,7 @@ function getTileInspectorInfoEntries(cell) {
   if (building) {
     const completeness = Math.round(getBuildingCompleteness(building) * 100);
     const resident = completeness >= 100 ? getBuildingResident(building) : null;
+    const buildingLabel = getBuildingLabel(building.type);
     const residentLabel =
       resident?.name && typeof strings.play?.houseResident === "function"
         ? strings.play.houseResident(resident.name, getUnitTypeId(resident))
@@ -2100,7 +3621,7 @@ function getTileInspectorInfoEntries(cell) {
       kind: "building",
       cell,
       building,
-      label: completeness >= 100 ? residentLabel : `${completeness}%`,
+      label: completeness >= 100 ? residentLabel || buildingLabel : `${completeness}%`,
     });
   } else if (hasFoodResource(cell)) {
     entries.push({
@@ -2438,8 +3959,8 @@ function updatePersistenceControls() {
   updateFileReadout();
 }
 
-function getDefaultUnitStamina(unitTypeId = getDefaultUnitTypeId()) {
-  const configured = Number(getResolvedUnitConfig(unitTypeId).stamina);
+function getDefaultUnitStamina(unitTypeId = getDefaultUnitTypeId(), context = getRuleContext()) {
+  const configured = Number(getEffectiveUnitConfig(unitTypeId, context).stamina);
 
   if (!Number.isFinite(configured)) {
     return 2;
@@ -2448,9 +3969,9 @@ function getDefaultUnitStamina(unitTypeId = getDefaultUnitTypeId()) {
   return Math.max(1, clampInteger(configured, 1, 999, 2));
 }
 
-function getDefaultUnitName(unitTypeId = getDefaultUnitTypeId()) {
+function getDefaultUnitName(unitTypeId = getDefaultUnitTypeId(), context = getRuleContext()) {
   const normalizedTypeId = normalizeUnitTypeId(unitTypeId);
-  const resolvedConfig = getResolvedUnitConfig(normalizedTypeId);
+  const resolvedConfig = getEffectiveUnitConfig(normalizedTypeId, context);
   const localizedDefault = normalizedTypeId === getDefaultUnitTypeId() && typeof strings.units?.defaultName === "string"
     ? strings.units.defaultName.trim()
     : "";
@@ -2460,7 +3981,10 @@ function getDefaultUnitName(unitTypeId = getDefaultUnitTypeId()) {
   const configured = typeof resolvedConfig.name === "string"
     ? resolvedConfig.name.trim()
     : "";
-  return localizedSpecific || localizedDefault || configured || "Schtroumpf";
+  return resolveLocalizedLabel(
+    resolvedConfig.labels,
+    localizedSpecific || localizedDefault || configured || "Schtroumpf",
+  ) || "Schtroumpf";
 }
 
 function normalizeUnitName(name, unitTypeId = getDefaultUnitTypeId()) {
@@ -2489,8 +4013,8 @@ function getBuildingResident(buildingOrId) {
   return getUnits().find((currentUnit) => getUnitHomeBuildingId(currentUnit) === buildingId) || null;
 }
 
-function getUnitMaxStamina(currentUnit = unit) {
-  return Math.max(1, clampInteger(currentUnit?.staminaMax, 1, 999, getDefaultUnitStamina(getUnitTypeId(currentUnit))));
+function getUnitMaxStamina(currentUnit = unit, context = getRuleContext()) {
+  return Math.max(1, clampInteger(getDefaultUnitStamina(getUnitTypeId(currentUnit), context), 1, 999, 2));
 }
 
 function getUnitStamina(currentUnit = unit) {
@@ -2573,8 +4097,8 @@ function getTerrainMoveCost(cell, fromCell = null) {
   return Math.max(1, configuredCost);
 }
 
-function getUnitWorkPointsPerTurn(taskType, currentUnit = unit) {
-  const configured = Number(getResolvedUnitConfig(currentUnit).workPointsPerTurn?.[taskType]);
+function getUnitWorkPointsPerTurn(taskType, currentUnit = unit, context = getRuleContext()) {
+  const configured = Number(getEffectiveUnitConfig(currentUnit, context).workPointsPerTurn?.[taskType]);
 
   if (!Number.isFinite(configured)) {
     return 0;
@@ -2593,8 +4117,8 @@ function getGatherTaskDurationTurns() {
   return Math.max(1, Math.floor(configured));
 }
 
-function getUnitFoodConsumptionPerTurn(currentUnit = unit) {
-  const configured = Number(getResolvedUnitConfig(currentUnit).foodConsumptionPerTurn);
+function getUnitFoodConsumptionPerTurn(currentUnit = unit, context = getRuleContext()) {
+  const configured = Number(getEffectiveUnitConfig(currentUnit, context).foodConsumptionPerTurn);
 
   if (!Number.isFinite(configured)) {
     return 1;
@@ -2625,14 +4149,33 @@ function getMaterialAmountForTerrain(type) {
   return 0;
 }
 
-function getResourceStorageCapacity() {
-  const capacityPerHouse = Math.max(
-    0,
-    clampInteger(rules.resources?.stockpile?.capacityPerHouse, 0, 999999, 120),
-  );
-  const houseCount = buildings.filter((building) => building?.type === "house" && building.state !== "construction").length;
+function getBuildingResourceStorageCapacity(type, resourceType, context = getRuleContext()) {
+  if (!type || !resourceType) {
+    return 0;
+  }
 
-  return capacityPerHouse * houseCount;
+  return Math.max(
+    0,
+    clampInteger(getEffectiveBuildingRules(type, context)?.resourceStorageCapacities?.[resourceType], 0, 999999, 0),
+  );
+}
+
+function getResourceStorageCapacity(resourceType, context = getRuleContext()) {
+  if (!resourceType) {
+    return 0;
+  }
+
+  let totalCapacity = 0;
+
+  for (const building of buildings) {
+    if (!building || building.state === "construction") {
+      continue;
+    }
+
+    totalCapacity += getBuildingResourceStorageCapacity(building.type, resourceType, context);
+  }
+
+  return totalCapacity;
 }
 
 function getFoodShortageThreshold() {
@@ -2649,8 +4192,8 @@ function getFoodShortageResetTurns() {
   );
 }
 
-function getBuildingBuildCost(type = "house") {
-  const buildCost = getBuildingRules(type)?.buildCost || {};
+function getBuildingBuildCost(type = "house", context = getRuleContext()) {
+  const buildCost = getEffectiveBuildingRules(type, context)?.buildCost || {};
 
   return {
     stone: Math.max(0, clampInteger(buildCost.stone, 0, 999999, 20)),
@@ -2662,8 +4205,8 @@ function getHouseBuildCost(type = "house") {
   return getBuildingBuildCost(type);
 }
 
-function getBuildingBuildCostStatus(type = "house") {
-  const buildCost = getBuildingBuildCost(type);
+function getBuildingBuildCostStatus(type = "house", context = getRuleContext()) {
+  const buildCost = getBuildingBuildCost(type, context);
   const entries = [
     {
       resourceType: "stone",
@@ -2770,7 +4313,7 @@ function getCurrentStockpileAmount(resourceType) {
 
 function addToStockpile(resourceType, amount) {
   const normalizedAmount = Math.max(0, Math.floor(amount));
-  const capacity = getResourceStorageCapacity();
+  const capacity = getResourceStorageCapacity(resourceType);
   const currentAmount = getCurrentStockpileAmount(resourceType);
   const nextAmount = clamp(currentAmount + normalizedAmount, 0, capacity);
   const stored = nextAmount - currentAmount;
@@ -2780,11 +4323,10 @@ function addToStockpile(resourceType, amount) {
 }
 
 function clampStockpileToCapacity() {
-  const capacity = getResourceStorageCapacity();
-
-  stockpile.stone = clamp(getCurrentStockpileAmount("stone"), 0, capacity);
-  stockpile.lumber = clamp(getCurrentStockpileAmount("lumber"), 0, capacity);
-  stockpile.food = clamp(getCurrentStockpileAmount("food"), 0, capacity);
+  for (const resourceType of stockpileResourceTypes) {
+    const capacity = getResourceStorageCapacity(resourceType);
+    stockpile[resourceType] = clamp(getCurrentStockpileAmount(resourceType), 0, capacity);
+  }
 }
 
 function spendFromStockpile(resourceType, amount) {
@@ -2858,8 +4400,265 @@ function getBuildingRules(type) {
   return rules.buildings?.[type] || null;
 }
 
+function cloneBuildingRulesForEvaluation(rulesEntry) {
+  const base = rulesEntry && typeof rulesEntry === "object" ? rulesEntry : {};
+
+  return {
+    ...base,
+    buildCost: base.buildCost ? { ...base.buildCost } : undefined,
+    resourceStorageCapacities: base.resourceStorageCapacities ? { ...base.resourceStorageCapacities } : undefined,
+    constructionVisualThresholds: base.constructionVisualThresholds ? { ...base.constructionVisualThresholds } : undefined,
+    availability: base.availability ? { ...base.availability } : undefined,
+    limits: base.limits ? { ...base.limits } : undefined,
+    modifiers: Array.isArray(base.modifiers) ? [...base.modifiers] : undefined,
+  };
+}
+
+function applyBuildingRulesModifiers(rulesEntry, context = getRuleContext()) {
+  const resolved = cloneBuildingRulesForEvaluation(rulesEntry);
+  const modifiers = Array.isArray(resolved.modifiers) ? resolved.modifiers : [];
+
+  for (const modifier of modifiers) {
+    if (!modifier || !matchesRequirements(modifier.when, context)) {
+      continue;
+    }
+
+    const set = modifier.set && typeof modifier.set === "object" ? modifier.set : null;
+
+    if (!set) {
+      continue;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(set, "walkable")) {
+      resolved.walkable = Boolean(set.walkable);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(set, "foundationActionAvailable")) {
+      resolved.foundationActionAvailable = Boolean(set.foundationActionAvailable);
+    }
+
+    if (Number.isFinite(set.constructionCost)) {
+      resolved.constructionCost = set.constructionCost;
+    }
+
+    if (set.buildCost && typeof set.buildCost === "object") {
+      resolved.buildCost = {
+        ...(resolved.buildCost || {}),
+        ...set.buildCost,
+      };
+    }
+
+    if (set.resourceStorageCapacities && typeof set.resourceStorageCapacities === "object") {
+      resolved.resourceStorageCapacities = {
+        ...(resolved.resourceStorageCapacities || {}),
+        ...set.resourceStorageCapacities,
+      };
+    }
+
+    if (set.constructionVisualThresholds && typeof set.constructionVisualThresholds === "object") {
+      resolved.constructionVisualThresholds = {
+        ...(resolved.constructionVisualThresholds || {}),
+        ...set.constructionVisualThresholds,
+      };
+    }
+
+    if (Number.isFinite(set.abandonedDecayPerTurn)) {
+      resolved.abandonedDecayPerTurn = set.abandonedDecayPerTurn;
+    }
+  }
+
+  return resolved;
+}
+
+function getEffectiveBuildingRules(type, context = getRuleContext()) {
+  return applyBuildingRulesModifiers(getBuildingRules(type), context);
+}
+
 function getBuildingSpec(type) {
   return buildingCatalog[type] || null;
+}
+
+function getDefinedBuildingTypes() {
+  return Object.keys(buildingCatalog).filter((type) => Boolean(type) && Boolean(getBuildingRules(type)));
+}
+
+function getUnitAvailability(unitOrTypeId = getDefaultUnitTypeId()) {
+  return getResolvedUnitConfig(unitOrTypeId).availability || {};
+}
+
+function isUnitTypeAvailable(unitOrTypeId = getDefaultUnitTypeId(), context = getRuleContext()) {
+  const typeId =
+    typeof unitOrTypeId === "string"
+      ? normalizeUnitTypeId(unitOrTypeId)
+      : getUnitTypeId(unitOrTypeId);
+
+  if (!hasDefinedUnitType(typeId)) {
+    return false;
+  }
+
+  return matchesRequirements(getUnitAvailability(typeId), context);
+}
+
+function getUnitActionRequirements(currentUnit = unit, action, context = getRuleContext()) {
+  const normalizedAction = normalizePendingUnitAction(action);
+
+  if (!normalizedAction) {
+    return {};
+  }
+
+  return getEffectiveUnitConfig(currentUnit, context)?.actionRequirements?.[normalizedAction] || {};
+}
+
+function getCountForRuleMap(map, key) {
+  if (!key || !map || typeof map !== "object") {
+    return 0;
+  }
+
+  return Math.max(0, clampInteger(map[key], 0, 999999, 0));
+}
+
+function getLivingUnitCountsByType() {
+  const counts = {};
+
+  for (const currentUnit of getUnits()) {
+    const typeId = getUnitTypeId(currentUnit);
+    counts[typeId] = (counts[typeId] || 0) + 1;
+  }
+
+  return counts;
+}
+
+function getBuildingCountsByType({ includeConstruction = true } = {}) {
+  const counts = {};
+
+  for (const building of buildings) {
+    if (!building) {
+      continue;
+    }
+
+    if (!includeConstruction && building.state === "construction") {
+      continue;
+    }
+
+    counts[building.type] = (counts[building.type] || 0) + 1;
+  }
+
+  return counts;
+}
+
+function getRuleContext() {
+  return {
+    discoveredTechIds: new Set(
+      Array.isArray(researchState?.discoveredTechIds)
+        ? researchState.discoveredTechIds.map((technologyId) => (typeof technologyId === "string" ? technologyId.trim() : "")).filter(Boolean)
+        : [],
+    ),
+    eventFlags: researchState?.eventFlags && typeof researchState.eventFlags === "object"
+      ? researchState.eventFlags
+      : {},
+    completeBuildingCountsByType: getBuildingCountsByType({ includeConstruction: false }),
+    anyBuildingCountsByType: getBuildingCountsByType({ includeConstruction: true }),
+    livingUnitCountsByType: getLivingUnitCountsByType(),
+    nextUnitNumber: getUnits().length + 1,
+  };
+}
+
+function matchesRequirements(requirements, context = getRuleContext()) {
+  const normalizedRequirements = requirements && typeof requirements === "object" ? requirements : {};
+
+  for (const technologyId of normalizedRequirements.requiredTechs || []) {
+    if (!context.discoveredTechIds?.has(technologyId)) {
+      return false;
+    }
+  }
+
+  for (const eventId of normalizedRequirements.requiredEvents || []) {
+    if (!context.eventFlags?.[eventId]) {
+      return false;
+    }
+  }
+
+  for (const [buildingType, requiredCount] of Object.entries(normalizedRequirements.requiredBuildingsMin || {})) {
+    if (getCountForRuleMap(context.completeBuildingCountsByType, buildingType) < requiredCount) {
+      return false;
+    }
+  }
+
+  for (const unitType of normalizedRequirements.requiredUnitsPresent || []) {
+    if (getCountForRuleMap(context.livingUnitCountsByType, unitType) <= 0) {
+      return false;
+    }
+  }
+
+  for (const unitType of normalizedRequirements.requiredUnitsAbsent || []) {
+    if (getCountForRuleMap(context.livingUnitCountsByType, unitType) > 0) {
+      return false;
+    }
+  }
+
+  if (
+    Number.isFinite(normalizedRequirements.nextUnitNumberEquals) &&
+    context.nextUnitNumber !== normalizedRequirements.nextUnitNumberEquals
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function evaluateCountLimits(limits, subjectType, context = getRuleContext()) {
+  const normalizedLimits = limits && typeof limits === "object" ? limits : {};
+  const subjectCount = getCountForRuleMap(context.anyBuildingCountsByType, subjectType);
+  const maxCount = Number(normalizedLimits.maxCount);
+
+  if (Number.isFinite(maxCount) && subjectCount >= Math.max(0, Math.floor(maxCount))) {
+    return false;
+  }
+
+  const countByBuilding = normalizedLimits.countByBuilding && typeof normalizedLimits.countByBuilding === "object"
+    ? normalizedLimits.countByBuilding
+    : null;
+
+  if (countByBuilding?.building) {
+    const providerCount = getCountForRuleMap(context.completeBuildingCountsByType, countByBuilding.building);
+    const base = Math.max(0, Math.floor(Number(countByBuilding.base) || 0));
+    const perBuilding = Math.max(0, Math.floor(Number(countByBuilding.perBuilding) || 0));
+    const allowedCount = base + providerCount * perBuilding;
+
+    if (subjectCount >= allowedCount) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function getBuildingAvailability(type) {
+  return getBuildingRules(type)?.availability || {};
+}
+
+function getBuildingLimits(type) {
+  return getBuildingRules(type)?.limits || {};
+}
+
+function isBuildingTypeAvailable(type, context = getRuleContext(), { ignoreRequirements = false, ignoreLimits = false } = {}) {
+  if (!getBuildingRules(type) || !getBuildingSpec(type)) {
+    return false;
+  }
+
+  if (!ignoreRequirements && !matchesRequirements(getBuildingAvailability(type), context)) {
+    return false;
+  }
+
+  if (!ignoreLimits && !evaluateCountLimits(getBuildingLimits(type), type, context)) {
+    return false;
+  }
+
+  return true;
+}
+
+function getAvailableBuildingTypes(context = getRuleContext()) {
+  return getDefinedBuildingTypes().filter((type) => isBuildingTypeAvailable(type, context));
 }
 
 function getBuildingRenderMode(type) {
@@ -2867,7 +4666,7 @@ function getBuildingRenderMode(type) {
 }
 
 function getBuildingLabel(type) {
-  return strings.buildings?.[type] || type;
+  return resolveLocalizedLabel(getBuildingSpec(type)?.labels, strings.buildings?.[type] || type) || type;
 }
 
 function getBuildingSubtypeVariants(type) {
@@ -2947,46 +4746,96 @@ function getBuildingFootprintPaths(type) {
   return normalized.length > 0 ? normalized : null;
 }
 
+function getBuildingPlacementTerrainRules(type) {
+  const placementTerrains = getBuildingRules(type)?.placementTerrains;
+
+  if (!Array.isArray(placementTerrains) || placementTerrains.length === 0) {
+    return null;
+  }
+
+  return placementTerrains.map((terrainList) =>
+    Array.isArray(terrainList)
+      ? terrainList.filter((terrainType) => typeof terrainType === "string" && terrainType.trim())
+      : null,
+  );
+}
+
 function isMultiTileBuildingType(type) {
   return getBuildingWidth(type) > 1 || getBuildingHeight(type) > 1;
 }
 
-function getBuildingCellsFromOrigin(originCell, type) {
+function getBuildingPlacementEntries(originCell, type) {
   if (!originCell) {
     return [];
   }
 
   const footprintPaths = getBuildingFootprintPaths(type);
+  const placementTerrainRules = getBuildingPlacementTerrainRules(type);
 
   if (!footprintPaths) {
-    return [];
+    const width = getBuildingWidth(type);
+    const height = getBuildingHeight(type);
+    const entries = [];
+    let placementIndex = 0;
+
+    for (let offsetY = 0; offsetY < height; offsetY += 1) {
+      for (let offsetX = 0; offsetX < width; offsetX += 1) {
+        const cell = getCell(
+          originCell.x + offsetX,
+          originCell.y + offsetY * getBuildingFootprintRowStep(),
+        );
+
+        if (!cell) {
+          return [];
+        }
+
+        entries.push({
+          cell,
+          allowedTerrains: placementTerrainRules?.[placementIndex] || null,
+        });
+        placementIndex += 1;
+      }
+    }
+
+    return entries;
   }
 
-  const cells = [];
+  const entries = [];
   const seenKeys = new Set();
 
-  for (const path of footprintPaths) {
+  footprintPaths.forEach((path, pathIndex) => {
     let currentCell = originCell;
 
     for (const direction of path) {
       currentCell = getNeighborByDirection(currentCell, direction);
 
       if (!currentCell) {
-        return [];
+        return;
       }
+    }
+
+    if (!currentCell) {
+      return;
     }
 
     const cellKey = createCellKey(currentCell.x, currentCell.y);
 
     if (seenKeys.has(cellKey)) {
-      continue;
+      return;
     }
 
     seenKeys.add(cellKey);
-    cells.push(currentCell);
-  }
+    entries.push({
+      cell: currentCell,
+      allowedTerrains: placementTerrainRules?.[pathIndex] || null,
+    });
+  });
 
-  return cells;
+  return entries.length === footprintPaths.length ? entries : [];
+}
+
+function getBuildingCellsFromOrigin(originCell, type) {
+  return getBuildingPlacementEntries(originCell, type).map((entry) => entry.cell);
 }
 
 function getBuildingOccupiedCells(building) {
@@ -2999,26 +4848,30 @@ function getBuildingOccupiedCells(building) {
   return getBuildingPlacementCells(originCell, building.type);
 }
 
-function getBuildingFoundationActionTypes() {
-  return Object.keys(rules.buildings || {}).filter((type) => {
-    if (type === "default") {
-      return false;
-    }
+function getBuildingPlacementIndexAtCell(building, x, y) {
+  if (!building) {
+    return -1;
+  }
 
-    return Boolean(getBuildingRules(type)?.foundationActionAvailable);
-  });
+  const originCell = getCell(building.x, building.y);
+
+  if (!originCell) {
+    return -1;
+  }
+
+  return getBuildingPlacementEntries(originCell, building.type).findIndex(
+    ({ cell }) => cell.x === x && cell.y === y,
+  );
+}
+
+function getBuildingFoundationActionTypes() {
+  const context = getRuleContext();
+
+  return getAvailableBuildingTypes(context).filter((type) => Boolean(getEffectiveBuildingRules(type, context)?.foundationActionAvailable));
 }
 
 function getFoundationBuildingTypeIcon(type) {
-  if (type === "house") {
-    return "⌂";
-  }
-
-  if (type === "laboratory") {
-    return "⚗";
-  }
-
-  return "•";
+  return getBuildingSpec(type)?.icon || "•";
 }
 
 function getSelectedFoundationBuildingType() {
@@ -3056,16 +4909,16 @@ function getBuildingCompleteness(building) {
   return clamp(completeness, 0, 1);
 }
 
-function getBuildingConstructionCost(type) {
-  return Math.max(1, clampInteger(getBuildingRules(type)?.constructionCost, 1, 999999, 100));
+function getBuildingConstructionCost(type, context = getRuleContext()) {
+  return Math.max(1, clampInteger(getEffectiveBuildingRules(type, context)?.constructionCost, 1, 999999, 100));
 }
 
-function isBuildingWalkable(type) {
-  return Boolean(getBuildingRules(type)?.walkable);
+function isBuildingWalkable(type, context = getRuleContext()) {
+  return Boolean(getEffectiveBuildingRules(type, context)?.walkable);
 }
 
-function getBuildingAbandonedDecay(type) {
-  const decay = Number(getBuildingRules(type)?.abandonedDecayPerTurn);
+function getBuildingAbandonedDecay(type, context = getRuleContext()) {
+  const decay = Number(getEffectiveBuildingRules(type, context)?.abandonedDecayPerTurn);
 
   if (!Number.isFinite(decay)) {
     return 0;
@@ -3074,8 +4927,8 @@ function getBuildingAbandonedDecay(type) {
   return clamp(decay, 0, 1);
 }
 
-function getBuildingConstructionThresholds(type) {
-  const thresholds = getBuildingRules(type)?.constructionVisualThresholds || {};
+function getBuildingConstructionThresholds(type, context = getRuleContext()) {
+  const thresholds = getEffectiveBuildingRules(type, context)?.constructionVisualThresholds || {};
   const initialValue = Number(thresholds.initialMax);
   const halfValue = Number(thresholds.halfMax);
   const initialMax = Number.isFinite(initialValue) ? clamp(initialValue, 0, 1) : 0.34;
@@ -3211,6 +5064,8 @@ function closeBookOverlay({ restoreFocus = false, restoreState = true } = {}) {
   cancelBookSequencePlayback();
   cancelBookPageTurnAnimation();
   bookOverlayIntroMode = false;
+  hideBookTransientHint();
+  clearPendingBookResearchAssignment();
 
   if (bookOverlay) {
     bookOverlay.hidden = true;
@@ -3507,6 +5362,312 @@ function jumpBookToPageId(pageId) {
   return jumpBookToPageNumber(pageNumber);
 }
 
+function isBookStateShowingPageNumber(state = bookState, pageNumber) {
+  return Number.isInteger(pageNumber) && (
+    state?.leftPageNumber === pageNumber ||
+    state?.rightPageNumber === pageNumber
+  );
+}
+
+function getRenderableBookBookmarks() {
+  return (Array.isArray(bookDocument?.bookmarks) ? bookDocument.bookmarks : [])
+    .map((bookmark) => {
+      const pageNumber = getBookPageNumberById(bookmark?.page);
+
+      if (!Number.isInteger(pageNumber)) {
+        return null;
+      }
+
+      return {
+        id: bookmark.id,
+        pageId: bookmark.page,
+        pageNumber,
+        label: bookmark.label || getBookPageDefinition(pageNumber)?.id || String(pageNumber),
+      };
+    })
+    .filter(Boolean);
+}
+
+function getBookBookmarkDefinition(bookmarkId) {
+  if (!bookmarkId || !Array.isArray(bookDocument?.bookmarks)) {
+    return null;
+  }
+
+  return bookDocument.bookmarks.find((bookmark) => bookmark?.id === bookmarkId) || null;
+}
+
+function getBookBookmarkLengthPx(index, totalCount) {
+  if (totalCount <= 1) {
+    return 84;
+  }
+
+  return 74 + index * 10;
+}
+
+function getBookSpreadIndexForPageNumber(pageNumber) {
+  const state = getBookStateForPageNumber(pageNumber);
+  return state ? getBookSpreadIndexForState(state) : null;
+}
+
+function clearBookBookmarkSlotLayers() {
+  if (!bookVisual) {
+    return;
+  }
+
+  for (const layer of bookVisual.querySelectorAll(".book-bookmark-slot-layer")) {
+    layer.remove();
+  }
+}
+
+function ensureBookBookmarkSlotLayer(layerIndex) {
+  if (!bookVisual || !Number.isInteger(layerIndex)) {
+    return null;
+  }
+
+  let layer = bookVisual.querySelector(`.book-bookmark-slot-layer[data-book-bookmark-layer="${layerIndex}"]`);
+
+  if (layer) {
+    return layer;
+  }
+
+  const beforeLayer = getBookPageLayerByIndex(layerIndex);
+  if (!beforeLayer) {
+    return null;
+  }
+
+  const beforeLayerStyles = window.getComputedStyle(beforeLayer);
+  layer = document.createElement("div");
+  layer.className = "book-bookmark-slot-layer";
+  layer.dataset.bookBookmarkLayer = String(layerIndex);
+  layer.style.top = beforeLayerStyles.top;
+  layer.style.right = beforeLayerStyles.right;
+  layer.style.bottom = beforeLayerStyles.bottom;
+  layer.style.left = beforeLayerStyles.left;
+  layer.style.zIndex = beforeLayerStyles.zIndex;
+  bookVisual.insertBefore(layer, beforeLayer);
+  return layer;
+}
+
+function getBookBookmarkInactivePlacement(bookmark, state = bookState) {
+  if (!bookmark || isBookStateShowingPageNumber(state, bookmark.pageNumber)) {
+    return null;
+  }
+
+  const topVisibleLayer = getTopVisibleBookLayerIndex(state);
+  const visibleCounts = getBookPageCountsForState(state);
+
+  if (Number.isInteger(state?.leftPageNumber) && bookmark.pageNumber < state.leftPageNumber && visibleCounts.left > 0) {
+    const actualCount = Math.max(1, Math.floor((state.leftPageNumber + 1) / 2));
+    const actualIndex = clampInteger(
+      Math.floor((state.leftPageNumber - bookmark.pageNumber) / 2),
+      0,
+      Math.max(0, actualCount - 1),
+      0,
+    );
+    const slotIndex = clampInteger(
+      Math.floor(actualIndex * visibleCounts.left / actualCount),
+      0,
+      Math.max(0, visibleCounts.left - 1),
+      0,
+    );
+
+    return {
+      side: "left",
+      layerIndex: topVisibleLayer + slotIndex,
+    };
+  }
+
+  if (Number.isInteger(state?.rightPageNumber) && bookmark.pageNumber > state.rightPageNumber && visibleCounts.right > 0) {
+    const actualCount = Math.max(1, Math.floor((bookTotalPageCount - state.rightPageNumber + 2) / 2));
+    const actualIndex = clampInteger(
+      Math.floor((bookmark.pageNumber - state.rightPageNumber) / 2),
+      0,
+      Math.max(0, actualCount - 1),
+      0,
+    );
+    const slotIndex = clampInteger(
+      Math.floor(actualIndex * visibleCounts.right / actualCount),
+      0,
+      Math.max(0, visibleCounts.right - 1),
+      0,
+    );
+
+    return {
+      side: "right",
+      layerIndex: topVisibleLayer + slotIndex,
+    };
+  }
+
+  return {
+    side: "center",
+    layerIndex: topVisibleLayer,
+  };
+}
+
+function getBookBookmarkRenderMeta(bookmarks, state = bookState) {
+  const renderMeta = new Map();
+  const inactiveLeftBookmarks = bookmarks
+    .filter((bookmark) => Number.isInteger(state?.leftPageNumber) && bookmark.pageNumber < state.leftPageNumber)
+    .sort((a, b) => b.pageNumber - a.pageNumber);
+  const inactiveRightBookmarks = bookmarks
+    .filter((bookmark) => Number.isInteger(state?.rightPageNumber) && bookmark.pageNumber > state.rightPageNumber)
+    .sort((a, b) => a.pageNumber - b.pageNumber);
+  const activeBookmarks = bookmarks
+    .filter((bookmark) => isBookStateShowingPageNumber(state, bookmark.pageNumber))
+    .sort((a, b) => a.pageNumber - b.pageNumber);
+
+  for (const [index, bookmark] of inactiveLeftBookmarks.entries()) {
+    renderMeta.set(bookmark.id, {
+      lengthIndex: index,
+      lengthCount: inactiveLeftBookmarks.length,
+      zIndex: inactiveLeftBookmarks.length - index,
+    });
+  }
+
+  for (const [index, bookmark] of inactiveRightBookmarks.entries()) {
+    renderMeta.set(bookmark.id, {
+      lengthIndex: index,
+      lengthCount: inactiveRightBookmarks.length,
+      zIndex: inactiveRightBookmarks.length - index,
+    });
+  }
+
+  for (const [index, bookmark] of activeBookmarks.entries()) {
+    renderMeta.set(bookmark.id, {
+      lengthIndex: index,
+      lengthCount: activeBookmarks.length,
+      zIndex: activeBookmarks.length - index,
+    });
+  }
+
+  return renderMeta;
+}
+
+function createBookBookmarkGroupElement(groupId, bookmarks, state = bookState, {
+  activeOnly = false,
+  renderMeta = null,
+} = {}) {
+  const groupElement = document.createElement("div");
+  groupElement.className = `book-bookmark-group book-bookmark-group-${groupId}`;
+
+  for (const [index, bookmark] of bookmarks.entries()) {
+    const isActive = isBookStateShowingPageNumber(state, bookmark.pageNumber);
+
+    if (activeOnly !== isActive) {
+      continue;
+    }
+
+    const button = document.createElement("button");
+    const fullLabel = bookmark.label || getBookPageDefinition(bookmark.pageNumber)?.id || String(bookmark.pageNumber);
+    button.type = "button";
+    button.className = "book-bookmark-button";
+    button.dataset.bookBookmarkId = bookmark.id;
+    button.dataset.bookPageId = bookmark.pageId;
+    button.textContent = fullLabel || "•";
+    button.title = fullLabel;
+    button.setAttribute("aria-label", fullLabel);
+    const bookmarkMeta = renderMeta?.get(bookmark.id) || null;
+    const lengthIndex = bookmarkMeta?.lengthIndex ?? index;
+    const lengthCount = bookmarkMeta?.lengthCount ?? bookmarks.length;
+    const zIndex = bookmarkMeta?.zIndex ?? (bookmarks.length - index);
+    button.style.setProperty("--book-bookmark-length", `${getBookBookmarkLengthPx(lengthIndex, lengthCount)}px`);
+    button.style.zIndex = String(zIndex);
+    button.classList.toggle("is-active", isActive);
+    groupElement.append(button);
+  }
+
+  return groupElement;
+}
+
+function updateBookBookmarks(state = bookState) {
+  if (!bookBookmarkBackBar || !bookBookmarkFrontBar) {
+    return;
+  }
+
+  const bookmarks = bookOverlayIntroMode ? [] : getRenderableBookBookmarks();
+  clearBookBookmarkSlotLayers();
+
+  for (const bar of bookBookmarkBars) {
+    bar.replaceChildren();
+    bar.hidden = bookmarks.length === 0;
+  }
+
+  if (bookmarks.length === 0) {
+    return;
+  }
+
+  const bookmarkRenderMeta = getBookBookmarkRenderMeta(bookmarks, state);
+  const activeBookmarks = bookmarks.filter((bookmark) => isBookStateShowingPageNumber(state, bookmark.pageNumber));
+  const inactiveBookmarkGroups = new Map();
+
+  for (const bookmark of bookmarks) {
+    if (activeBookmarks.includes(bookmark)) {
+      continue;
+    }
+
+    const placement = getBookBookmarkInactivePlacement(bookmark, state);
+
+    if (!placement) {
+      continue;
+    }
+
+    const key = `${placement.layerIndex}:${placement.side}`;
+    if (!inactiveBookmarkGroups.has(key)) {
+      inactiveBookmarkGroups.set(key, {
+        layerIndex: placement.layerIndex,
+        side: placement.side,
+        bookmarks: [],
+      });
+    }
+
+    inactiveBookmarkGroups.get(key).bookmarks.push(bookmark);
+  }
+
+  const sortedInactiveGroups = [...inactiveBookmarkGroups.values()].sort((a, b) => {
+    if (a.layerIndex !== b.layerIndex) {
+      return a.layerIndex - b.layerIndex;
+    }
+
+    return a.side.localeCompare(b.side);
+  });
+
+  for (const group of sortedInactiveGroups) {
+    if (group.side === "left") {
+      group.bookmarks.sort((a, b) => b.pageNumber - a.pageNumber);
+    } else {
+      group.bookmarks.sort((a, b) => a.pageNumber - b.pageNumber);
+    }
+
+    const slotLayer = ensureBookBookmarkSlotLayer(group.layerIndex);
+    if (!slotLayer) {
+      continue;
+    }
+
+    slotLayer.append(createBookBookmarkGroupElement(group.side, group.bookmarks, state, {
+      activeOnly: false,
+      renderMeta: bookmarkRenderMeta,
+    }));
+  }
+
+  const activeBookmarkGroups = {
+    left: [],
+    center: activeBookmarks,
+    right: [],
+  };
+
+  for (const groupId of ["left", "center", "right"]) {
+    const groupBookmarks = activeBookmarkGroups[groupId];
+    if (groupBookmarks.length === 0) {
+      continue;
+    }
+
+    bookBookmarkFrontBar.append(createBookBookmarkGroupElement(groupId, groupBookmarks, state, {
+      activeOnly: true,
+      renderMeta: bookmarkRenderMeta,
+    }));
+  }
+}
+
 function getBookTargetPageIdFromLink(link) {
   if (!link) {
     return null;
@@ -3723,8 +5884,47 @@ function createBookTechArrowSvgElement(tagName) {
   return document.createElementNS("http://www.w3.org/2000/svg", tagName);
 }
 
+function clearBookTechWidgetArrows(pageBodyElement) {
+  if (!(pageBodyElement instanceof HTMLElement)) {
+    return;
+  }
+
+  for (const overlay of pageBodyElement.querySelectorAll(".book-tech-arrow-layer")) {
+    overlay.remove();
+  }
+}
+
+function isBookTechWidgetElement(element) {
+  return element instanceof HTMLElement && element.dataset.bookWidget === "tech";
+}
+
 function getBookTechWidgetTechnologyId(widget) {
   return typeof widget?.dataset?.techId === "string" ? widget.dataset.techId.trim() : "";
+}
+
+function groupBookTechWidgetsIntoRows(pageBodyElement) {
+  if (!(pageBodyElement instanceof HTMLElement)) {
+    return;
+  }
+
+  const children = [...pageBodyElement.children];
+  let index = 0;
+
+  while (index < children.length) {
+    if (!isBookTechWidgetElement(children[index])) {
+      index += 1;
+      continue;
+    }
+
+    const row = document.createElement("div");
+    row.className = "book-tech-widget-row";
+    children[index].before(row);
+
+    while (index < children.length && isBookTechWidgetElement(children[index])) {
+      row.append(children[index]);
+      index += 1;
+    }
+  }
 }
 
 function enhanceBookTechWidget(widget) {
@@ -3734,17 +5934,27 @@ function enhanceBookTechWidget(widget) {
 
   const technologyId = getBookTechWidgetTechnologyId(widget);
   const technology = getTechnologyDefinition(technologyId);
+  const technologyLabel = getTechnologyLabel(technology);
   const contentMarkup = widget.innerHTML;
   const displayState = getTechnologyDisplayState(technologyId);
-  const frame = document.createElement("div");
+  const progressPercent = getTechnologyProgressPercent(technologyId);
+  const isSelectedGoal = technologyId && getSelectedResearchGoalTechnologyId() === technologyId;
+  const isSelectable = technologyId && canSelectResearchGoal(technologyId);
   const header = document.createElement("div");
   const body = document.createElement("div");
 
   widget.classList.add("book-tech-widget");
   widget.dataset.techState = displayState;
+  widget.dataset.techSelectable = isSelectable ? "true" : "false";
+  widget.dataset.techSelectedGoal = isSelectedGoal ? "true" : "false";
+  widget.dataset.techLabel = technologyLabel;
+  widget.style.setProperty("--book-tech-progress-percent", `${progressPercent}%`);
+  if (technologyLabel) {
+    widget.setAttribute("aria-label", technologyLabel);
+    widget.title = technologyLabel;
+  }
   widget.replaceChildren();
 
-  frame.className = "book-tech-frame";
   header.className = "book-tech-header";
   body.className = "book-tech-body";
   body.innerHTML = contentMarkup;
@@ -3753,7 +5963,7 @@ function enhanceBookTechWidget(widget) {
     const iconImage = document.createElement("img");
     iconImage.className = "book-tech-icon";
     iconImage.src = technology.icon;
-    iconImage.alt = "";
+    iconImage.alt = technologyLabel;
     iconImage.decoding = "async";
     header.append(iconImage);
   }
@@ -3767,76 +5977,211 @@ function enhanceBookTechWidget(widget) {
     widget.dataset.techState = "missing";
   }
 
-  frame.append(header, body);
-  widget.append(frame);
+  widget.append(header, body);
 }
 
-function getBookTechArrowEndpoints(fromWidget, toWidget, containerRect) {
-  const fromRect = fromWidget.getBoundingClientRect();
-  const toRect = toWidget.getBoundingClientRect();
-  const fromCenter = {
-    x: fromRect.left - containerRect.left + fromRect.width / 2,
-    y: fromRect.top - containerRect.top + fromRect.height / 2,
-  };
-  const toCenter = {
-    x: toRect.left - containerRect.left + toRect.width / 2,
-    y: toRect.top - containerRect.top + toRect.height / 2,
-  };
-  const dx = toCenter.x - fromCenter.x;
-  const dy = toCenter.y - fromCenter.y;
+function getBookTechWidgetBounds(widget, containerRect) {
+  const rect = widget.getBoundingClientRect();
 
-  if (Math.abs(dy) >= Math.abs(dx)) {
+  return {
+    left: rect.left - containerRect.left,
+    right: rect.right - containerRect.left,
+    top: rect.top - containerRect.top,
+    bottom: rect.bottom - containerRect.top,
+    width: rect.width,
+    height: rect.height,
+    centerX: rect.left - containerRect.left + rect.width / 2,
+    centerY: rect.top - containerRect.top + rect.height / 2,
+  };
+}
+
+function getBookTechArrowAxis(fromBounds, toBounds) {
+  if (!fromBounds || !toBounds) {
+    return "horizontal";
+  }
+
+  const isClearlyVertical =
+    toBounds.top >= fromBounds.bottom ||
+    toBounds.bottom <= fromBounds.top;
+
+  return isClearlyVertical ? "vertical" : "horizontal";
+}
+
+function getBookTechArrowSides(axis, fromBounds, toBounds) {
+  if (axis === "vertical") {
+    const isForward = toBounds.centerY >= fromBounds.centerY;
     return {
-      start: {
-        x: fromCenter.x,
-        y: dy >= 0 ? fromRect.bottom - containerRect.top : fromRect.top - containerRect.top,
-      },
-      end: {
-        x: toCenter.x,
-        y: dy >= 0 ? toRect.top - containerRect.top : toRect.bottom - containerRect.top,
-      },
-      axis: "vertical",
+      startSide: isForward ? "bottom" : "top",
+      endSide: isForward ? "top" : "bottom",
+    };
+  }
+
+  const isForward = toBounds.centerX >= fromBounds.centerX;
+  return {
+    startSide: isForward ? "right" : "left",
+    endSide: isForward ? "left" : "right",
+  };
+}
+
+function createBookTechArrowConnectionLayout(fromWidget, toWidget, containerRect) {
+  const fromBounds = getBookTechWidgetBounds(fromWidget, containerRect);
+  const toBounds = getBookTechWidgetBounds(toWidget, containerRect);
+  const axis = getBookTechArrowAxis(fromBounds, toBounds);
+  const { startSide, endSide } = getBookTechArrowSides(axis, fromBounds, toBounds);
+  const sortValue = axis === "vertical" ? toBounds.centerX : toBounds.centerY;
+  const reverseSortValue = axis === "vertical" ? fromBounds.centerX : fromBounds.centerY;
+
+  return {
+    from: fromWidget,
+    to: toWidget,
+    fromBounds,
+    toBounds,
+    axis,
+    startSide,
+    endSide,
+    startSortValue: sortValue,
+    endSortValue: reverseSortValue,
+    startFraction: 0.5,
+    endFraction: 0.5,
+  };
+}
+
+function getBookTechArrowDistributedFraction(index, count) {
+  if (!Number.isInteger(index) || !Number.isInteger(count) || count <= 1) {
+    return 0.5;
+  }
+
+  const minimum = 0.28;
+  const maximum = 0.72;
+  return minimum + ((maximum - minimum) * index) / (count - 1);
+}
+
+function getBookTechArrowGroupBuckets(groupMap, widget) {
+  if (!groupMap.has(widget)) {
+    groupMap.set(widget, {
+      top: [],
+      right: [],
+      bottom: [],
+      left: [],
+    });
+  }
+
+  return groupMap.get(widget);
+}
+
+function assignBookTechArrowAttachmentFractions(connections) {
+  const endGroups = new Map();
+
+  for (const connection of connections) {
+    getBookTechArrowGroupBuckets(endGroups, connection.to)[connection.endSide].push(connection);
+  }
+
+  const assignFractionsForGroups = (groupMap, sortKey, fractionKey) => {
+    for (const sideGroups of groupMap.values()) {
+      for (const group of Object.values(sideGroups)) {
+        if (group.length === 0) {
+          continue;
+        }
+
+        group.sort((leftConnection, rightConnection) => leftConnection[sortKey] - rightConnection[sortKey]);
+
+        for (const [index, connection] of group.entries()) {
+          connection[fractionKey] = getBookTechArrowDistributedFraction(index, group.length);
+        }
+      }
+    }
+  };
+
+  assignFractionsForGroups(endGroups, "endSortValue", "endFraction");
+}
+
+function getBookTechArrowAnchorPoint(bounds, side, fraction = 0.5) {
+  const clampedFraction = clampNumber(fraction, 0, 1, 0.5);
+
+  if (side === "top") {
+    return {
+      x: bounds.left + bounds.width * clampedFraction,
+      y: bounds.top,
+    };
+  }
+
+  if (side === "bottom") {
+    return {
+      x: bounds.left + bounds.width * clampedFraction,
+      y: bounds.bottom,
+    };
+  }
+
+  if (side === "left") {
+    return {
+      x: bounds.left,
+      y: bounds.top + bounds.height * clampedFraction,
     };
   }
 
   return {
-    start: {
-      x: dx >= 0 ? fromRect.right - containerRect.left : fromRect.left - containerRect.left,
-      y: fromCenter.y,
-    },
-    end: {
-      x: dx >= 0 ? toRect.left - containerRect.left : toRect.right - containerRect.left,
-      y: toCenter.y,
-    },
-    axis: "horizontal",
+    x: bounds.right,
+    y: bounds.top + bounds.height * clampedFraction,
   };
 }
 
+function getBookTechArrowHeadReachPx() {
+  return 8;
+}
+
 function buildBookTechArrowPath(start, end, axis) {
-  if (axis === "vertical") {
-    const direction = end.y >= start.y ? 1 : -1;
-    const controlOffset = Math.max(18, Math.min(56, Math.abs(end.y - start.y) * 0.35));
-    return `M ${start.x} ${start.y} C ${start.x} ${start.y + controlOffset * direction}, ${end.x} ${end.y - controlOffset * direction}, ${end.x} ${end.y}`;
+  const headReach = getBookTechArrowHeadReachPx();
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.hypot(dx, dy);
+
+  if (!Number.isFinite(length) || length <= 0.001) {
+    return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
   }
 
-  const direction = end.x >= start.x ? 1 : -1;
-  const controlOffset = Math.max(18, Math.min(56, Math.abs(end.x - start.x) * 0.35));
-  return `M ${start.x} ${start.y} C ${start.x + controlOffset * direction} ${start.y}, ${end.x - controlOffset * direction} ${end.y}, ${end.x} ${end.y}`;
+  const shaftLength = Math.max(0, length - headReach);
+  const unitX = dx / length;
+  const unitY = dy / length;
+  const shaftEnd = {
+    x: start.x + unitX * shaftLength,
+    y: start.y + unitY * shaftLength,
+  };
+
+  return `M ${start.x} ${start.y} L ${shaftEnd.x} ${shaftEnd.y}`;
 }
 
 function renderBookTechWidgetArrows(pageBodyElement) {
   if (!(pageBodyElement instanceof HTMLElement)) {
-    return;
+    return false;
   }
 
+  clearBookTechWidgetArrows(pageBodyElement);
+
   const widgets = [...pageBodyElement.querySelectorAll('[data-book-widget="tech"]')];
+  const containerRect = pageBodyElement.getBoundingClientRect();
 
   if (widgets.length === 0) {
-    return;
+    return false;
+  }
+
+  const hasUsableContainerSize =
+    Number.isFinite(containerRect.width) &&
+    Number.isFinite(containerRect.height) &&
+    containerRect.width > 1 &&
+    containerRect.height > 1;
+
+  if (!hasUsableContainerSize) {
+    return false;
   }
 
   const widgetsById = new Map();
   for (const widget of widgets) {
+    const widgetRect = widget.getBoundingClientRect();
+
+    if (widgetRect.width <= 0 || widgetRect.height <= 0) {
+      return false;
+    }
+
     const technologyId = getBookTechWidgetTechnologyId(widget);
     if (technologyId) {
       widgetsById.set(technologyId, widget);
@@ -3853,20 +6198,20 @@ function renderBookTechWidgetArrows(pageBodyElement) {
     for (const prerequisiteId of technology.prerequisites.tech) {
       const prerequisiteWidget = widgetsById.get(prerequisiteId);
       if (prerequisiteWidget) {
-        connections.push({ from: prerequisiteWidget, to: widget });
+        connections.push(createBookTechArrowConnectionLayout(prerequisiteWidget, widget, containerRect));
       }
     }
   }
 
   if (connections.length === 0) {
-    return;
+    return false;
   }
 
-  const containerRect = pageBodyElement.getBoundingClientRect();
   const overlay = createBookTechArrowSvgElement("svg");
   const defs = createBookTechArrowSvgElement("defs");
   const marker = createBookTechArrowSvgElement("marker");
   const markerPath = createBookTechArrowSvgElement("path");
+  const markerId = `bookTechArrowMarker${bookTechArrowMarkerSequence += 1}`;
   const overlayWidth = Math.max(1, pageBodyElement.clientWidth || Math.ceil(containerRect.width));
   const overlayHeight = Math.max(1, pageBodyElement.clientHeight || Math.ceil(containerRect.height));
 
@@ -3875,39 +6220,38 @@ function renderBookTechWidgetArrows(pageBodyElement) {
   overlay.setAttribute("preserveAspectRatio", "none");
   overlay.setAttribute("aria-hidden", "true");
 
-  marker.setAttribute("id", "bookTechArrowMarker");
+  marker.setAttribute("id", markerId);
+  marker.setAttribute("viewBox", "0 0 10 8");
   marker.setAttribute("markerWidth", "10");
-  marker.setAttribute("markerHeight", "10");
-  marker.setAttribute("refX", "8");
-  marker.setAttribute("refY", "5");
+  marker.setAttribute("markerHeight", "8");
+  marker.setAttribute("refX", "1");
+  marker.setAttribute("refY", "4");
   marker.setAttribute("orient", "auto");
-  marker.setAttribute("markerUnits", "strokeWidth");
+  marker.setAttribute("markerUnits", "userSpaceOnUse");
 
-  markerPath.setAttribute("d", "M 0 1 L 8 5 L 0 9 z");
+  markerPath.setAttribute("d", "M 1 1 L 9 4 L 1 7 z");
   marker.append(markerPath);
   defs.append(marker);
   overlay.append(defs);
 
+  assignBookTechArrowAttachmentFractions(connections);
+
   for (const connection of connections) {
-    const { start, end, axis } = getBookTechArrowEndpoints(connection.from, connection.to, containerRect);
+    const start = getBookTechArrowAnchorPoint(connection.fromBounds, connection.startSide, connection.startFraction);
+    const end = getBookTechArrowAnchorPoint(connection.toBounds, connection.endSide, connection.endFraction);
     const path = createBookTechArrowSvgElement("path");
-    path.setAttribute("d", buildBookTechArrowPath(start, end, axis));
-    path.setAttribute("marker-end", "url(#bookTechArrowMarker)");
+    path.setAttribute("d", buildBookTechArrowPath(start, end, connection.axis));
+    path.setAttribute("marker-end", `url(#${markerId})`);
     overlay.append(path);
   }
 
   pageBodyElement.prepend(overlay);
+  return true;
 }
 
-function enhanceBookPageBody(pageBodyElement) {
+function scheduleBookTechWidgetArrowRender(pageBodyElement, attempt = 0) {
   if (!(pageBodyElement instanceof HTMLElement)) {
     return;
-  }
-
-  const techWidgets = [...pageBodyElement.querySelectorAll('[data-book-widget="tech"]')];
-
-  for (const widget of techWidgets) {
-    enhanceBookTechWidget(widget);
   }
 
   requestAnimationFrame(() => {
@@ -3915,8 +6259,56 @@ function enhanceBookPageBody(pageBodyElement) {
       return;
     }
 
-    renderBookTechWidgetArrows(pageBodyElement);
+    const rendered = renderBookTechWidgetArrows(pageBodyElement);
+
+    if (!rendered && attempt < 4) {
+      scheduleBookTechWidgetArrowRender(pageBodyElement, attempt + 1);
+    }
   });
+}
+
+function enhanceBookPageBody(pageBodyElement) {
+  if (!(pageBodyElement instanceof HTMLElement)) {
+    return;
+  }
+
+  applyBookBindings(pageBodyElement);
+  groupBookTechWidgetsIntoRows(pageBodyElement);
+
+  const techWidgets = [...pageBodyElement.querySelectorAll('[data-book-widget="tech"]')];
+
+  for (const widget of techWidgets) {
+    enhanceBookTechWidget(widget);
+  }
+
+  scheduleBookTechWidgetArrowRender(pageBodyElement);
+
+  if (document.fonts?.ready) {
+    document.fonts.ready.then(() => {
+      if (!pageBodyElement.isConnected) {
+        return;
+      }
+
+      renderBookTechWidgetArrows(pageBodyElement);
+    });
+  }
+
+  for (const image of pageBodyElement.querySelectorAll("img")) {
+    if (image.complete) {
+      continue;
+    }
+
+    const rerenderArrows = () => {
+      if (!pageBodyElement.isConnected) {
+        return;
+      }
+
+      renderBookTechWidgetArrows(pageBodyElement);
+    };
+
+    image.addEventListener("load", rerenderArrows, { once: true });
+    image.addEventListener("error", rerenderArrows, { once: true });
+  }
 }
 
 function fillBookPageSideContent(content, pageNumber) {
@@ -4161,6 +6553,7 @@ function updateBookPageStack(state = bookState, { spineLayerIndex = null } = {})
   }
 
   updateBookTurnButtons();
+  updateBookBookmarks(bookPageTurnAnimation?.startState || state);
 }
 
 function finishBookPageTurnAnimation() {
@@ -4349,8 +6742,30 @@ async function openBookOverlayPanel(triggerButton = null, { allowNonPlayMode = f
   updateBookPageStack(bookState);
   bookOverlay.hidden = false;
   bookOverlay.querySelector('[data-action="close-book-overlay"]')?.focus({ preventScroll: true });
-  await Promise.all([ensureBookContentLoaded(), ensureTechnologyCatalogLoaded()]);
+  await Promise.all([
+    ensureBookContentLoaded(),
+    ensureTechnologyCatalogLoaded(),
+    ensureBuildingDefinitionsLoaded(),
+    ensureUnitDefinitionsLoaded(),
+  ]);
   updateBookPageStack(bookState);
+}
+
+async function openBookOverlayAtBookmark(bookmarkId, triggerButton = null, options = {}) {
+  await openBookOverlayPanel(triggerButton, options);
+
+  if (!bookOverlay || bookOverlay.hidden) {
+    return false;
+  }
+
+  const bookmark = getBookBookmarkDefinition(bookmarkId);
+  const pageId = typeof bookmark?.page === "string" ? bookmark.page.trim() : "";
+
+  if (!pageId) {
+    return false;
+  }
+
+  return jumpBookToPageId(pageId);
 }
 
 async function playBookSequence(sequenceId = bookIntroSequenceId, triggerButton = null) {
@@ -4552,21 +6967,155 @@ function getConfiguredUnitTypes() {
   return configured && typeof configured === "object" ? configured : {};
 }
 
+function mergeRuleRequirements(baseRequirements, overrideRequirements) {
+  const base = baseRequirements && typeof baseRequirements === "object" ? baseRequirements : {};
+  const override = overrideRequirements && typeof overrideRequirements === "object" ? overrideRequirements : {};
+  const requiredTechs = [...new Set([...(base.requiredTechs || []), ...(override.requiredTechs || [])])];
+  const requiredEvents = [...new Set([...(base.requiredEvents || []), ...(override.requiredEvents || [])])];
+  const requiredUnitsPresent = [...new Set([...(base.requiredUnitsPresent || []), ...(override.requiredUnitsPresent || [])])];
+  const requiredUnitsAbsent = [...new Set([...(base.requiredUnitsAbsent || []), ...(override.requiredUnitsAbsent || [])])];
+  const requiredBuildingsMin = {
+    ...(base.requiredBuildingsMin || {}),
+    ...(override.requiredBuildingsMin || {}),
+  };
+
+  return {
+    ...(requiredTechs.length > 0 ? { requiredTechs } : {}),
+    ...(requiredEvents.length > 0 ? { requiredEvents } : {}),
+    ...(Object.keys(requiredBuildingsMin).length > 0 ? { requiredBuildingsMin } : {}),
+    ...(requiredUnitsPresent.length > 0 ? { requiredUnitsPresent } : {}),
+    ...(requiredUnitsAbsent.length > 0 ? { requiredUnitsAbsent } : {}),
+    ...(Number.isFinite(override.nextUnitNumberEquals)
+      ? { nextUnitNumberEquals: override.nextUnitNumberEquals }
+      : Number.isFinite(base.nextUnitNumberEquals)
+        ? { nextUnitNumberEquals: base.nextUnitNumberEquals }
+        : {}),
+  };
+}
+
+function mergeUnitActionRequirements(baseRequirements, overrideRequirements) {
+  const base = baseRequirements && typeof baseRequirements === "object" ? baseRequirements : {};
+  const override = overrideRequirements && typeof overrideRequirements === "object" ? overrideRequirements : {};
+  const merged = {};
+
+  for (const actionId of new Set([...Object.keys(base), ...Object.keys(override)])) {
+    const requirements = mergeRuleRequirements(base[actionId], override[actionId]);
+
+    if (Object.keys(requirements).length > 0) {
+      merged[actionId] = requirements;
+    }
+  }
+
+  return merged;
+}
+
+function cloneUnitConfigForEvaluation(config) {
+  const base = config && typeof config === "object" ? config : {};
+
+  return {
+    ...base,
+    allowedActions: Array.isArray(base.allowedActions) ? [...base.allowedActions] : undefined,
+    availability: base.availability ? { ...base.availability } : undefined,
+    actionRequirements: base.actionRequirements
+      ? Object.fromEntries(
+        Object.entries(base.actionRequirements).map(([actionId, requirements]) => [
+          actionId,
+          requirements ? { ...requirements } : {},
+        ]),
+      )
+      : undefined,
+    workPointsPerTurn: base.workPointsPerTurn ? { ...base.workPointsPerTurn } : undefined,
+    modifiers: Array.isArray(base.modifiers) ? [...base.modifiers] : undefined,
+  };
+}
+
+function applyUnitConfigModifiers(config, context = getRuleContext()) {
+  const resolved = cloneUnitConfigForEvaluation(config);
+  const modifiers = Array.isArray(resolved.modifiers) ? resolved.modifiers : [];
+
+  for (const modifier of modifiers) {
+    if (!modifier || !matchesRequirements(modifier.when, context)) {
+      continue;
+    }
+
+    const set = modifier.set && typeof modifier.set === "object" ? modifier.set : null;
+
+    if (set) {
+      if (typeof set.name === "string" && set.name.trim()) {
+        resolved.name = set.name.trim();
+      }
+
+      if (Number.isFinite(set.stamina)) {
+        resolved.stamina = set.stamina;
+      }
+
+      if (Number.isFinite(set.foodConsumptionPerTurn)) {
+        resolved.foodConsumptionPerTurn = set.foodConsumptionPerTurn;
+      }
+
+      if (Number.isFinite(set.researchPointsPerTurn)) {
+        resolved.researchPointsPerTurn = set.researchPointsPerTurn;
+      }
+
+      if (Array.isArray(set.allowedActions)) {
+        resolved.allowedActions = [...set.allowedActions];
+      }
+
+      if (set.workPointsPerTurn && typeof set.workPointsPerTurn === "object") {
+        resolved.workPointsPerTurn = {
+          ...(resolved.workPointsPerTurn || {}),
+          ...set.workPointsPerTurn,
+        };
+      }
+
+      if (set.actionRequirements && typeof set.actionRequirements === "object") {
+        resolved.actionRequirements = mergeUnitActionRequirements(
+          resolved.actionRequirements,
+          set.actionRequirements,
+        );
+      }
+    }
+
+    if (Array.isArray(modifier.addActions) && modifier.addActions.length > 0) {
+      resolved.allowedActions = [
+        ...new Set([...(Array.isArray(resolved.allowedActions) ? resolved.allowedActions : []), ...modifier.addActions]),
+      ];
+    }
+
+    if (Array.isArray(modifier.removeActions) && modifier.removeActions.length > 0) {
+      const removed = new Set(modifier.removeActions);
+      resolved.allowedActions = (Array.isArray(resolved.allowedActions) ? resolved.allowedActions : []).filter(
+        (action) => !removed.has(action),
+      );
+    }
+  }
+
+  return resolved;
+}
+
+function getDefinedUnitTypeIds() {
+  return Object.keys(getConfiguredUnitTypes()).filter((typeId) => Boolean(typeId));
+}
+
+function hasDefinedUnitType(typeId) {
+  return typeof typeId === "string" && getDefinedUnitTypeIds().includes(typeId.trim());
+}
+
 function getDefaultUnitTypeId() {
   const configured = typeof rules.units?.default?.typeId === "string" ? rules.units.default.typeId.trim() : "";
 
-  if (configured) {
+  if (configured && hasDefinedUnitType(configured)) {
     return configured;
   }
 
-  const [firstTypeId] = Object.keys(getConfiguredUnitTypes());
+  const [firstTypeId] = getDefinedUnitTypeIds();
   return firstTypeId || "default";
 }
 
 function normalizeUnitTypeId(unitTypeId) {
   const normalized = typeof unitTypeId === "string" ? unitTypeId.trim() : "";
 
-  if (normalized && (normalized === getDefaultUnitTypeId() || getConfiguredUnitTypes()[normalized])) {
+  if (normalized && hasDefinedUnitType(normalized)) {
     return normalized;
   }
 
@@ -4590,15 +7139,29 @@ function getResolvedUnitConfig(unitOrTypeId = getDefaultUnitTypeId()) {
   return {
     ...defaultConfig,
     ...typeConfig,
+    availability: mergeRuleRequirements(defaultConfig.availability, typeConfig.availability),
+    actionRequirements: mergeUnitActionRequirements(defaultConfig.actionRequirements, typeConfig.actionRequirements),
     workPointsPerTurn: {
       ...(defaultConfig.workPointsPerTurn || {}),
       ...(typeConfig.workPointsPerTurn || {}),
     },
+    modifiers: [
+      ...(Array.isArray(defaultConfig.modifiers) ? defaultConfig.modifiers : []),
+      ...(Array.isArray(typeConfig.modifiers) ? typeConfig.modifiers : []),
+    ],
   };
+}
+
+function getEffectiveUnitConfig(unitOrTypeId = getDefaultUnitTypeId(), context = getRuleContext()) {
+  return applyUnitConfigModifiers(getResolvedUnitConfig(unitOrTypeId), context);
 }
 
 function getAllUnitSpriteConfigs() {
   return unitSpriteConfigs && typeof unitSpriteConfigs === "object" ? unitSpriteConfigs : {};
+}
+
+function getDefinedUnitSpriteTypeIds() {
+  return Object.keys(getAllUnitSpriteConfigs()).filter((spriteTypeId) => Boolean(spriteTypeId));
 }
 
 function getDefaultUnitSpriteTypeId() {
@@ -4611,8 +7174,8 @@ function getDefaultUnitSpriteTypeId() {
     return configured;
   }
 
-  const [firstSpriteTypeId] = Object.keys(getAllUnitSpriteConfigs());
-  return firstSpriteTypeId || "villager";
+  const [firstSpriteTypeId] = getDefinedUnitSpriteTypeIds();
+  return firstSpriteTypeId || "default";
 }
 
 function getUnitSpriteTypeId(unitOrTypeId = unit) {
@@ -4718,11 +7281,11 @@ function serializeBuilding(building, width = map.width, height = map.height) {
 function serializeTask(task) {
   if (!task) return null;
 
-  if (![ "move", "perform", "gatherFood", "gatherMaterials", "buildHouse", "layFoundation", "demolish" ].includes(task.type)) {
+  if (![ "move", "perform", "research", "gatherFood", "gatherMaterials", "buildHouse", "layFoundation", "demolish" ].includes(task.type)) {
     return null;
   }
 
-  if (task.type === "perform") {
+  if (task.type === "perform" || task.type === "research") {
     return { type: task.type };
   }
 
@@ -4778,6 +7341,18 @@ function serializeSituationMessage(entry) {
 
 function serializeSituationMessages(entries = situationMessages) {
   return entries.map((entry) => serializeSituationMessage(entry)).filter(Boolean);
+}
+
+function serializeResearchState(state = researchState) {
+  return {
+    discoveredTechIds: Array.isArray(state?.discoveredTechIds) ? [...state.discoveredTechIds] : [],
+    progressByTechId: normalizeResearchProgressByTechId(state?.progressByTechId),
+    selectedGoalTechId:
+      typeof state?.selectedGoalTechId === "string" && state.selectedGoalTechId.trim()
+        ? state.selectedGoalTechId.trim()
+        : null,
+    eventFlags: normalizeResearchEventFlags(state?.eventFlags),
+  };
 }
 
 function serializeUnit(currentUnit) {
@@ -4836,6 +7411,7 @@ function serializeCurrentState() {
     buildings: serializeBuildings(),
     units: getUnits().map((currentUnit) => serializeUnit(currentUnit)).filter(Boolean),
     stockpile: serializeStockpileState(),
+    research: serializeResearchState(),
     situationMessages: serializeSituationMessages(),
     foodShortageTurns: Math.max(0, clampInteger(foodShortageTurns, 0, 999999, 0)),
     turn: currentTurn,
@@ -5176,7 +7752,7 @@ function getNeighborCellInCells(cells, width, height, cell, direction) {
 }
 
 function canEnterUnoccupiedCell(cell) {
-  return Boolean(cell) && cell.type !== "water";
+  return isCellPassableByTerrainOrBuilding(cell);
 }
 
 function markCellsVisitedByUnits(cells, units) {
@@ -5234,52 +7810,34 @@ function createBuildingId() {
 }
 
 function getBuildingPlacementCells(originCell, type) {
-  if (!originCell) {
-    return [];
-  }
-
-  const footprintCells = getBuildingCellsFromOrigin(originCell, type);
-
-  if (footprintCells.length > 0) {
-    return footprintCells;
-  }
-
-  const width = getBuildingWidth(type);
-  const height = getBuildingHeight(type);
-  const cells = [];
-
-  for (let offsetY = 0; offsetY < height; offsetY += 1) {
-    for (let offsetX = 0; offsetX < width; offsetX += 1) {
-      const cell = getCell(
-        originCell.x + offsetX,
-        originCell.y + offsetY * getBuildingFootprintRowStep(),
-      );
-
-      if (!cell) {
-        return [];
-      }
-
-      cells.push(cell);
-    }
-  }
-
-  return cells;
+  return getBuildingPlacementEntries(originCell, type).map((entry) => entry.cell);
 }
 
-function canPlaceNewBuildingConstructionOnCell(originCell, type, currentUnit = null) {
-  const placementCells = getBuildingPlacementCells(originCell, type);
-
-  if (placementCells.length === 0) {
+function canCellHostBuildingPlacement(cell, allowedTerrains = null) {
+  if (!cell) {
     return false;
   }
 
-  return placementCells.every(
-    (cell) =>
-      cell.type === "grass" &&
-      !hasFoodResource(cell) &&
-      !getBuildingAtCell(cell.x, cell.y) &&
-      !getUnitAtCell(cell.x, cell.y),
+  const normalizedAllowedTerrains = Array.isArray(allowedTerrains) && allowedTerrains.length > 0
+    ? allowedTerrains
+    : ["grass"];
+
+  return (
+    normalizedAllowedTerrains.includes(cell.type) &&
+    !hasFoodResource(cell) &&
+    !getBuildingAtCell(cell.x, cell.y) &&
+    !getUnitAtCell(cell.x, cell.y)
   );
+}
+
+function canPlaceNewBuildingConstructionOnCell(originCell, type, currentUnit = null) {
+  const placementEntries = getBuildingPlacementEntries(originCell, type);
+
+  if (placementEntries.length === 0) {
+    return false;
+  }
+
+  return placementEntries.every(({ cell, allowedTerrains }) => canCellHostBuildingPlacement(cell, allowedTerrains));
 }
 
 function markBuildingCellsVisited(building) {
@@ -5467,6 +8025,7 @@ function createGeneratedState(mode, buildCells = buildGeneratedMapCells) {
     buildings: serializeBuildings(defaultBuildings, width, height),
     units,
     stockpile: createEmptyStockpile(),
+    research: createDefaultResearchState(),
     situationMessages: [createSituationMessageEntry("intro", {}, 1, 1)],
     foodShortageTurns: 0,
     turn: 1,
@@ -5605,11 +8164,11 @@ function normalizeTask(task, currentX, currentY) {
 
   const type = task.type;
 
-  if (![ "move", "perform", "gatherFood", "gatherMaterials", "buildHouse", "layFoundation", "demolish" ].includes(type)) {
+  if (![ "move", "perform", "research", "gatherFood", "gatherMaterials", "buildHouse", "layFoundation", "demolish" ].includes(type)) {
     return null;
   }
 
-  if (type === "perform") {
+  if (type === "perform" || type === "research") {
     return { type };
   }
 
@@ -5682,9 +8241,9 @@ function normalizeTask(task, currentX, currentY) {
 }
 
 function preserveTask(task) {
-  if (!task || !["move", "perform", "gatherFood", "gatherMaterials", "buildHouse", "layFoundation", "demolish"].includes(task.type)) return null;
+  if (!task || !["move", "perform", "research", "gatherFood", "gatherMaterials", "buildHouse", "layFoundation", "demolish"].includes(task.type)) return null;
 
-  if (task.type === "perform") {
+  if (task.type === "perform" || task.type === "research") {
     return { type: task.type };
   }
 
@@ -5718,7 +8277,7 @@ function normalizeSituationMessage(entry, index = 0) {
     throw new Error("Missing situation message entry.");
   }
 
-  if (!["intro", "houseStarted", "houseCompleted", "foodShortage", "foodRecovered", "unitLeft"].includes(entry.kind)) {
+  if (!["intro", "houseStarted", "houseCompleted", "foodShortage", "foodRecovered", "unitLeft", "researchGoalMissing"].includes(entry.kind)) {
     throw new Error(`Unsupported situation message kind: ${entry.kind}`);
   }
 
@@ -5774,7 +8333,7 @@ function normalizeBuildingsState(rawBuildings) {
   return rawBuildings.map((sourceBuilding, index) => {
     const type = sourceBuilding?.type;
 
-    if (!getBuildingSpec(type)) {
+    if (!getBuildingSpec(type) || !getBuildingRules(type)) {
       throw new Error(`Unsupported building type: ${type}`);
     }
 
@@ -5857,10 +8416,7 @@ function normalizeUnitsState(rawUnits, mode) {
     occupiedKeys.add(createCellKey(cell.x, cell.y));
     const unitType = normalizeUnitTypeId(sourceUnit?.unitType);
 
-    const staminaMax = Math.max(
-      1,
-      clampInteger(sourceUnit?.staminaMax, 1, 999, getDefaultUnitStamina(unitType)),
-    );
+    const staminaMax = getDefaultUnitStamina(unitType);
 
     const normalizedUnit = {
       id: typeof sourceUnit?.id === "string" ? sourceUnit.id : `unit_${index + 1}`,
@@ -5886,6 +8442,10 @@ function normalizeUnitsState(rawUnits, mode) {
       lastStepFromY: null,
     };
 
+    if (normalizedUnit.task?.type === "research" && !getSelectedResearchGoalTechnologyId()) {
+      normalizedUnit.task = null;
+    }
+
     if (normalizedUnit.task && !canUnitUseAction(normalizedUnit, getActionForTask(normalizedUnit.task))) {
       normalizedUnit.task = null;
     }
@@ -5905,6 +8465,7 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
 
   const nextState = state || createDefaultState(mode);
   const nextMap = normalizeMapState(nextState.map);
+  researchState = normalizeResearchState(nextState.research);
 
   map.width = nextMap.width;
   map.height = nextMap.height;
@@ -6033,6 +8594,10 @@ function getActionForTask(task) {
     return unitActions.play;
   }
 
+  if (task?.type === "research") {
+    return unitActions.research;
+  }
+
   if (task?.type === "gatherFood") {
     return unitActions.gatherFood;
   }
@@ -6083,6 +8648,7 @@ function isWorkingTask(task) {
     task?.type === "layFoundation" ||
     task?.type === "demolish" ||
     task?.type === "perform" ||
+    task?.type === "research" ||
     task?.type === "gatherFood" ||
     task?.type === "gatherMaterials";
 }
@@ -6178,7 +8744,7 @@ function getRawUnitTaskDirection(currentUnit) {
     return currentUnit?.facing || "west";
   }
 
-  if (currentUnit.task?.type === "perform") {
+  if (currentUnit.task?.type === "perform" || currentUnit.task?.type === "research") {
     return currentUnit?.facing || "west";
   }
 
@@ -6337,6 +8903,12 @@ function createPerformTask() {
   };
 }
 
+function createResearchTask() {
+  return {
+    type: "research",
+  };
+}
+
 function createBuildHouseTask(destinationCell) {
   return {
     type: "buildHouse",
@@ -6402,6 +8974,45 @@ function queueUnitPlayTask(currentUnit = getSelectedUnit()) {
   return assignUnitTask(createPerformTask(), currentUnit);
 }
 
+function clearPendingBookResearchAssignment() {
+  pendingBookResearchAssignmentUnitId = null;
+}
+
+function queuePendingBookResearchAssignment() {
+  const pendingUnit = getUnitById(pendingBookResearchAssignmentUnitId);
+  clearPendingBookResearchAssignment();
+
+  if (!pendingUnit) {
+    return false;
+  }
+
+  return queueUnitResearchTask(pendingUnit);
+}
+
+function queueUnitResearchTask(currentUnit = getSelectedUnit()) {
+  if (!currentUnit || currentUnit.move) return false;
+  if (!canUnitUseAction(currentUnit, unitActions.research)) return false;
+  if (!getSelectedResearchGoalTechnologyId()) {
+    pendingBookResearchAssignmentUnitId = currentUnit.id;
+    void openBookOverlayAtBookmark(researchBookBookmarkId).then((opened) => {
+      if (opened && bookOverlay && !bookOverlay.hidden) {
+        showBookTransientHint(getSituationMessageText({ kind: "researchGoalMissing" }));
+      } else {
+        clearPendingBookResearchAssignment();
+      }
+    });
+    return false;
+  }
+
+  clearPendingBookResearchAssignment();
+
+  if (getUnitResearchPointsPerTurn(currentUnit) <= 0) {
+    return false;
+  }
+
+  return assignUnitTask(createResearchTask(), currentUnit);
+}
+
 function queueUnitGatherFoodTask(destinationCell, currentUnit = getSelectedUnit()) {
   if (!currentUnit || currentUnit.move || !canGatherFoodFromCell(destinationCell, currentUnit)) return false;
   if (!canUnitUseAction(currentUnit, unitActions.gatherFood)) return false;
@@ -6452,6 +9063,7 @@ function queueUnitLayFoundationTask(destinationCell, currentUnit = getSelectedUn
 
   if (!currentUnit || currentUnit.move || !buildingType) return false;
   if (!canUnitUseAction(currentUnit, unitActions.layFoundation)) return false;
+  if (!isBuildingTypeAvailable(buildingType)) return false;
   if (!canPlaceNewBuildingConstructionOnCell(destinationCell, buildingType, currentUnit)) return false;
   if (!doesBuildingPlacementTouchUnit(destinationCell, buildingType, currentUnit)) return false;
   if (!canAffordBuildingConstruction(buildingType)) return false;
@@ -6710,11 +9322,47 @@ function resolvePerformTask(currentUnit) {
   currentUnit.stamina = 0;
 }
 
+function resolveResearchTask(currentUnit) {
+  const selectedGoalTechnologyId = getSelectedResearchGoalTechnologyId();
+
+  if (!selectedGoalTechnologyId) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+
+  const researchPoints = getUnitResearchPointsPerTurn(currentUnit);
+
+  if (researchPoints <= 0) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+
+  turnReplayHadWork = true;
+  currentUnit.stamina = 0;
+
+  if (addResearchProgressToTechnology(selectedGoalTechnologyId, researchPoints, { refresh: false })) {
+    const isGoalStillSelected = getSelectedResearchGoalTechnologyId() === selectedGoalTechnologyId;
+
+    if (!isGoalStillSelected) {
+      clearCompletedTask(currentUnit);
+    }
+  } else {
+    clearCompletedTask(currentUnit);
+  }
+
+  updateResearchPresentation();
+}
+
 function resolveUnitTask(currentUnit) {
   if (!currentUnit?.task) return;
 
   if (currentUnit.task.type === "perform") {
     resolvePerformTask(currentUnit);
+    return;
+  }
+
+  if (currentUnit.task.type === "research") {
+    resolveResearchTask(currentUnit);
     return;
   }
 
@@ -7225,7 +9873,11 @@ function loadTileImages() {
     pendingLoads.push(loadImage(spriteConfig.northImage, unitImages));
     pendingLoads.push(loadImage(spriteConfig.southImage, unitImages));
 
-    for (const imagePath of spriteConfig.workFrames || []) {
+  for (const imagePath of spriteConfig.workFrames || []) {
+    pendingLoads.push(loadImage(imagePath, unitImages));
+  }
+
+    for (const imagePath of spriteConfig.researchFrames || []) {
       pendingLoads.push(loadImage(imagePath, unitImages));
     }
 
@@ -7268,9 +9920,14 @@ function loadTileImages() {
   });
 }
 
-function ensureVisualAssetsLoaded() {
+async function ensureVisualAssetsLoaded() {
+  await Promise.all([
+    ensureBuildingDefinitionsLoaded(),
+    ensureUnitDefinitionsLoaded(),
+  ]);
+
   if (visualAssetsLoaded) {
-    return Promise.resolve();
+    return;
   }
 
   if (!visualAssetsLoadPromise) {
@@ -7304,6 +9961,12 @@ function getBuildingImagePaths() {
 
     if (spec.constructionImages) {
       paths.push(...Object.values(spec.constructionImages));
+    }
+
+    for (const stageVisual of Object.values(spec.constructionStages || {})) {
+      if (Array.isArray(stageVisual?.tileImages)) {
+        paths.push(...stageVisual.tileImages.filter(Boolean));
+      }
     }
   }
 
@@ -7557,9 +10220,96 @@ function getUnitAtCell(x, y, { excludeUnitId = null } = {}) {
 function getBlockingBuildingAtCell(x, y) {
   return (
     buildings.find(
-      (building) => buildingOccupiesCell(building, x, y) && !building.walkable,
+      (building) => buildingOccupiesCell(building, x, y) && !isBuildingInstanceWalkable(building),
     ) || null
   );
+}
+
+function isBuildingInstanceWalkable(building) {
+  return Boolean(building?.walkable) && building.state === "complete";
+}
+
+function getWalkableBuildingAtCell(x, y) {
+  return (
+    buildings.find(
+      (building) => buildingOccupiesCell(building, x, y) && isBuildingInstanceWalkable(building),
+    ) || null
+  );
+}
+
+function hasWalkableBuildingAtCell(x, y) {
+  return Boolean(getWalkableBuildingAtCell(x, y));
+}
+
+function getBuildingUnitRenderOffsetAtCell(building, x, y) {
+  const unitRenderOffsets = getBuildingSpec(building?.type)?.unitRenderOffsets;
+
+  if (!building || !Array.isArray(unitRenderOffsets) || unitRenderOffsets.length === 0) {
+    return { x: 0, y: 0 };
+  }
+
+  const placementIndex = getBuildingPlacementIndexAtCell(building, x, y);
+
+  if (placementIndex < 0) {
+    return { x: 0, y: 0 };
+  }
+
+  const offset = unitRenderOffsets[placementIndex];
+
+  return {
+    x: Number.isFinite(offset?.x) ? offset.x : 0,
+    y: Number.isFinite(offset?.y) ? offset.y : 0,
+  };
+}
+
+function getCellUnitRenderOffset(cell) {
+  if (!cell) {
+    return { x: 0, y: 0 };
+  }
+
+  const building = getWalkableBuildingAtCell(cell.x, cell.y);
+
+  if (!building) {
+    return { x: 0, y: 0 };
+  }
+
+  const offset = getBuildingUnitRenderOffsetAtCell(building, cell.x, cell.y);
+  const zoom = zoomLevels[zoomIndex];
+
+  return {
+    x: offset.x * zoom,
+    y: offset.y * zoom,
+  };
+}
+
+function getCellScreenPositionForUnitRendering(cell) {
+  if (!cell) {
+    return null;
+  }
+
+  const baseScreen = isoToScreen(cell.x, cell.y);
+  const offset = getCellUnitRenderOffset(cell);
+
+  return {
+    x: baseScreen.x + offset.x,
+    y: baseScreen.y + offset.y,
+  };
+}
+
+function isCellPassableByTerrainOrBuilding(cell) {
+  if (!cell) {
+    return false;
+  }
+
+  if (getBlockingBuildingAtCell(cell.x, cell.y)) {
+    return false;
+  }
+
+  if (hasWalkableBuildingAtCell(cell.x, cell.y)) {
+    return true;
+  }
+
+  return cell.type !== "water";
 }
 
 function isBuildingTargetedByDemolishTask(building) {
@@ -7598,15 +10348,23 @@ function findAdjacentSpawnCell(x, y) {
 }
 
 function getNextHouseSpawnUnitTypeId() {
-  const currentUnits = getUnits();
-  const nextUnitNumber = currentUnits.length + 1;
-  const grandSchtroumpfTypeId = normalizeUnitTypeId("grandSchtroumpf");
-  const hasGrandSchtroumpf = currentUnits.some(
-    (currentUnit) => getUnitTypeId(currentUnit) === grandSchtroumpfTypeId,
-  );
+  const context = getRuleContext();
 
-  if (nextUnitNumber === 5 && !hasGrandSchtroumpf) {
-    return grandSchtroumpfTypeId;
+  for (const rule of unitSpawnRules) {
+    if (!matchesRequirements(rule?.when, context)) {
+      continue;
+    }
+
+    const eligibleChoices = (rule?.choices || []).filter((choice) =>
+      hasDefinedUnitType(choice?.id) &&
+      isUnitTypeAvailable(choice.id, context) &&
+      matchesRequirements(choice?.requirements, context),
+    );
+    const chosenTypeId = chooseWeightedId(eligibleChoices);
+
+    if (chosenTypeId) {
+      return normalizeUnitTypeId(chosenTypeId);
+    }
   }
 
   return getDefaultUnitTypeId();
@@ -7668,19 +10426,24 @@ function getBuildingVisual(building) {
     const thresholds = getBuildingConstructionThresholds(building.type);
 
     if (completeness < thresholds.initialMax) {
+      const initialStageVisual = spec.constructionStages?.initial || {};
       return {
         image: spec.constructionImages.initial,
+        ...(Array.isArray(initialStageVisual.tileImages) ? { tileImages: initialStageVisual.tileImages } : {}),
         alpha: 1,
-        yOffsetFactor: 0.2,
-        renderMode: "perTile",
+        yOffsetFactor: Number.isFinite(initialStageVisual.yOffsetFactor) ? initialStageVisual.yOffsetFactor : 0.2,
+        renderMode: initialStageVisual.renderMode || "perTile",
       };
     }
 
     if (completeness < thresholds.halfMax) {
+      const halfStageVisual = spec.constructionStages?.half || {};
       return {
         image: spec.constructionImages.half,
+        ...(Array.isArray(halfStageVisual.tileImages) ? { tileImages: halfStageVisual.tileImages } : {}),
         alpha: 1,
-        renderMode: spec.constructionRenderMode || spec.renderMode,
+        ...(Number.isFinite(halfStageVisual.yOffsetFactor) ? { yOffsetFactor: halfStageVisual.yOffsetFactor } : {}),
+        renderMode: halfStageVisual.renderMode || spec.constructionRenderMode || spec.renderMode,
       };
     }
   }
@@ -7737,9 +10500,7 @@ function findNearestPassableCell(startX, startY, currentUnit = null, occupiedKey
 
 function canUnitEnter(cell, currentUnit = null, occupiedKeys = null) {
   return (
-    Boolean(cell) &&
-    cell.type !== "water" &&
-    !getBlockingBuildingAtCell(cell.x, cell.y) &&
+    isCellPassableByTerrainOrBuilding(cell) &&
     !(
       occupiedKeys instanceof Set
         ? occupiedKeys.has(createCellKey(cell.x, cell.y))
@@ -7836,6 +10597,11 @@ function updateUnitReadout() {
   }
 
   if (displayedUnit.task?.type === "perform") {
+    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
+    return;
+  }
+
+  if (displayedUnit.task?.type === "research") {
     setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
     return;
   }
@@ -7981,6 +10747,10 @@ function updateInteractionModeUi() {
     editInspector.hidden = visibleTopBarMode !== interactionModes.edit;
   }
 
+  if (editorResearchOverlay && !editorResearchOverlay.hidden && visibleTopBarMode !== interactionModes.edit) {
+    closeEditorResearchPanel();
+  }
+
   if (bookOverlay && !bookOverlay.hidden && visibleTopBarMode !== interactionModes.play) {
     closeBookOverlay();
   }
@@ -8002,6 +10772,7 @@ function updateInteractionModeUi() {
   updatePersistenceControls();
   updateTileInspectorReadout();
   updateUnitActionControls();
+  updateEditorResearchPanel();
   void syncBackgroundMusicPlayback();
 }
 
@@ -8049,6 +10820,7 @@ function openMainMenu() {
   clearPendingAutoAdvance();
   closeGameActionMenu();
   closeSaveSlotPanel();
+  closeEditorResearchPanel();
   closeBookOverlay({ restoreState: false });
   clearEditHoverState();
   clearUnitSelection();
@@ -8072,6 +10844,7 @@ function setInteractionMode(nextMode) {
   setMainMenuLoadingState(false);
   closeGameActionMenu();
   closeSaveSlotPanel();
+  closeEditorResearchPanel();
   closeBookOverlay({ restoreState: false });
   clearEditHoverState();
   clearUnitSelection();
@@ -8195,8 +10968,9 @@ function getUnitTargetStyle() {
 
   if (action === unitActions.layFoundation) {
     return {
-      fill: "rgba(174, 155, 103, 0.18)",
-      stroke: "rgba(236, 218, 168, 0.72)",
+      fill: "rgba(138, 107, 62, 0.26)",
+      stroke: "rgba(92, 61, 27, 0.94)",
+      lineWidth: 2.2,
     };
   }
 
@@ -8281,7 +11055,7 @@ function canPlaceNewHouseConstructionOnCell(cell) {
 }
 
 function canStartNewHouseConstructionOnCell(cell) {
-  return canPlaceNewHouseConstructionOnCell(cell) && canAffordBuildingConstruction("house");
+  return isBuildingTypeAvailable("house") && canPlaceNewHouseConstructionOnCell(cell) && canAffordBuildingConstruction("house");
 }
 
 function canContinueBuildingConstructionOnCell(cell, buildingType = null) {
@@ -8302,7 +11076,11 @@ function getBuildHouseTargetMode(cell, { ignoreAffordability = false } = {}) {
     return "construction";
   }
 
-  if (canPlaceNewHouseConstructionOnCell(cell) && (ignoreAffordability || canAffordBuildingConstruction("house"))) {
+  if (
+    isBuildingTypeAvailable("house") &&
+    canPlaceNewHouseConstructionOnCell(cell) &&
+    (ignoreAffordability || canAffordBuildingConstruction("house"))
+  ) {
     return "new";
   }
 
@@ -8326,7 +11104,7 @@ function doesBuildingPlacementTouchUnit(originCell, type, currentUnit = unit) {
 }
 
 function getFoundationPlacementCells(currentUnit = unit, buildingType = getSelectedFoundationBuildingType()) {
-  if (!currentUnit || !buildingType) {
+  if (!currentUnit || !buildingType || !isBuildingTypeAvailable(buildingType)) {
     return [];
   }
 
@@ -8362,6 +11140,7 @@ function getHoveredFoundationPlacementCells(currentUnit = getSelectedUnit(), ori
     !currentUnit ||
     !originCell ||
     !buildingType ||
+    !isBuildingTypeAvailable(buildingType) ||
     getCurrentSelectedUnitAction(currentUnit) !== unitActions.layFoundation
   ) {
     return [];
@@ -8606,6 +11385,11 @@ function handlePlayModeClick(cell) {
       return;
     }
 
+    if (action === unitActions.research) {
+      draw();
+      return;
+    }
+
     if (action === unitActions.gatherFood) {
       if (queueUnitGatherFoodTask(cell, selectedUnit)) {
         return;
@@ -8775,11 +11559,17 @@ function getUnitMoveProgress(currentUnit = unit, now = performance.now()) {
 
 function getUnitScreenPosition(currentUnit = unit, now = performance.now()) {
   if (!currentUnit) return null;
-  if (!currentUnit.move) return isoToScreen(currentUnit.x, currentUnit.y);
+  if (!currentUnit.move) {
+    return getCellScreenPositionForUnitRendering(getCell(currentUnit.x, currentUnit.y));
+  }
 
   const progress = easeInOut(getUnitMoveProgress(currentUnit, now));
-  const from = isoToScreen(currentUnit.move.fromX, currentUnit.move.fromY);
-  const to = isoToScreen(currentUnit.move.toX, currentUnit.move.toY);
+  const from = getCellScreenPositionForUnitRendering(getCell(currentUnit.move.fromX, currentUnit.move.fromY));
+  const to = getCellScreenPositionForUnitRendering(getCell(currentUnit.move.toX, currentUnit.move.toY));
+
+  if (!from || !to) {
+    return null;
+  }
 
   return {
     x: lerp(from.x, to.x, progress),
@@ -8846,14 +11636,18 @@ function shouldMirrorUnitDirection(direction) {
 function getTargetBasedWorkTaskGroundPoint(currentUnit) {
   const task = currentUnit?.task;
 
-  if (!task || !isWorkingTask(task) || task.type === "perform") {
+  if (!task || !isWorkingTask(task) || task.type === "perform" || task.type === "research") {
     return null;
   }
 
-  const baseScreen = isoToScreen(currentUnit.x, currentUnit.y);
+  const baseScreen = getCellScreenPositionForUnitRendering(getCell(currentUnit.x, currentUnit.y));
   const direction = getRawUnitTaskDirection(currentUnit);
   const halfW = tile.width / 2;
   const halfH = tile.height / 2;
+
+  if (!baseScreen) {
+    return null;
+  }
 
   switch (direction) {
     case "north":
@@ -8938,7 +11732,7 @@ function drawUnitTargets() {
     ctx.fillStyle = style.fill;
     ctx.fill();
     ctx.strokeStyle = style.stroke;
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = Number.isFinite(style.lineWidth) ? style.lineWidth : 1.6;
     ctx.stroke();
   }
 }
@@ -8950,7 +11744,12 @@ function getConstructionHintBuildingType(currentUnit = getSelectedUnit(), cell =
 
   const action = getCurrentSelectedUnitAction(currentUnit);
 
-  if (action === unitActions.buildHouse && canPlaceNewHouseConstructionOnCell(cell) && areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y)) {
+  if (
+    action === unitActions.buildHouse &&
+    isBuildingTypeAvailable("house") &&
+    canPlaceNewHouseConstructionOnCell(cell) &&
+    areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y)
+  ) {
     return "house";
   }
 
@@ -8959,6 +11758,7 @@ function getConstructionHintBuildingType(currentUnit = getSelectedUnit(), cell =
 
     if (
       buildingType &&
+      isBuildingTypeAvailable(buildingType) &&
       canPlaceNewBuildingConstructionOnCell(cell, buildingType, currentUnit) &&
       doesBuildingPlacementTouchUnit(cell, buildingType, currentUnit)
     ) {
@@ -9203,7 +12003,12 @@ function drawUnitMoveTaskLines(now = performance.now()) {
     }
 
     const fromGround = getUnitGroundPoint(fromScreen);
-    const toScreen = isoToScreen(destinationCell.x, destinationCell.y);
+    const toScreen = getCellScreenPositionForUnitRendering(destinationCell);
+
+    if (!toScreen) {
+      continue;
+    }
+
     const toPoint = {
       x: toScreen.x,
       y: toScreen.y + tile.height * 0.52,
@@ -9417,6 +12222,8 @@ function getAnimatedTaskUnitImage(currentUnit, frameIndex = 0) {
 
   if (currentUnit?.task?.type === "perform" && spriteConfig?.playFrames?.length > 0) {
     frames = spriteConfig.playFrames;
+  } else if (currentUnit?.task?.type === "research" && spriteConfig?.researchFrames?.length > 0) {
+    frames = spriteConfig.researchFrames;
   } else if (isFishingTask(currentUnit)) {
     frames = getFishingTaskFrames(currentUnit);
   } else if (currentUnit?.task?.type === "gatherFood") {
@@ -9888,14 +12695,18 @@ function getPathCurveMiddleControlPoint(fromPoint, toPoint, direction) {
 function drawPathNode(point, pathState) {
   const isFull = pathState === "full";
 
+  if (!isFull) {
+    return;
+  }
+
   ctx.beginPath();
   ctx.arc(point.x, point.y, Math.max(3.4, tile.width * 0.06), 0, Math.PI * 2);
-  ctx.fillStyle = isFull ? "rgba(12, 11, 10, 0.92)" : "rgba(12, 11, 10, 0.22)";
+  ctx.fillStyle = "rgba(12, 11, 10, 0.92)";
   ctx.fill();
 
   ctx.beginPath();
   ctx.arc(point.x, point.y, Math.max(1.8, tile.width * 0.04), 0, Math.PI * 2);
-  ctx.fillStyle = isFull ? "rgba(254, 232, 111, 1)" : "rgba(151, 124, 82, 0.28)";
+  ctx.fillStyle = "rgba(254, 232, 111, 1)";
   ctx.fill();
 }
 
@@ -10428,21 +13239,62 @@ function getFootprintImageNativeDrawBox(building, image, visual) {
 function drawBuilding(building) {
   const visual = getBuildingVisual(building);
 
-  if (!visual?.image) return;
-
-  const image = buildingImages[visual.image];
-
-  if (!image?.complete || image.naturalWidth <= 0) return;
+  if (!visual) return;
   const renderMode = visual.renderMode || getBuildingRenderMode(building.type);
 
   ctx.save();
   ctx.globalAlpha = visual.alpha ?? 1;
 
   if (renderMode === "perTile") {
-    for (const cell of getBuildingOccupiedCells(building)) {
-      drawBuildingSpriteAtCell(image, cell, visual);
+    const occupiedCells = getBuildingOccupiedCells(building);
+    const tileImages = Array.isArray(visual.tileImages) ? visual.tileImages : null;
+
+    if (tileImages && tileImages.length > 0) {
+      occupiedCells.forEach((cell, index) => {
+        const imagePath = index < tileImages.length ? tileImages[index] : visual.image;
+
+        if (!imagePath) {
+          return;
+        }
+
+        const tileImage = buildingImages[imagePath];
+
+        if (!tileImage?.complete || tileImage.naturalWidth <= 0) {
+          return;
+        }
+
+        drawBuildingSpriteAtCell(tileImage, cell, visual);
+      });
+    } else {
+      if (!visual.image) {
+        ctx.restore();
+        return;
+      }
+
+      const image = buildingImages[visual.image];
+
+      if (!image?.complete || image.naturalWidth <= 0) {
+        ctx.restore();
+        return;
+      }
+
+      for (const cell of occupiedCells) {
+        drawBuildingSpriteAtCell(image, cell, visual);
+      }
     }
   } else if (renderMode === "footprintImageNative") {
+    if (!visual.image) {
+      ctx.restore();
+      return;
+    }
+
+    const image = buildingImages[visual.image];
+
+    if (!image?.complete || image.naturalWidth <= 0) {
+      ctx.restore();
+      return;
+    }
+
     const drawBox = getFootprintImageNativeDrawBox(building, image, visual);
 
     if (drawBox) {
@@ -10455,6 +13307,18 @@ function drawBuilding(building) {
       );
     }
   } else if (renderMode === "footprintImage") {
+    if (!visual.image) {
+      ctx.restore();
+      return;
+    }
+
+    const image = buildingImages[visual.image];
+
+    if (!image?.complete || image.naturalWidth <= 0) {
+      ctx.restore();
+      return;
+    }
+
     const bounds = getBuildingFootprintVisualBounds(building, visual);
 
     if (bounds) {
@@ -10467,6 +13331,18 @@ function drawBuilding(building) {
       );
     }
   } else {
+    if (!visual.image) {
+      ctx.restore();
+      return;
+    }
+
+    const image = buildingImages[visual.image];
+
+    if (!image?.complete || image.naturalWidth <= 0) {
+      ctx.restore();
+      return;
+    }
+
     drawBuildingSpriteAtCell(image, getCell(building.x, building.y), visual);
   }
 
@@ -11385,7 +14261,19 @@ function canEditFoodSelection(cell) {
 }
 
 function canEditBuildingSelection(cell) {
-  return Boolean(getBuildingAtCell(cell?.x, cell?.y)) || (Boolean(cell) && cell.type === "grass" && !hasFoodResource(cell));
+  if (!cell) {
+    return false;
+  }
+
+  if (getBuildingAtCell(cell.x, cell.y)) {
+    return true;
+  }
+
+  if (hasFoodResource(cell)) {
+    return false;
+  }
+
+  return getDefinedBuildingTypes().some((buildingType) => canPlaceEditorBuildingAtCell(cell, buildingType));
 }
 
 function getEditorResourceMode(cell) {
@@ -11464,7 +14352,7 @@ function syncBuildingEditorState(building, { abandoned = building?.state === "ab
 }
 
 function canPlaceEditorBuildingAtCell(cell, type) {
-  if (!cell || cell.type !== "grass" || hasFoodResource(cell) || getBuildingAtCell(cell.x, cell.y)) {
+  if (!cell || hasFoodResource(cell) || getBuildingAtCell(cell.x, cell.y)) {
     return false;
   }
 
@@ -11606,7 +14494,7 @@ function rebuildBuildingMenuOptions(displayCell) {
     return;
   }
 
-  for (const buildingType of Object.keys(buildingCatalog)) {
+  for (const buildingType of getDefinedBuildingTypes()) {
     buildingMenuOptions.append(
       createEditorTextOptionButton({
         label: getBuildingLabel(buildingType),
@@ -12216,6 +15104,10 @@ document.addEventListener("pointerdown", (event) => {
     closeGameActionMenu();
   }
 
+  if (editorResearchOverlay && !editorResearchOverlay.hidden) {
+    return;
+  }
+
   if (!activeCell || (editInspector && editInspector.contains(event.target)) || event.target === canvas) {
     return;
   }
@@ -12237,6 +15129,11 @@ document.addEventListener("keydown", (event) => {
 
   if (saveSlotOverlay && !saveSlotOverlay.hidden) {
     closeSaveSlotPanel({ restoreFocus: true });
+    return;
+  }
+
+  if (editorResearchOverlay && !editorResearchOverlay.hidden) {
+    closeEditorResearchPanel({ restoreFocus: true });
     return;
   }
 
@@ -12281,10 +15178,42 @@ document.addEventListener("visibilitychange", () => {
 
 bookOverlay?.addEventListener("click", (event) => {
   const eventTarget = event.target instanceof Element ? event.target : event.target?.parentElement;
+  const bookmarkButton = eventTarget?.closest(".book-bookmark-button") || null;
+
+  if (bookmarkButton && bookOverlay && !bookOverlay.hidden) {
+    const targetPageId = bookmarkButton.dataset.bookPageId || "";
+
+    if (targetPageId && jumpBookToPageId(targetPageId)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+  }
+
   const link = eventTarget?.closest(".book-page-content a") || null;
   if (link && bookOverlay && !bookOverlay.hidden) {
     const targetPageId = getBookTargetPageIdFromLink(link);
     if (targetPageId && jumpBookToPageId(targetPageId)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+  }
+
+  const techWidget = eventTarget?.closest('[data-book-widget="tech"]') || null;
+
+  if (techWidget && bookOverlay && !bookOverlay.hidden) {
+    const technologyId = getBookTechWidgetTechnologyId(techWidget);
+
+    if (technologyId && setSelectedResearchGoalTechnologyId(technologyId)) {
+      if (pendingBookResearchAssignmentUnitId) {
+        const didAssignResearch = queuePendingBookResearchAssignment();
+
+        if (didAssignResearch) {
+          closeBookOverlay();
+        }
+      }
+
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -12297,6 +15226,25 @@ bookOverlay?.addEventListener("click", (event) => {
 
   closeBookOverlay({ restoreFocus: true });
 });
+
+for (const bookmarkBar of bookBookmarkBars) {
+  bookmarkBar.addEventListener("click", (event) => {
+    const button = event.target instanceof Element
+      ? event.target.closest(".book-bookmark-button")
+      : null;
+
+    if (!button) {
+      return;
+    }
+
+    const pageId = button.dataset.bookPageId || "";
+
+    if (pageId && jumpBookToPageId(pageId)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+}
 
 mainMenuOverlay.addEventListener("click", (event) => {
   const button = event.target.closest(".main-menu-item");
@@ -12396,6 +15344,11 @@ for (const button of nextUnitButtons) {
 
       if (action === unitActions.play) {
         queueUnitPlayTask(selectedUnit);
+        return;
+      }
+
+      if (action === unitActions.research) {
+        queueUnitResearchTask(selectedUnit);
         return;
       }
 
@@ -12527,6 +15480,26 @@ for (const button of openMainMenuButtons) {
   });
 }
 
+for (const button of openEditorResearchButtons) {
+  button.addEventListener("click", () => {
+    void openEditorResearchPanel(button);
+  });
+}
+
+for (const button of closeEditorResearchButtons) {
+  button.addEventListener("click", () => {
+    closeEditorResearchPanel({ restoreFocus: true });
+  });
+}
+
+for (const button of clearEditorResearchGoalButtons) {
+  button.addEventListener("click", () => {
+    applyEditorResearchStateChange(() => {
+      researchState.selectedGoalTechId = null;
+    });
+  });
+}
+
 for (const button of dismissSlotPanelButtons) {
   button.addEventListener("click", () => {
     closeSaveSlotPanel({ restoreFocus: true });
@@ -12572,6 +15545,99 @@ saveSlotList?.addEventListener("click", (event) => {
   if (slotPanelState.mode === "load") {
     void commitSaveSlotPanel();
   }
+});
+
+editorResearchOverlay?.addEventListener("click", (event) => {
+  if (event.target === editorResearchOverlay) {
+    closeEditorResearchPanel({ restoreFocus: true });
+  }
+});
+
+editorResearchList?.addEventListener("click", (event) => {
+  const goalButton = event.target instanceof Element
+    ? event.target.closest('[data-action="editor-research-select-goal"]')
+    : null;
+
+  if (!goalButton || goalButton.disabled) {
+    return;
+  }
+
+  const technologyId = goalButton.dataset.technologyId || "";
+
+  applyEditorResearchStateChange(() => {
+    researchState.selectedGoalTechId = technologyId;
+  });
+});
+
+editorResearchList?.addEventListener("change", (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const discoveredInput = target?.closest('[data-action="editor-research-discovered"]');
+
+  if (discoveredInput instanceof HTMLInputElement) {
+    const technologyId = discoveredInput.dataset.technologyId || "";
+
+    applyEditorResearchStateChange(() => {
+      const discoveredIds = new Set(
+        Array.isArray(researchState.discoveredTechIds) ? researchState.discoveredTechIds : [],
+      );
+      const nextProgressByTechId =
+        researchState.progressByTechId && typeof researchState.progressByTechId === "object"
+          ? { ...researchState.progressByTechId }
+          : {};
+
+      if (discoveredInput.checked) {
+        discoveredIds.add(technologyId);
+        delete nextProgressByTechId[technologyId];
+      } else {
+        discoveredIds.delete(technologyId);
+      }
+
+      researchState.discoveredTechIds = [...discoveredIds];
+      researchState.progressByTechId = nextProgressByTechId;
+    });
+    return;
+  }
+
+  const progressInput = target?.closest('[data-action="editor-research-progress"]');
+
+  if (!(progressInput instanceof HTMLInputElement)) {
+    return;
+  }
+
+  const technologyId = progressInput.dataset.technologyId || "";
+  const technology = getTechnologyDefinition(technologyId);
+
+  if (!technology) {
+    updateEditorResearchPanel();
+    return;
+  }
+
+  const nextProgress = clampInteger(progressInput.value, 0, 999999999, getTechnologyProgress(technologyId));
+  const technologyCost = Math.max(0, Math.floor(Number(technology.cost) || 0));
+
+  applyEditorResearchStateChange(() => {
+    const discoveredIds = new Set(
+      Array.isArray(researchState.discoveredTechIds) ? researchState.discoveredTechIds : [],
+    );
+    const nextProgressByTechId =
+      researchState.progressByTechId && typeof researchState.progressByTechId === "object"
+        ? { ...researchState.progressByTechId }
+        : {};
+
+    discoveredIds.delete(technologyId);
+
+    if (technologyCost > 0 && nextProgress >= technologyCost) {
+      discoveredIds.add(technologyId);
+      delete nextProgressByTechId[technologyId];
+    } else if (nextProgress > 0) {
+      nextProgressByTechId[technologyId] = nextProgress;
+    } else {
+      delete nextProgressByTechId[technologyId];
+    }
+
+    researchState.discoveredTechIds = [...discoveredIds];
+    researchState.progressByTechId = nextProgressByTechId;
+  });
 });
 
 for (const input of autoPassInputs) {
@@ -12628,16 +15694,26 @@ for (const button of zoomInButtons) {
 
 window.addEventListener("resize", resizeCanvas);
 
-applyStaticText();
-initializeBookPageContent();
-updateBookPageStack();
-populateTerrainMenu();
-updateEditInspector();
-void requestPersistentStorage();
-void ensureBookContentLoaded();
-applyStateSnapshot(createDefaultState(interactionModes.edit), interactionModes.edit, { recenter: false });
-resetTileReadout();
-updateInteractionModeUi();
-void ensureVisualAssetsLoaded();
-void ensureTechnologyCatalogLoaded();
-resizeCanvas();
+async function initializeApp() {
+  await Promise.all([
+    ensureBuildingDefinitionsLoaded(),
+    ensureUnitDefinitionsLoaded(),
+  ]);
+  applyStaticText();
+  initializeBookPageContent();
+  updateBookPageStack();
+  populateTerrainMenu();
+  updateEditInspector();
+  void requestPersistentStorage();
+  void ensureBookContentLoaded();
+  applyStateSnapshot(createDefaultState(interactionModes.edit), interactionModes.edit, { recenter: false });
+  resetTileReadout();
+  updateInteractionModeUi();
+  void ensureVisualAssetsLoaded();
+  void ensureTechnologyCatalogLoaded();
+  resizeCanvas();
+}
+
+void initializeApp().catch((error) => {
+  console.error("Failed to initialize app.", error);
+});

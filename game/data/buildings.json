@@ -1,0 +1,310 @@
+{
+  "default": {
+    "width": 1,
+    "height": 1
+  },
+  "types": {
+    "house": {
+      "labels": {
+        "fr": "Maison",
+        "en": "House",
+        "es": "Casa",
+        "ru": "Дом"
+      },
+      "ui": {
+        "icon": "⌂"
+      },
+      "rules": {
+        "width": 1,
+        "height": 1,
+        "walkable": false,
+        "foundationActionAvailable": true,
+        "constructionCost": 100,
+        "buildCost": {
+          "stone": 20,
+          "lumber": 30
+        },
+        "resourceStorageCapacities": {
+          "stone": 120,
+          "lumber": 120,
+          "food": 120
+        },
+        "constructionVisualThresholds": {
+          "initialMax": 0.34,
+          "halfMax": 0.79
+        },
+        "abandonedDecayPerTurn": 0.025
+      },
+      "visual": {
+        "renderMode": "singleTile",
+        "subtypes": [
+          { "id": "house_01", "image": "../assets/buildings/house_01.png" },
+          { "id": "house_02", "image": "../assets/buildings/house_02.png" },
+          { "id": "house_03", "image": "../assets/buildings/house_03.png" },
+          { "id": "house_04", "image": "../assets/buildings/house_04.png" }
+        ],
+        "abandonedImage": "../assets/buildings/house_abandoned.png",
+        "constructionImages": {
+          "initial": "../assets/buildings/house_construct.png",
+          "half": "../assets/buildings/house_half.png"
+        },
+        "constructionStages": {
+          "initial": {
+            "renderMode": "perTile",
+            "yOffsetFactor": 0.2
+          }
+        }
+      }
+    },
+    "laboratory": {
+      "labels": {
+        "fr": "Laboratoire",
+        "en": "Laboratory",
+        "es": "Laboratorio",
+        "ru": "Лаборатория"
+      },
+      "ui": {
+        "icon": "⚗"
+      },
+      "rules": {
+        "width": 2,
+        "height": 2,
+        "footprint": [
+          [],
+          ["south"],
+          ["southEast"],
+          ["southWest"]
+        ],
+        "walkable": false,
+        "foundationActionAvailable": true,
+        "constructionCost": 400,
+        "buildCost": {
+          "stone": 80,
+          "lumber": 120
+        },
+        "constructionVisualThresholds": {
+          "initialMax": 0.34,
+          "halfMax": 0.79
+        },
+        "abandonedDecayPerTurn": 0.025
+      },
+      "limits": {
+        "maxCount": 1
+      },
+      "visual": {
+        "renderMode": "footprintImageNative",
+        "constructionRenderMode": "footprintImageNative",
+        "nativeScaleAt100Zoom": 0.5,
+        "nativeOffsetYAt100Zoom": -10,
+        "subtypes": [
+          { "id": "laboratory_01", "image": "../assets/buildings/laboratory_01.png" }
+        ],
+        "abandonedImage": "../assets/buildings/house_abandoned.png",
+        "constructionImages": {
+          "initial": "../assets/buildings/house_construct.png",
+          "half": "../assets/buildings/laboratory_half.png"
+        },
+        "constructionStages": {
+          "initial": {
+            "renderMode": "perTile",
+            "yOffsetFactor": 0.2
+          }
+        }
+      }
+    },
+    "small_bridge_nw_se": {
+      "labels": {
+        "fr": "Petit pont",
+        "en": "Small bridge",
+        "es": "Puente pequeño",
+        "ru": "Мостик"
+      },
+      "ui": {
+        "icon": "^"
+      },
+      "rules": {
+        "width": 1,
+        "height": 3,
+        "footprint": [
+          ["northWest"],
+          [],
+          ["southEast"]
+        ],
+        "placementTerrains": [
+          ["grass"],
+          ["grass", "water"],
+          ["grass"]
+        ],
+        "walkable": true,
+        "foundationActionAvailable": true,
+        "constructionCost": 400,
+        "buildCost": {
+          "stone": 280,
+          "lumber": 20
+        },
+        "constructionVisualThresholds": {
+          "initialMax": 0.34,
+          "halfMax": 0.79
+        },
+        "abandonedDecayPerTurn": 0.025
+      },
+      "visual": {
+        "renderMode": "footprintImageNative",
+        "constructionRenderMode": "footprintImageNative",
+        "nativeScaleAt100Zoom": 0.5,
+        "nativeOffsetYAt100Zoom": 23,
+        "subtypes": [
+          { "id": "small_bridge_01", "image": "../assets/buildings/small_bridge_nw_se.png" }
+        ],
+        "abandonedImage": "../assets/buildings/house_abandoned.png",
+        "constructionImages": {
+          "initial": "../assets/buildings/house_construct.png",
+          "half": "../assets/buildings/small_bridge_nw_se_half.png"
+        },
+        "constructionStages": {
+          "initial": {
+            "renderMode": "perTile",
+            "yOffsetFactor": 0.2,
+            "tileImages": [
+              "../assets/buildings/house_construct.png",
+              null,
+              "../assets/buildings/house_construct.png"
+            ]
+          }
+        },
+        "unitRenderOffsets": [
+          { "x": 0, "y": -20 },
+          { "x": 12, "y": -20 },
+          { "x": 0, "y": 0 }
+        ]
+      }
+    },
+    "small_bridge_sw_ne": {
+      "labels": {
+        "fr": "Petit pont",
+        "en": "Small bridge",
+        "es": "Puente pequeño",
+        "ru": "Мостик"
+      },
+      "ui": {
+        "icon": "^"
+      },
+      "rules": {
+        "width": 1,
+        "height": 3,
+        "footprint": [
+          ["southWest"],
+          [],
+          ["northEast"]
+        ],
+        "placementTerrains": [
+          ["grass"],
+          ["grass", "water"],
+          ["grass"]
+        ],
+        "walkable": true,
+        "foundationActionAvailable": true,
+        "constructionCost": 400,
+        "buildCost": {
+          "stone": 280,
+          "lumber": 20
+        },
+        "constructionVisualThresholds": {
+          "initialMax": 0.34,
+          "halfMax": 0.79
+        },
+        "abandonedDecayPerTurn": 0.025
+      },
+      "visual": {
+        "renderMode": "footprintImageNative",
+        "constructionRenderMode": "footprintImageNative",
+        "nativeScaleAt100Zoom": 0.5,
+        "nativeOffsetYAt100Zoom": 23,
+        "subtypes": [
+          { "id": "small_bridge_01", "image": "../assets/buildings/small_bridge_sw_ne.png" }
+        ],
+        "abandonedImage": "../assets/buildings/house_abandoned.png",
+        "constructionImages": {
+          "initial": "../assets/buildings/house_construct.png",
+          "half": "../assets/buildings/small_bridge_sw_ne_half.png"
+        },
+        "constructionStages": {
+          "initial": {
+            "renderMode": "perTile",
+            "yOffsetFactor": 0.2,
+            "tileImages": [
+              "../assets/buildings/house_construct.png",
+              null,
+              "../assets/buildings/house_construct.png"
+            ]
+          }
+        },
+        "unitRenderOffsets": [
+          { "x": 0, "y": 0 },
+          { "x": -12, "y": -20 },
+          { "x": 0, "y": -20 }
+        ]
+      }
+    },
+
+    "granary": {
+      "labels": {
+        "fr": "Grenier",
+        "en": "Granary",
+        "es": "Granero",
+        "ru": "Амбар"
+      },
+      "ui": {
+        "icon": "🌾"
+      },
+      "availability" : {
+        "requiredTechs" : [ "pottery" ]
+      },
+      "rules": {
+        "width": 2,
+        "height": 2,
+        "footprint": [
+          [],
+          ["south"],
+          ["southEast"],
+          ["southWest"]
+        ],
+        "walkable": false,
+        "foundationActionAvailable": true,
+        "constructionCost": 400,
+        "buildCost": {
+          "stone": 80,
+          "lumber": 120
+        },
+        "resourceStorageCapacities": {
+          "food": 5000
+        }, 
+        "constructionVisualThresholds": {
+          "initialMax": 0.34,
+          "halfMax": 0.79
+        },
+        "abandonedDecayPerTurn": 0.025
+      },
+      "visual": {
+        "renderMode": "footprintImageNative",
+        "constructionRenderMode": "footprintImageNative",
+        "nativeScaleAt100Zoom": 0.6,
+        "nativeOffsetYAt100Zoom": 0,
+        "subtypes": [
+          { "id": "granary_01", "image": "../assets/buildings/granary.png" }
+        ],
+        "abandonedImage": "../assets/buildings/house_abandoned.png",
+        "constructionImages": {
+          "initial": "../assets/buildings/house_construct.png",
+          "half": "../assets/buildings/granary_half.png"
+        },
+        "constructionStages": {
+          "initial": {
+            "renderMode": "perTile",
+            "yOffsetFactor": 0.2
+          }
+        }
+      }
+    }
+  }
+}

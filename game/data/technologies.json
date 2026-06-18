@@ -1,20 +1,182 @@
 {
   "technologies": [
     {
-      "id": "house_construction",
-      "cost": 30,
-      "icon": "../assets/buildings/house_01.png",
+      "id": "pottery",
+      "cost": 10,
+      "icon": "../assets/techs/pottery.png",
+      "labels": {
+        "fr": "Poterie",
+        "en": "Pottery",
+        "es": "Alfareria",
+        "ru": "Гончарное дело"
+      },
       "prerequisites": {
         "tech": [],
         "events": []
       }
     },
     {
-      "id": "laboratory_construction",
-      "cost": 120,
-      "icon": "../assets/buildings/laboratory_01.png",
+      "id": "hole_digging",
+      "cost": 100,
+      "icon": "../assets/techs/holes.png",
+      "labels": {
+        "fr": "Creuser des trous",
+        "en": "Hole digging",
+        "es": "Cavar agujeros",
+        "ru": "Копание ям"
+      },
       "prerequisites": {
-        "tech": ["house_construction"],
+        "tech": [],
+        "events": []
+      }
+    },
+    {
+      "id": "runes",
+      "cost": 100,
+      "icon": "../assets/techs/runes.png",
+      "labels": {
+        "fr": "Runes",
+        "en": "Runes",
+        "es": "Runas",
+        "ru": "Руны"
+      },
+      "prerequisites": {
+        "tech": [],
+        "events": []
+      }
+    },
+    {
+      "id": "wheelbarrow",
+      "cost": 100,
+      "icon": "../assets/techs/wheel.png",
+      "labels": {
+        "fr": "Brouette",
+        "en": "Wheelbarrow",
+        "es": "Carretilla",
+        "ru": "Тачка"
+      },
+      "prerequisites": {
+        "tech": [],
+        "events": []
+      }
+    },
+    {
+      "id": "planting",
+      "cost": 100,
+      "icon": "../assets/techs/plant.png",
+      "labels": {
+        "fr": "Plantation",
+        "en": "Planting",
+        "es": "Plantacion",
+        "ru": "Посадки"
+      },
+      "prerequisites": {
+        "tech": ["pottery", "hole_digging"],
+        "events": []
+      }
+    },
+    {
+      "id": "diving_rod",
+      "cost": 100,
+      "icon": "../assets/techs/diving_rod.png",
+      "labels": {
+        "fr": "Baguette de sourcier",
+        "en": "Dowsing rod",
+        "es": "Vara de zahori",
+        "ru": "Лозоходная лоза"
+      },
+      "prerequisites": {
+        "tech": ["runes", "hole_digging"],
+        "events": []
+      }
+    },
+    {
+      "id": "spellbook",
+      "cost": 100,
+      "icon": "../assets/techs/book.png",
+      "labels": {
+        "fr": "Grimoire",
+        "en": "Spellbook",
+        "es": "Grimorio",
+        "ru": "Гримуар"
+      },
+      "prerequisites": {
+        "tech": ["runes"],
+        "events": []
+      }
+    },
+    {
+      "id": "diy",
+      "cost": 100,
+      "icon": "../assets/techs/diy.png",
+      "labels": {
+        "fr": "Bricolage",
+        "en": "Handiwork",
+        "es": "Bricolaje",
+        "ru": "Мастерство"
+      },
+      "prerequisites": {
+        "tech": ["wheelbarrow"],
+        "events": []
+      }
+    },
+    {
+      "id": "music",
+      "cost": 100,
+      "icon": "../assets/techs/music.png",
+      "labels": {
+        "fr": "Musique",
+        "en": "Music",
+        "es": "Musica",
+        "ru": "Музыка"
+      },
+      "prerequisites": {
+        "tech": ["spellbook"],
+        "events": []
+      }
+    },
+    {
+      "id": "alchemy",
+      "cost": 100,
+      "icon": "../assets/techs/alchemy.png",
+      "labels": {
+        "fr": "Alchimie",
+        "en": "Alchemy",
+        "es": "Alquimia",
+        "ru": "Алхимия"
+      },
+      "prerequisites": {
+        "tech": ["spellbook"],
+        "events": []
+      }
+    },
+    {
+      "id": "bridge_building",
+      "cost": 100,
+      "icon": "../assets/techs/bridges.png",
+      "labels": {
+        "fr": "Construction de ponts",
+        "en": "Bridge building",
+        "es": "Construccion de puentes",
+        "ru": "Строительство мостов"
+      },
+      "prerequisites": {
+        "tech": ["diy","spellbook"],
+        "events": []
+      }
+    },
+    {
+      "id": "boating",
+      "cost": 100,
+      "icon": "../assets/techs/boating.png",
+      "labels": {
+        "fr": "Navigation",
+        "en": "Boating",
+        "es": "Navegacion",
+        "ru": "Лодочное дело"
+      },
+      "prerequisites": {
+        "tech": ["spellbook", "diy"],
         "events": []
       }
     }

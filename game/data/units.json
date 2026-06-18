@@ -1,0 +1,223 @@
+{
+  "default": {
+    "typeId": "villager",
+    "spriteTypeId": "villager",
+    "name": "Schtroumpf",
+    "labels": {
+      "fr": "Schtroumpf",
+      "en": "Smurf",
+      "es": "Pitufo",
+      "ru": "Штрумф"
+    },
+    "stamina": 2,
+    "foodConsumptionPerTurn": 1,
+    "researchPointsPerTurn": 0,
+    "allowedActions": ["walk", "play", "gatherFood", "gatherMaterials", "buildHouse", "demolish"],
+    "workPointsPerTurn": {
+      "buildHouse": 20,
+      "demolish": 25,
+      "gatherFood": 4,
+      "gatherMaterials": 12
+    }
+  },
+  "types": {
+    "villager": {
+      "spriteTypeId": "villager"
+    },
+    "grandSchtroumpf": {
+      "spriteTypeId": "grandSchtroumpf",
+      "name": "Grand Schtroumpf",
+      "labels": {
+        "fr": "Grand Schtroumpf",
+        "en": "Papa Smurf",
+        "es": "Papa Pitufo",
+        "ru": "Папа Штрумф"
+      },
+      "researchPointsPerTurn": 1,
+      "allowedActions": ["walk", "layFoundation", "research"]
+    }
+  },
+  "spawnRules": [
+    {
+      "when": {
+        "nextUnitNumberEquals": 5
+      },
+      "choices": [
+        {
+          "type": "grandSchtroumpf",
+          "weight": 1,
+          "requirements": {
+            "requiredUnitsAbsent": ["grandSchtroumpf"]
+          }
+        }
+      ]
+    },
+    {
+      "choices": [
+        {
+          "type": "villager",
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "spriteTypes": {
+    "villager": {
+      "idleImage": "../assets/units/unit_sprite.png",
+      "northImage": "../assets/units/unit_back_sprite.png",
+      "southImage": "../assets/units/unit_front_sprite.png",
+      "workFrames": [
+        "../assets/units/unit_work_sprite.png",
+        "../assets/units/unit_work_sprite_1.png"
+      ],
+      "landFoodFrames": [
+        "../assets/units/unit_food_sprite.png",
+        "../assets/units/unit_food_sprite_1.png"
+      ],
+      "lumberFrames": [
+        "../assets/units/unit_lumber_sprite.png",
+        "../assets/units/unit_lumber_sprite_1.png"
+      ],
+      "stoneFrames": [
+        "../assets/units/unit_stone_sprite.png",
+        "../assets/units/unit_stone_sprite_1.png"
+      ],
+      "sideFishingFrames": [
+        "../assets/units/unit_fishing_sprite.png",
+        "../assets/units/unit_fishing_sprite_1.png"
+      ],
+      "northFishingFrames": [
+        "../assets/units/unit_fishing_north_sprite.png",
+        "../assets/units/unit_fishing_north_sprite_1.png"
+      ],
+      "southFishingFrames": [
+        "../assets/units/unit_fishing_south_sprite.png",
+        "../assets/units/unit_fishing_south_sprite_1.png"
+      ],
+      "playFrames": [
+        "../assets/units/unit_play_sprite.png",
+        "../assets/units/unit_play_sprite_1.png"
+      ],
+      "workFrameDuration": 180,
+      "northMoveFrames": [
+        "../assets/units/unit_back_step_sprite.png",
+        "../assets/units/unit_back_step_sprite_2.png"
+      ],
+      "southMoveFrames": [
+        "../assets/units/unit_front_step_sprite.png",
+        "../assets/units/unit_front_step_sprite_2.png"
+      ],
+      "moveFrames": [
+        "../assets/units/unit_sprite.png",
+        "../assets/units/unit_step_sprite.png"
+      ],
+      "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0],
+      "width": 36,
+      "height": 44,
+      "anchorX": 18,
+      "anchorY": 44,
+      "fishingRenderSpec": {
+        "width": 44.5,
+        "height": 54.5,
+        "anchorX": 22.25,
+        "anchorY": 54.5,
+        "groundOffset": 0.75
+      },
+      "fishingDirectionRenderOverrides": {
+        "south": {
+          "anchorX": 22.25,
+          "anchorY": 34.5
+        }
+      },
+      "fishingDirections": {
+        "north": {
+          "frameSet": "northFishingFrames",
+          "mirror": false
+        },
+        "northEast": {
+          "frameSet": "sideFishingFrames",
+          "mirror": true
+        },
+        "east": {
+          "frameSet": "sideFishingFrames",
+          "mirror": true
+        },
+        "southEast": {
+          "frameSet": "sideFishingFrames",
+          "mirror": true
+        },
+        "south": {
+          "frameSet": "southFishingFrames",
+          "mirror": false
+        },
+        "southWest": {
+          "frameSet": "sideFishingFrames",
+          "mirror": false
+        },
+        "west": {
+          "frameSet": "sideFishingFrames",
+          "mirror": false
+        },
+        "northWest": {
+          "frameSet": "sideFishingFrames",
+          "mirror": false
+        }
+      },
+      "groundOffset": 0.75,
+      "moveDuration": 720
+    },
+    "grandSchtroumpf": {
+      "idleImage": "../assets/units/unit_grand_schtroumpf_sprite.png",
+      "northImage": "../assets/units/unit_grand_schtroumpf_back_sprite.png",
+      "southImage": "../assets/units/unit_grand_schtroumpf_front_sprite.png",
+      "workFrames": [
+        "../assets/units/unit_grand_schtroumpf_sprite.png",
+        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
+      ],
+      "landFoodFrames": [
+        "../assets/units/unit_grand_schtroumpf_sprite.png",
+        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
+      ],
+      "lumberFrames": [
+        "../assets/units/unit_grand_schtroumpf_sprite.png",
+        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
+      ],
+      "stoneFrames": [
+        "../assets/units/unit_grand_schtroumpf_sprite.png",
+        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
+      ],
+      "sideFishingFrames": [
+        "../assets/units/unit_grand_schtroumpf_sprite.png",
+        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
+      ],
+      "northFishingFrames": [
+        "../assets/units/unit_grand_schtroumpf_sprite.png",
+        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
+      ],
+      "southFishingFrames": [
+        "../assets/units/unit_grand_schtroumpf_front_sprite.png",
+        "../assets/units/unit_grand_schtroumpf_front_sprite.png"
+      ],
+      "playFrames": [
+        "../assets/units/unit_grand_schtroumpf_sprite.png",
+        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
+      ],
+      "northMoveFrames": [
+        "../assets/units/unit_grand_schtroumpf_back_step_sprite.png",
+        "../assets/units/unit_grand_schtroumpf_back_step_sprite_2.png"
+      ],
+      "southMoveFrames": [
+        "../assets/units/unit_grand_schtroumpf_front_step_sprite.png",
+        "../assets/units/unit_grand_schtroumpf_front_step_sprite_2.png"
+      ],
+      "moveFrames": [
+        "../assets/units/unit_grand_schtroumpf_sprite.png",
+        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
+      ],
+      "researchFrames": [
+        "../assets/units/unit_gs_research_sprite.png",
+        "../assets/units/unit_gs_research_sprite_1.png"
+      ]
+    }
+  }
+}
