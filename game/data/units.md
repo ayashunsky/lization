@@ -266,11 +266,29 @@ Supported numeric fields:
 Supported structured fields:
 
 - `moveFrameSequence`
+- `directionRenderOverrides`
 - `fishingRenderSpec`
 - `fishingDirectionRenderOverrides`
 - `fishingDirections`
 
+The same sprite field set is also reused by `game/data/vehicles.json` for `visual.mountedRenders.*.unit` and `visual.mountedRenders.*.vehicle`. Those mounted overlay layers additionally support `offsetX` and `offsetY`.
+
 `researchFrames` are used for the stationary `Research` task. If omitted, the game falls back to `workFrames`.
+
+### `directionRenderOverrides`
+
+Maps draw directions to render-spec overrides. This is the preferred way to adjust facing-specific placement, including mirrored east/west variants that need different `offsetX` values.
+
+Example:
+
+```json
+"directionRenderOverrides": {
+  "west": { "offsetX": -3 },
+  "east": { "offsetX": 3 },
+  "north": { "offsetY": -4 },
+  "south": { "offsetY": 2 }
+}
+```
 
 ### `fishingDirections`
 

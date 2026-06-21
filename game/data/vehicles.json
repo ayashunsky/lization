@@ -1,0 +1,224 @@
+{
+  "default": {
+    "width": 1,
+    "height": 1
+  },
+  "types": {
+    "boat": {
+      "labels": {
+        "fr": "Barque",
+        "en": "Boat",
+        "es": "Barca",
+        "ru": "Лодка"
+      },
+      "ui": {
+        "icon": "⛵"
+      },
+      "availability" : {
+        "requiredTechs" : [ "boating" ]
+      },
+      "rules": {
+        "width": 1,
+        "height": 1,
+        "placementTerrains": [["water"]],
+        "walkable": true,
+        "foundationActionAvailable": true,
+        "mounted": {
+          "allowedActions": ["walk", "gatherFood"],
+          "movementTerrains": ["water"],
+          "multipliers": {
+            "workPointsPerTurn": {
+              "gatherFood": 2
+            }
+          }
+        },
+        "constructionCost": 120,
+        "buildCost": {
+          "stone": 0,
+          "lumber": 40
+        }
+      },
+      "visual": {
+        "renderMode": "singleTile",
+        "abandonedImage": "../assets/vehicles/boat_d.png",
+        "constructionImages": {
+          "initial": "../assets/vehicles/boat_init.png",
+          "half": "../assets/vehicles/boat_half.png"
+        },
+        "mountedRenders": {
+          "default": {
+            "unit": {
+              "offsetX": 0,
+              "offsetY": -4
+            },
+            "vehicle": {
+              "idleImage": "../assets/vehicles/boat_d.png",
+              "northImage": "../assets/vehicles/boat_v.png",
+              "southImage": "../assets/vehicles/boat_v.png",
+              "moveFrames": ["../assets/vehicles/boat_h.png"],
+              "northMoveFrames": ["../assets/vehicles/boat_v.png"],
+              "southMoveFrames": ["../assets/vehicles/boat_v.png"],
+              "moveFrameSequence": [0],
+              "width": 55,
+              "height": 55,
+              "anchorX": 27,
+              "anchorY": 34
+            }
+          },
+          "byUnitType": {
+            "villager": {
+              "unit": {
+                "idleImage": "../assets/units/unit_sprite.png",
+                "northImage": "../assets/units/unit_back_sprite.png",
+                "southImage": "../assets/units/unit_front_sprite.png",
+                "moveFrames": ["../assets/units/unit_sprite.png"],
+                "northMoveFrames": ["../assets/units/unit_back_sprite.png"],
+                "southMoveFrames": ["../assets/units/unit_front_sprite.png"],
+                "moveFrameSequence": [0]
+              }
+            },
+            "grandSchtroumpf": {
+              "unit": {
+                "idleImage": "../assets/units/unit_grand_schtroumpf_sprite.png",
+                "northImage": "../assets/units/unit_grand_schtroumpf_back_sprite.png",
+                "southImage": "../assets/units/unit_grand_schtroumpf_front_sprite.png",
+                "moveFrames": ["../assets/units/unit_grand_schtroumpf_sprite.png"],
+                "northMoveFrames": ["../assets/units/unit_grand_schtroumpf_back_sprite.png"],
+                "southMoveFrames": ["../assets/units/unit_grand_schtroumpf_front_sprite.png"],
+                "moveFrameSequence": [0]
+              }
+            }
+          }
+        },
+
+        "subtypes": [
+          { "id": "boat_01", "image": "../assets/vehicles/boat_d.png" }
+        ]
+      }
+    },
+    "wbarrow": {
+      "labels": {
+        "fr": "Brouette",
+        "en": "Wheelbarrow",
+        "es": "Carretilla",
+        "ru": "Тачка"
+      },
+      "ui": {
+        "icon": "🛒"
+      },
+      "availability" : {
+        "requiredTechs" : [ "wheelbarrow" ]
+      },
+      "rules": {
+        "width": 1,
+        "height": 1,
+        "placementTerrains": [["grass"]],
+        "walkable": true,
+        "foundationActionAvailable": true,
+        "mounted": {
+          "allowedActions": ["walk", "gatherFood", "gatherMaterials"],
+          "movementTerrains": ["grass"],
+          "multipliers": {
+            "moveCost": 2,
+            "workPointsPerTurn": {
+              "gatherFood": 2,
+              "gatherMaterials": 2
+            }
+          }
+        },
+        "constructionCost": 120,
+        "buildCost": {
+          "stone": 0,
+          "lumber": 40
+        }
+      },
+      "visual": {
+        "renderMode": "singleTile",
+        "abandonedImage": "../assets/vehicles/wb_idle.png",
+        "constructionImages": {
+          "initial": "../assets/vehicles/wb_init.png",
+          "half": "../assets/vehicles/wb_half.png"
+        },
+        "mountedRenders": {
+          "default": {
+            "unit": {
+              "fishingDirectionRenderOverrides": {
+                "west": { "offsetX": 0, "offsetY": 0 },
+                "east": { "offsetX": 0, "offsetY": 0 },
+                "north": { "offsetX": 0, "offsetY": 0 },
+                "south": { "offsetX": 0, "offsetY": 0 },
+                "northWest": { "offsetX": 0, "offsetY": 0 },
+                "northEast": { "offsetX": 0, "offsetY": 0 },
+                "southWest": { "offsetX": 0, "offsetY": 0 },
+                "southEast": { "offsetX": 0, "offsetY": 0 }
+              },
+              "offsetX": -5,
+              "offsetY": 1,
+              "directionRenderOverrides": {
+                "north": { "offsetX": 0, "offsetY": 5 },
+                "south": { "offsetX": 0, "offsetY": 0 },
+                "west": { "offsetX": 15 },
+                "northWest": { "offsetX": 15 },
+                "southWest": { "offsetX": 15 }
+              }
+            },
+            "vehicle": {
+              "fishingDirectionRenderOverrides": {
+                "west": { "offsetX": 20, "offsetY": 0 },
+                "east": { "offsetX": -20, "offsetY": 0 },
+                "north": { "offsetX": 0, "offsetY": 20 },
+                "south": { "offsetX": 0, "offsetY": -20 },
+                "northWest": { "offsetX": 20, "offsetY": 20 },
+                "northEast": { "offsetX": -20, "offsetY": 20 },
+                "southWest": { "offsetX": 20, "offsetY": -20 },
+                "southEast": { "offsetX": -20, "offsetY": -20 }
+              },
+              "directionRenderOverrides": {
+                "north": { "offsetX": -20, "offsetY": 0 }
+              },
+              "idleImage": "../assets/vehicles/wb_side.png",
+              "northImage": "../assets/vehicles/wb_back.png",
+              "southImage": "../assets/vehicles/wb_empty.png",
+              "moveFrames": ["../assets/vehicles/wb_side.png"],
+              "northMoveFrames": ["../assets/vehicles/wb_back.png"],
+              "southMoveFrames": ["../assets/vehicles/wb_empty.png"],
+              "moveFrameSequence": [0],
+              "width": 53,
+              "height": 28,
+              "anchorX": 22,
+              "anchorY": 18
+            }
+          },
+          "byUnitType": {
+            "villager": {
+              "unit": {
+                "idleImage": "../assets/units/unit_sprite.png",
+                "northImage": "../assets/units/unit_back_sprite.png",
+                "southImage": "../assets/units/unit_front_wb.png",
+                "moveFrames": ["../assets/units/unit_sprite.png", "../assets/units/unit_step_sprite.png"],
+                "northMoveFrames": ["../assets/units/unit_back_step_sprite.png", "../assets/units/unit_back_step_sprite_2.png"],
+                "southMoveFrames": ["../assets/units/unit_front_step_wb.png", "../assets/units/unit_front_step_2_wb.png"],
+                "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0]
+              }
+            },
+            "grandSchtroumpf": {
+              "unit": {
+                "idleImage": "../assets/units/unit_grand_schtroumpf_sprite.png",
+                "northImage": "../assets/units/unit_grand_schtroumpf_back_sprite.png",
+                "southImage": "../assets/units/unit_grand_schtroumpf_front_wb.png",
+                "moveFrames": ["../assets/units/unit_grand_schtroumpf_sprite.png", "../assets/units/unit_grand_schtroumpf_step_sprite.png"],
+                "northMoveFrames": ["../assets/units/unit_grand_schtroumpf_back_step_sprite.png", "../assets/units/unit_grand_schtroumpf_back_step_sprite_2.png"],
+                "southMoveFrames": ["../assets/units/unit_grand_schtroumpf_front_step_wb.png", "../assets/units/unit_grand_schtroumpf_front_step_2_wb.png"],
+                "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0]
+              }
+            }
+          }
+        },
+
+        "subtypes": [
+          { "id": "wb_01", "image": "../assets/vehicles/wb_idle.png" }
+        ]
+      }
+    }
+  }
+}

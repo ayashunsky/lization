@@ -10,6 +10,7 @@ window.APP_RULES = {
       grass: 1,
       forest: 1,
       mountain: 2,
+      water: 1,
     },
     paths: {
       wellKnownVisits: 10,
@@ -18,6 +19,12 @@ window.APP_RULES = {
     },
   },
   buildings: {
+    default: {
+      width: 1,
+      height: 1,
+    },
+  },
+  vehicles: {
     default: {
       width: 1,
       height: 1,

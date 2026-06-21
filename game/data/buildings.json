@@ -66,6 +66,9 @@
       "ui": {
         "icon": "⚗"
       },
+      "availability" : {
+        "requiredTechs" : [ "alchemy" ]
+      },
       "rules": {
         "width": 2,
         "height": 2,
@@ -121,6 +124,9 @@
       },
       "ui": {
         "icon": "^"
+      },
+      "availability" : {
+        "requiredTechs" : [ "hole_digging" ]
       },
       "rules": {
         "width": 1,
@@ -189,6 +195,9 @@
       "ui": {
         "icon": "^"
       },
+      "availability" : {
+        "requiredTechs" : [ "hole_digging" ]
+      },
       "rules": {
         "width": 1,
         "height": 3,
@@ -246,7 +255,6 @@
         ]
       }
     },
-
     "granary": {
       "labels": {
         "fr": "Grenier",

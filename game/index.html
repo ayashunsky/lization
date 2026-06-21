@@ -81,7 +81,6 @@
 
       <aside id="editInspector" class="edit-inspector" hidden>
         <p id="tileMenuTitle" class="tile-menu-title"></p>
-        <span class="edit-inspector-readout" data-role="hover-readout"></span>
         <div id="tileMenu" class="tile-menu">
           <div class="edit-section edit-section-tight">
             <div class="edit-dropdown-group">
@@ -164,6 +163,29 @@
               </div>
             </div>
           </div>
+          <div class="edit-section">
+            <div class="edit-dropdown-group">
+              <button class="menu-button edit-dropdown-toggle" data-action="toggle-editor-dropdown" data-editor-dropdown="vehicle" type="button" aria-expanded="false">
+                <span data-role="editor-vehicle-label"></span>
+              </button>
+              <div class="edit-dropdown-menu" data-role="editor-dropdown-menu" data-editor-dropdown-menu="vehicle" hidden>
+                <div id="vehicleMenuOptions" class="terrain-options" role="menu"></div>
+              </div>
+            </div>
+            <div class="edit-field-panel" data-role="editor-vehicle-panel" hidden>
+              <div class="edit-building-state-row">
+                <label class="edit-number-field edit-number-field-inline">
+                  <span class="edit-field-label-hidden" data-role="editor-completion-label"></span>
+                  <input class="edit-number-input" data-action="editor-vehicle-completion" type="number" min="0" max="100" step="1">
+                  <span class="edit-field-suffix" aria-hidden="true">%</span>
+                </label>
+                <label class="toggle-control edit-toggle-control">
+                  <input data-action="editor-vehicle-abandoned" type="checkbox">
+                  <span data-role="editor-abandoned-label"></span>
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="edit-unit-preview is-empty" data-role="editor-unit-preview">
           <img class="edit-unit-sprite" data-role="editor-unit-sprite" alt="">
@@ -178,6 +200,9 @@
       <nav id="unitActionBar" class="unit-action-bar" aria-label="Unit actions" hidden>
         <button class="unit-action-button" data-action="select-unit-action" data-unit-action="walk" type="button">
           <span aria-hidden="true">➜</span>
+        </button>
+        <button class="unit-action-button" data-action="select-unit-action" data-unit-action="dismount" type="button">
+          <span aria-hidden="true">↧</span>
         </button>
         <button class="unit-action-button" data-action="select-unit-action" data-unit-action="layFoundation" type="button">
           <span aria-hidden="true">▦</span>
