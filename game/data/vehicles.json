@@ -59,8 +59,6 @@
               "northMoveFrames": ["../assets/vehicles/boat_v.png"],
               "southMoveFrames": ["../assets/vehicles/boat_v.png"],
               "moveFrameSequence": [0],
-              "width": 55,
-              "height": 55,
               "anchorX": 27,
               "anchorY": 34
             }
@@ -142,15 +140,21 @@
         "mountedRenders": {
           "default": {
             "unit": {
-              "fishingDirectionRenderOverrides": {
-                "west": { "offsetX": 0, "offsetY": 0 },
-                "east": { "offsetX": 0, "offsetY": 0 },
-                "north": { "offsetX": 0, "offsetY": 0 },
-                "south": { "offsetX": 0, "offsetY": 0 },
-                "northWest": { "offsetX": 0, "offsetY": 0 },
-                "northEast": { "offsetX": 0, "offsetY": 0 },
-                "southWest": { "offsetX": 0, "offsetY": 0 },
-                "southEast": { "offsetX": 0, "offsetY": 0 }
+              "sourceDirectionRenderOverrides": {
+                "northFishingFrames": {
+                  "north": { "offsetX": 0, "offsetY": 0 }
+                },
+                "sideFishingFrames": {
+                  "west": { "offsetX": 0, "offsetY": 0 },
+                  "east": { "offsetX": 0, "offsetY": 0 },
+                  "northWest": { "offsetX": 0, "offsetY": 0 },
+                  "northEast": { "offsetX": 0, "offsetY": 0 },
+                  "southWest": { "offsetX": 0, "offsetY": 0 },
+                  "southEast": { "offsetX": 0, "offsetY": 0 }
+                },
+                "southFishingFrames": {
+                  "south": { "offsetX": 0, "offsetY": 0 }
+                }
               },
               "offsetX": -5,
               "offsetY": 1,
@@ -163,15 +167,29 @@
               }
             },
             "vehicle": {
-              "fishingDirectionRenderOverrides": {
-                "west": { "offsetX": 20, "offsetY": 0 },
-                "east": { "offsetX": -20, "offsetY": 0 },
-                "north": { "offsetX": 0, "offsetY": 20 },
-                "south": { "offsetX": 0, "offsetY": -20 },
-                "northWest": { "offsetX": 20, "offsetY": 20 },
-                "northEast": { "offsetX": -20, "offsetY": 20 },
-                "southWest": { "offsetX": 20, "offsetY": -20 },
-                "southEast": { "offsetX": -20, "offsetY": -20 }
+              "actionDirectionRenderOverrides": {
+                "gatherFood": {
+                  "north": { "offsetX": 0, "offsetY": 20 },
+                  "west": { "offsetX": 20, "offsetY": 0 },
+                  "east": { "offsetX": -20, "offsetY": 0 },
+                  "northWest": { "offsetX": 20, "offsetY": 20 },
+                  "northEast": { "offsetX": -20, "offsetY": 20 },
+                  "southWest": { "offsetX": 20, "offsetY": -20 },
+                  "southEast": { "offsetX": -20, "offsetY": -20 },
+                  "south": { "offsetX": 0, "offsetY": -20 }
+                }
+              },
+              "actionDirectionRenderOverrides": {
+                "gatherMaterials": {
+                  "north": { "offsetX": 0, "offsetY": 20 },
+                  "west": { "offsetX": 20, "offsetY": 0 },
+                  "east": { "offsetX": -20, "offsetY": 0 },
+                  "northWest": { "offsetX": 20, "offsetY": 20 },
+                  "northEast": { "offsetX": -20, "offsetY": 20 },
+                  "southWest": { "offsetX": 20, "offsetY": -20 },
+                  "southEast": { "offsetX": -20, "offsetY": -20 },
+                  "south": { "offsetX": 0, "offsetY": -20 }
+                }
               },
               "directionRenderOverrides": {
                 "north": { "offsetX": -20, "offsetY": 0 }
@@ -183,8 +201,6 @@
               "northMoveFrames": ["../assets/vehicles/wb_back.png"],
               "southMoveFrames": ["../assets/vehicles/wb_empty.png"],
               "moveFrameSequence": [0],
-              "width": 53,
-              "height": 28,
               "anchorX": 22,
               "anchorY": 18
             }
@@ -209,6 +225,13 @@
                 "moveFrames": ["../assets/units/unit_grand_schtroumpf_sprite.png", "../assets/units/unit_grand_schtroumpf_step_sprite.png"],
                 "northMoveFrames": ["../assets/units/unit_grand_schtroumpf_back_step_sprite.png", "../assets/units/unit_grand_schtroumpf_back_step_sprite_2.png"],
                 "southMoveFrames": ["../assets/units/unit_grand_schtroumpf_front_step_wb.png", "../assets/units/unit_grand_schtroumpf_front_step_2_wb.png"],
+                "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0]
+              }
+            },
+            "lunettes": {
+              "unit": {
+                "southImage": "../assets/units/lunettes_front_wb.png",
+                "southMoveFrames": ["../assets/units/lunettes_front_step_wb.png", "../assets/units/lunettes_front_step_2_wb.png"],
                 "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0]
               }
             }

@@ -83,10 +83,10 @@
         "fr": "Baguette de sourcier",
         "en": "Dowsing rod",
         "es": "Vara de zahori",
-        "ru": "Лозоходная лоза"
+        "ru": "Лозоходство"
       },
       "prerequisites": {
-        "tech": ["runes", "hole_digging"],
+        "tech": ["hole_digging"],
         "events": []
       }
     },
@@ -161,7 +161,7 @@
         "ru": "Строительство мостов"
       },
       "prerequisites": {
-        "tech": ["diy","spellbook"],
+        "tech": ["diy"],
         "events": []
       }
     },
@@ -170,13 +170,13 @@
       "cost": 100,
       "icon": "../assets/techs/boating.png",
       "labels": {
-        "fr": "Navigation",
-        "en": "Boating",
-        "es": "Navegacion",
-        "ru": "Лодочное дело"
+        "fr": "Barque",
+        "en": "Boat",
+        "es": "Barco",
+        "ru": "Лодка"
       },
       "prerequisites": {
-        "tech": ["spellbook", "diy"],
+        "tech": ["diy"],
         "events": []
       }
     }

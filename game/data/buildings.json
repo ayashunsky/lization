@@ -14,6 +14,13 @@
       "ui": {
         "icon": "⌂"
       },
+      "limits": {
+        "countByBuilding": {
+          "building": "well",
+          "base": 10,
+          "perBuilding": 10
+        }
+      },
       "rules": {
         "width": 1,
         "height": 1,
@@ -305,6 +312,53 @@
         "constructionImages": {
           "initial": "../assets/buildings/house_construct.png",
           "half": "../assets/buildings/granary_half.png"
+        },
+        "constructionStages": {
+          "initial": {
+            "renderMode": "perTile",
+            "yOffsetFactor": 0.2
+          }
+        }
+      }
+    },
+    "well": {
+      "labels": {
+        "fr": "Puit",
+        "en": "Well",
+        "es": "Pozo",
+        "ru": "Колодец"
+      },
+      "ui": {
+        "icon": "🚰"
+      },
+      "availability" : {
+        "requiredTechs" : [ "diving_rod" ]
+      },
+      "rules": {
+        "width": 1,
+        "height": 1,
+        "walkable": false,
+        "foundationActionAvailable": true,
+        "constructionCost": 100,
+        "buildCost": {
+          "stone": 100,
+          "lumber": 10
+        },
+        "constructionVisualThresholds": {
+          "initialMax": 0.34,
+          "halfMax": 0.79
+        },
+        "abandonedDecayPerTurn": 0.025
+      },
+      "visual": {
+        "renderMode": "singleTile",
+        "subtypes": [
+          { "id": "well_01", "image": "../assets/buildings/well_w.png" }
+        ],
+        "abandonedImage": "../assets/buildings/well_half.png",
+        "constructionImages": {
+          "initial": "../assets/buildings/well_init.png",
+          "half": "../assets/buildings/well_half.png"
         },
         "constructionStages": {
           "initial": {

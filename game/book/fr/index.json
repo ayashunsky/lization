@@ -20,15 +20,17 @@
     { "id": "page-13", "file": "title-02.html" },
     { "id": "alchemy", "file": "alchemy.html" },
     { "id": "diving_rod", "file": "diving_rod.html" },
+    { "id": "boating", "file": "boating.html" },
     { "id": "diy", "file": "diy.html" },
     { "id": "wheelbarrow", "file": "wheelbarrow.html" },
     { "id": "bridge_building", "file": "bridge_building.html" },
     { "id": "hole_digging", "file": "hole_digging.html" },
+    { "id": "grand_schtroumpf", "file": "grand_schtroumpf.html" }, 
     { "id": "spellbook", "file": "spellbook.html" },
     { "id": "music", "file": "music.html" },
-    { "id": "boating", "file": "boating.html" },
     { "id": "planting", "file": "planting.html" },
     { "id": "pottery", "file": "pottery.html" },
-    { "id": "runes", "file": "runes.html" }
+    { "id": "runes", "file": "runes.html" },
+    { "id": "schtroumpf", "file": "schtroumpf.html" } 
   ]
 }

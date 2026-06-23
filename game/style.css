@@ -530,58 +530,6 @@ p {
   line-height: 1.25;
 }
 
-.edit-unit-preview {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  height: 76px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--panel-strong);
-  box-sizing: border-box;
-}
-
-.edit-unit-preview[hidden] {
-  display: none;
-}
-
-.edit-unit-preview.is-empty .edit-unit-sprite,
-.edit-unit-preview.is-empty .edit-unit-name,
-.edit-unit-preview.is-empty .edit-unit-action {
-  visibility: hidden;
-}
-
-.edit-unit-meta {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-}
-
-.edit-unit-sprite {
-  display: block;
-  width: 36px;
-  height: 44px;
-  object-fit: contain;
-}
-
-.edit-unit-name {
-  color: var(--text);
-  font-size: calc(0.84rem * var(--ui-font-scale));
-  line-height: 1.1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.edit-unit-action {
-  justify-self: start;
-  min-height: 30px;
-  padding: 0 8px;
-  font-size: calc(0.78rem * var(--ui-font-scale));
-}
-
 .edit-research-button {
   width: 100%;
   min-height: 34px;

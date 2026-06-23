@@ -267,13 +267,19 @@ Supported structured fields:
 
 - `moveFrameSequence`
 - `directionRenderOverrides`
-- `fishingRenderSpec`
-- `fishingDirectionRenderOverrides`
+- `sourceRenderOverrides`
+- `sourceDirectionRenderOverrides`
+- `actionRenderOverrides`
+- `actionDirectionRenderOverrides`
 - `fishingDirections`
 
 The same sprite field set is also reused by `game/data/vehicles.json` for `visual.mountedRenders.*.unit` and `visual.mountedRenders.*.vehicle`. Those mounted overlay layers additionally support `offsetX` and `offsetY`.
 
 `researchFrames` are used for the stationary `Research` task. If omitted, the game falls back to `workFrames`.
+
+If `width` and `height` are omitted, the renderer derives them from the PNG canvas size, treating the asset as authored for 200% zoom. In that case the effective base size is `naturalWidth / 2` by `naturalHeight / 2`.
+
+If `anchorX` and `anchorY` are omitted, they default to bottom-center for the resolved sprite size.
 
 ### `directionRenderOverrides`
 
@@ -287,6 +293,63 @@ Example:
   "east": { "offsetX": 3 },
   "north": { "offsetY": -4 },
   "south": { "offsetY": 2 }
+}
+```
+
+### `sourceRenderOverrides`
+
+Maps sprite source field names to render-spec overrides. This is useful when a specific frame set needs different placement than the rest, such as fishing frames or a special move set.
+
+Example:
+
+```json
+"sourceRenderOverrides": {
+  "southFishingFrames": { "anchorY": 34.5 },
+  "researchFrames": { "offsetY": -3 }
+}
+```
+
+### `sourceDirectionRenderOverrides`
+
+Maps sprite source field names to per-direction render-spec overrides. This is the preferred way to handle source-specific placement that must still vary by facing.
+
+Example:
+
+```json
+"sourceDirectionRenderOverrides": {
+  "sideFishingFrames": {
+    "west": { "offsetX": 20 },
+    "east": { "offsetX": -20 }
+  }
+}
+```
+
+### `actionRenderOverrides`
+
+Maps action ids to render-spec overrides. Use this for action-wide placement changes such as shifting all `gatherFood` renders without touching idle or movement.
+
+Example:
+
+```json
+"actionRenderOverrides": {
+  "gatherFood": { "offsetY": -6 },
+  "research": { "offsetX": 2, "offsetY": -4 }
+}
+```
+
+### `actionDirectionRenderOverrides`
+
+Maps action ids to per-direction render-spec overrides. This is the most specific placement layer short of the legacy fishing-specific fields.
+
+Example:
+
+```json
+"actionDirectionRenderOverrides": {
+  "gatherFood": {
+    "west": { "offsetX": -5 },
+    "east": { "offsetX": 5 },
+    "south": { "offsetY": 4 }
+  }
 }
 ```
 

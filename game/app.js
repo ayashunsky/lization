@@ -46,6 +46,8 @@ const variantMenuOptions = document.querySelector("#variantMenuOptions");
 const foodMenuOptions = document.querySelector("#foodMenuOptions");
 const buildingMenuOptions = document.querySelector("#buildingMenuOptions");
 const vehicleMenuOptions = document.querySelector("#vehicleMenuOptions");
+const unitMenuOptions = document.querySelector("#unitMenuOptions");
+const unitActionMenuOptions = document.querySelector("#unitActionMenuOptions");
 const editorDropdownToggleButtons = [...document.querySelectorAll('[data-action="toggle-editor-dropdown"]')];
 const editorDropdownMenuElements = [...document.querySelectorAll('[data-role="editor-dropdown-menu"]')];
 const editorTerrainLabelElements = [...document.querySelectorAll('[data-role="editor-terrain-label"]')];
@@ -53,10 +55,8 @@ const editorVisualLabelElements = [...document.querySelectorAll('[data-role="edi
 const editorFoodLabelElements = [...document.querySelectorAll('[data-role="editor-food-label"]')];
 const editorBuildingLabelElements = [...document.querySelectorAll('[data-role="editor-building-label"]')];
 const editorVehicleLabelElements = [...document.querySelectorAll('[data-role="editor-vehicle-label"]')];
-const editorUnitPreviewElements = [...document.querySelectorAll('[data-role="editor-unit-preview"]')];
-const editorUnitSpriteImages = [...document.querySelectorAll('[data-role="editor-unit-sprite"]')];
-const editorUnitNameElements = [...document.querySelectorAll('[data-role="editor-unit-name"]')];
-const editorUnitActionElements = [...document.querySelectorAll('[data-role="editor-unit-action"]')];
+const editorUnitLabelElements = [...document.querySelectorAll('[data-role="editor-unit-label"]')];
+const editorUnitActionLabelElements = [...document.querySelectorAll('[data-role="editor-unit-action-label"]')];
 const openEditorResearchButtons = [...document.querySelectorAll('[data-action="open-editor-research"]')];
 const closeEditorResearchButtons = [...document.querySelectorAll('[data-action="close-editor-research"]')];
 const clearEditorResearchGoalButtons = [...document.querySelectorAll('[data-action="clear-editor-research-goal"]')];
@@ -203,6 +203,13 @@ const unitActions = {
   buildHouse: "buildHouse",
   demolish: "demolish",
 };
+const unitUiActions = Object.freeze({
+  work: "work",
+});
+const editorSupportedUnitActions = Object.freeze([
+  unitActions.play,
+  unitActions.research,
+]);
 const orderedUnitActions = Object.freeze(Object.values(unitActions));
 let unitSpriteConfigs = createDefaultUnitSpriteConfigs();
 
@@ -872,19 +879,29 @@ function normalizeSpriteAnimationConfig(
       .filter((value) => Number.isFinite(value));
   }
 
-  const fishingRenderSpec = normalizeNumericObject(spriteEntry.fishingRenderSpec);
-  if (fishingRenderSpec) {
-    normalized.fishingRenderSpec = fishingRenderSpec;
-  }
-
-  const fishingDirectionRenderOverrides = normalizeNestedNumericObjects(spriteEntry.fishingDirectionRenderOverrides);
-  if (fishingDirectionRenderOverrides) {
-    normalized.fishingDirectionRenderOverrides = fishingDirectionRenderOverrides;
-  }
-
   const directionRenderOverrides = normalizeNestedNumericObjects(spriteEntry.directionRenderOverrides);
   if (directionRenderOverrides) {
     normalized.directionRenderOverrides = directionRenderOverrides;
+  }
+
+  const sourceRenderOverrides = normalizeNestedNumericObjects(spriteEntry.sourceRenderOverrides);
+  if (sourceRenderOverrides) {
+    normalized.sourceRenderOverrides = sourceRenderOverrides;
+  }
+
+  const sourceDirectionRenderOverrides = normalizeDoubleNestedNumericObjects(spriteEntry.sourceDirectionRenderOverrides);
+  if (sourceDirectionRenderOverrides) {
+    normalized.sourceDirectionRenderOverrides = sourceDirectionRenderOverrides;
+  }
+
+  const actionRenderOverrides = normalizeNestedNumericObjects(spriteEntry.actionRenderOverrides);
+  if (actionRenderOverrides) {
+    normalized.actionRenderOverrides = actionRenderOverrides;
+  }
+
+  const actionDirectionRenderOverrides = normalizeDoubleNestedNumericObjects(spriteEntry.actionDirectionRenderOverrides);
+  if (actionDirectionRenderOverrides) {
+    normalized.actionDirectionRenderOverrides = actionDirectionRenderOverrides;
   }
 
   const fishingDirections = normalizeFishingDirectionEntries(spriteEntry.fishingDirections);
@@ -958,6 +975,27 @@ function normalizeNestedNumericObjects(entry) {
   for (const [key, value] of Object.entries(entry)) {
     const normalizedKey = typeof key === "string" ? key.trim() : "";
     const normalizedValue = normalizeNumericObject(value);
+
+    if (!normalizedKey || !normalizedValue) {
+      continue;
+    }
+
+    normalized[normalizedKey] = normalizedValue;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function normalizeDoubleNestedNumericObjects(entry) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    return undefined;
+  }
+
+  const normalized = {};
+
+  for (const [key, value] of Object.entries(entry)) {
+    const normalizedKey = typeof key === "string" ? key.trim() : "";
+    const normalizedValue = normalizeNestedNumericObjects(value);
 
     if (!normalizedKey || !normalizedValue) {
       continue;
@@ -1193,6 +1231,24 @@ function normalizeRuleCountMap(value) {
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+function normalizeRuleQuantityMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const normalized = Object.fromEntries(
+    Object.entries(value)
+      .map(([key, amount]) => {
+        const normalizedKey = typeof key === "string" ? key.trim() : "";
+        const normalizedAmount = clampNonNegativeNumber(amount, 999999, 0);
+        return normalizedKey ? [normalizedKey, normalizedAmount] : null;
+      })
+      .filter(Boolean),
+  );
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
 function normalizeRuleRequirements(entry) {
   const requirements = entry && typeof entry === "object" ? entry : {};
   const nextUnitNumberEquals = Number(requirements.nextUnitNumberEquals);
@@ -1247,18 +1303,18 @@ function normalizeBuildingRulesModifierSet(entry) {
   }
 
   if (Number.isFinite(Number(rulesEntry.constructionCost))) {
-    normalized.constructionCost = Math.max(1, Math.floor(Number(rulesEntry.constructionCost)));
+    normalized.constructionCost = Math.max(1, clampNumber(rulesEntry.constructionCost, 1, 999999, 100));
   }
 
   if (rulesEntry.buildCost && typeof rulesEntry.buildCost === "object") {
     const buildCost = {};
 
     if (Number.isFinite(Number(rulesEntry.buildCost.stone))) {
-      buildCost.stone = Math.max(0, Math.floor(Number(rulesEntry.buildCost.stone)));
+      buildCost.stone = clampNonNegativeNumber(rulesEntry.buildCost.stone, 999999, 0);
     }
 
     if (Number.isFinite(Number(rulesEntry.buildCost.lumber))) {
-      buildCost.lumber = Math.max(0, Math.floor(Number(rulesEntry.buildCost.lumber)));
+      buildCost.lumber = clampNonNegativeNumber(rulesEntry.buildCost.lumber, 999999, 0);
     }
 
     if (Object.keys(buildCost).length > 0) {
@@ -1266,7 +1322,7 @@ function normalizeBuildingRulesModifierSet(entry) {
     }
   }
 
-  const resourceStorageCapacities = normalizeRuleCountMap(rulesEntry.resourceStorageCapacities);
+  const resourceStorageCapacities = normalizeRuleQuantityMap(rulesEntry.resourceStorageCapacities);
   if (resourceStorageCapacities) {
     normalized.resourceStorageCapacities = resourceStorageCapacities;
   }
@@ -1484,20 +1540,20 @@ function normalizeBuildingRulesEntry(entry) {
         return normalizedTerrains.length > 0 ? normalizedTerrains : null;
       })
     : undefined;
-  const buildCostStone = Math.max(0, Math.floor(Number(rulesEntry.buildCost?.stone) || 0));
-  const buildCostLumber = Math.max(0, Math.floor(Number(rulesEntry.buildCost?.lumber) || 0));
+  const buildCostStone = clampNonNegativeNumber(rulesEntry.buildCost?.stone, 999999, 0);
+  const buildCostLumber = clampNonNegativeNumber(rulesEntry.buildCost?.lumber, 999999, 0);
   const resourceStorageCapacities = rulesEntry.resourceStorageCapacities && typeof rulesEntry.resourceStorageCapacities === "object"
     ? Object.fromEntries(
       Object.entries(rulesEntry.resourceStorageCapacities)
         .map(([resourceType, value]) => {
           const normalizedResourceType = typeof resourceType === "string" ? resourceType.trim() : "";
-          const normalizedValue = Math.max(0, Math.floor(Number(value) || 0));
+          const normalizedValue = clampNonNegativeNumber(value, 999999, 0);
           return normalizedResourceType ? [normalizedResourceType, normalizedValue] : null;
         })
         .filter(Boolean),
     )
     : undefined;
-  const constructionCost = Math.max(1, Math.floor(Number(rulesEntry.constructionCost) || 100));
+  const constructionCost = Math.max(1, clampNumber(rulesEntry.constructionCost, 1, 999999, 100));
   const initialMax = Number(rulesEntry.constructionVisualThresholds?.initialMax);
   const halfMax = Number(rulesEntry.constructionVisualThresholds?.halfMax);
   const abandonedDecayPerTurn = Number(rulesEntry.abandonedDecayPerTurn);
@@ -1742,7 +1798,9 @@ function formatBookBindingValue(value) {
   }
 
   if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
-    return String(value);
+    return typeof value === "number"
+      ? formatDisplayedNumber(value)
+      : String(value);
   }
 
   if (typeof value === "function") {
@@ -2029,7 +2087,7 @@ function normalizeResearchProgressByTechId(rawProgressByTechId) {
     Object.entries(rawProgressByTechId)
       .map(([technologyId, progress]) => {
         const normalizedTechnologyId = typeof technologyId === "string" ? technologyId.trim() : "";
-        const normalizedProgress = Math.max(0, Math.floor(Number(progress) || 0));
+        const normalizedProgress = clampNonNegativeNumber(progress, 999999999, 0);
         return normalizedTechnologyId ? [normalizedTechnologyId, normalizedProgress] : null;
       })
       .filter(Boolean),
@@ -2082,7 +2140,7 @@ function normalizeTechnologyManifestEntry(entry, index, manifestPath = technolog
   }
 
   const id = typeof entry.id === "string" ? entry.id.trim() : "";
-  const cost = Math.max(0, Math.floor(Number(entry.cost) || 0));
+  const cost = clampNonNegativeNumber(entry.cost, 999999999, 0);
   const icon = typeof entry.icon === "string" && entry.icon.trim()
     ? resolveTechnologyAssetPath(entry.icon.trim(), manifestPath)
     : null;
@@ -2261,7 +2319,7 @@ function getTechnologyProgress(technologyId, state = researchState) {
 
   return Math.max(
     0,
-    clampInteger(state?.progressByTechId?.[technologyId.trim()], 0, 999999999, 0),
+    clampNonNegativeNumber(state?.progressByTechId?.[technologyId.trim()], 999999999, 0),
   );
 }
 
@@ -2276,7 +2334,7 @@ function getTechnologyProgressPercent(technologyId, state = researchState) {
     return 100;
   }
 
-  const cost = Math.max(0, Math.floor(Number(technology.cost) || 0));
+  const cost = clampNonNegativeNumber(technology.cost, 999999999, 0);
 
   if (cost <= 0) {
     return 0;
@@ -2381,7 +2439,7 @@ function markTechnologyDiscovered(technologyId, { refresh = true } = {}) {
 
 function addResearchProgressToTechnology(technologyId, amount, { refresh = true } = {}) {
   const technology = getTechnologyDefinition(technologyId);
-  const normalizedAmount = Math.max(0, Math.floor(Number(amount) || 0));
+  const normalizedAmount = clampNonNegativeNumber(amount, 999999999, 0);
 
   if (!technology || normalizedAmount <= 0 || isTechnologyDiscovered(technology.id)) {
     return false;
@@ -2389,7 +2447,7 @@ function addResearchProgressToTechnology(technologyId, amount, { refresh = true 
 
   const currentProgress = getTechnologyProgress(technology.id);
   const nextProgress = currentProgress + normalizedAmount;
-  const cost = Math.max(0, Math.floor(Number(technology.cost) || 0));
+  const cost = clampNonNegativeNumber(technology.cost, 999999999, 0);
 
   if (cost > 0 && nextProgress >= cost) {
     markTechnologyDiscovered(technology.id, { refresh });
@@ -2521,15 +2579,15 @@ function renderEditorResearchPanel() {
     progressInput.dataset.technologyId = technology.id;
     progressInput.type = "number";
     progressInput.min = "0";
-    progressInput.step = "1";
+    progressInput.step = "any";
     progressInput.disabled = isDiscovered;
     progressInput.value = String(
       isDiscovered
-        ? Math.max(0, Math.floor(Number(technology.cost) || 0))
-        : getTechnologyProgress(technology.id),
+        ? roundDisplayedQuantity(technology.cost)
+        : roundDisplayedQuantity(getTechnologyProgress(technology.id)),
     );
     progressSuffix.className = "edit-field-suffix";
-    progressSuffix.textContent = `/${Math.max(0, Math.floor(Number(technology.cost) || 0))}`;
+    progressSuffix.textContent = `/${formatDisplayedQuantity(technology.cost)}`;
     progressField.append(progressInput, progressSuffix);
 
     copy.append(name, meta);
@@ -3324,6 +3382,89 @@ function normalizePendingUnitAction(action) {
   return Object.values(unitActions).includes(action) ? action : null;
 }
 
+function normalizeSelectableUnitAction(action) {
+  if (action === unitUiActions.work) {
+    return unitUiActions.work;
+  }
+
+  return normalizeUnitAction(action);
+}
+
+function normalizePendingSelectableUnitAction(action) {
+  if (action === unitUiActions.work) {
+    return unitUiActions.work;
+  }
+
+  return normalizePendingUnitAction(action);
+}
+
+function isUnitWorkRepresentedAction(action) {
+  return action === unitActions.gatherMaterials || action === unitActions.buildHouse;
+}
+
+function canUnitUseWorkUiAction(currentUnit = unit, context = getRuleContext()) {
+  return canUnitUseAction(currentUnit, unitActions.gatherMaterials, context)
+    || canUnitUseAction(currentUnit, unitActions.buildHouse, context);
+}
+
+function getWorkUiTargetCells(currentUnit = unit, context = getRuleContext()) {
+  if (!currentUnit) {
+    return [];
+  }
+
+  const keyedCells = new Map();
+
+  if (canUnitUseAction(currentUnit, unitActions.buildHouse, context)) {
+    for (const cell of getBuildableAdjacentCells(currentUnit)) {
+      keyedCells.set(`${cell.x},${cell.y}`, cell);
+    }
+  }
+
+  if (canUnitUseAction(currentUnit, unitActions.gatherMaterials, context)) {
+    for (const cell of getGatherMaterialsCells(currentUnit)) {
+      keyedCells.set(`${cell.x},${cell.y}`, cell);
+    }
+  }
+
+  return [...keyedCells.values()];
+}
+
+function canUnitUseSelectableAction(currentUnit = unit, action, context = getRuleContext()) {
+  const normalizedAction = normalizePendingSelectableUnitAction(action);
+
+  if (!normalizedAction) {
+    return false;
+  }
+
+  if (normalizedAction === unitUiActions.work) {
+    return canUnitUseWorkUiAction(currentUnit, context);
+  }
+
+  return canUnitUseAction(currentUnit, normalizedAction, context);
+}
+
+function getSelectableUnitActions(currentUnit = unit, context = getRuleContext()) {
+  const selectableActions = [
+    unitActions.walk,
+    unitActions.dismount,
+    unitActions.layFoundation,
+    unitActions.play,
+    unitActions.research,
+    unitActions.gatherFood,
+    unitUiActions.work,
+    unitActions.demolish,
+  ];
+
+  return selectableActions.filter((action) => canUnitUseSelectableAction(currentUnit, action, context));
+}
+
+function doesSelectedUnitActionMatchTaskAction(selectedAction, taskAction) {
+  return selectedAction === taskAction || (
+    selectedAction === unitUiActions.work &&
+    isUnitWorkRepresentedAction(taskAction)
+  );
+}
+
 function getUnitAllowedActions(currentUnit = unit, context = getRuleContext()) {
   if (!currentUnit) {
     return orderedUnitActions.filter((action) => action !== unitActions.dismount);
@@ -3406,17 +3547,17 @@ function getUnitResearchPointsPerTurn(currentUnit = unit, context = getRuleConte
 }
 
 function getPreferredUnitAction(currentUnit = getSelectedUnit(), preferredAction = unitActions.walk) {
-  const normalizedPreferred = normalizePendingUnitAction(preferredAction);
+  const normalizedPreferred = normalizePendingSelectableUnitAction(preferredAction);
 
   if (!currentUnit) {
     return normalizedPreferred || unitActions.walk;
   }
 
-  if (normalizedPreferred && canUnitUseAction(currentUnit, normalizedPreferred)) {
+  if (normalizedPreferred && canUnitUseSelectableAction(currentUnit, normalizedPreferred)) {
     return normalizedPreferred;
   }
 
-  return getUnitAllowedActions(currentUnit)[0] || null;
+  return getSelectableUnitActions(currentUnit)[0] || null;
 }
 
 function isCellTargetUnitAction(action) {
@@ -3425,6 +3566,7 @@ function isCellTargetUnitAction(action) {
     action === unitActions.dismount ||
     action === unitActions.layFoundation ||
     action === unitActions.gatherFood ||
+    action === unitUiActions.work ||
     action === unitActions.gatherMaterials ||
     action === unitActions.buildHouse ||
     action === unitActions.demolish
@@ -3450,6 +3592,10 @@ function getUnitActionLabel(action) {
 
   if (action === unitActions.gatherFood) {
     return strings.actions.gatherFood;
+  }
+
+  if (action === unitUiActions.work) {
+    return strings.actions.work;
   }
 
   if (action === unitActions.gatherMaterials) {
@@ -3611,7 +3757,7 @@ function applyStaticText() {
   setAttributeForElements(nextSituationMessageButtons, "title", strings.actions.nextMessage);
 
   for (const button of unitActionButtons) {
-    const action = normalizeUnitAction(button.dataset.unitAction);
+    const action = normalizeSelectableUnitAction(button.dataset.unitAction);
     const label = getUnitActionLabel(action);
 
     button.setAttribute("aria-label", label);
@@ -3849,13 +3995,13 @@ function updateStockpileReadout() {
     }
   }
 
-  setTextContent(resourceStoneCaptions, `${stoneAmount}/${stoneCapacity}`);
-  setTextContent(resourceLumberCaptions, `${lumberAmount}/${lumberCapacity}`);
+  setTextContent(resourceStoneCaptions, `${formatDisplayedQuantity(stoneAmount)}/${formatDisplayedQuantity(stoneCapacity)}`);
+  setTextContent(resourceLumberCaptions, `${formatDisplayedQuantity(lumberAmount)}/${formatDisplayedQuantity(lumberCapacity)}`);
   setTextContent(
     resourceFoodCaptions,
     foodShortageTurns > 0
       ? `${foodShortageTurns}/${shortageThreshold}`
-      : `${foodAmount}/${foodCapacity}`,
+      : `${formatDisplayedQuantity(foodAmount)}/${formatDisplayedQuantity(foodCapacity)}`,
   );
 }
 
@@ -3909,7 +4055,7 @@ function getTileInspectorInfoEntries(cell) {
       entries.push({
         kind: "food",
         cell,
-        label: `${Math.max(0, Math.floor(cell.foodAmount))}/${getCellFoodMaxAmount(cell)}`,
+        label: `${formatDisplayedQuantity(cell.foodAmount)}/${formatDisplayedQuantity(getCellFoodMaxAmount(cell))}`,
       });
     }
   }
@@ -3919,7 +4065,7 @@ function getTileInspectorInfoEntries(cell) {
       kind: "material",
       cell,
       materialType,
-      label: `${Math.max(0, Math.floor(cell.materialAmount))}`,
+      label: formatDisplayedQuantity(cell.materialAmount),
     });
   } else if (pathProgressEligible) {
     const completionPercent = getPathCompletionPercent(cell);
@@ -4325,7 +4471,7 @@ function getDefaultUnitStamina(unitTypeId = getDefaultUnitTypeId(), context = ge
     return 2;
   }
 
-  return Math.max(1, clampInteger(configured, 1, 999, 2));
+  return Math.max(1, clampNumber(configured, 1, 999, 2));
 }
 
 function getDefaultUnitName(unitTypeId = getDefaultUnitTypeId(), context = getRuleContext()) {
@@ -4373,7 +4519,7 @@ function getBuildingResident(buildingOrId) {
 }
 
 function getUnitMaxStamina(currentUnit = unit, context = getRuleContext()) {
-  return Math.max(1, clampInteger(getDefaultUnitStamina(getUnitTypeId(currentUnit), context), 1, 999, 2));
+  return Math.max(1, clampNumber(getDefaultUnitStamina(getUnitTypeId(currentUnit), context), 1, 999, 2));
 }
 
 function getUnitStamina(currentUnit = unit) {
@@ -4520,19 +4666,19 @@ function createEmptyStockpile() {
   const initial = rules.resources?.stockpile?.initial || {};
 
   return {
-    stone: Math.max(0, clampInteger(initial.stone, 0, 999999, 0)),
-    lumber: Math.max(0, clampInteger(initial.lumber, 0, 999999, 0)),
-    food: Math.max(0, clampInteger(initial.food, 0, 999999, 0)),
+    stone: clampNonNegativeNumber(initial.stone, 999999, 0),
+    lumber: clampNonNegativeNumber(initial.lumber, 999999, 0),
+    food: clampNonNegativeNumber(initial.food, 999999, 0),
   };
 }
 
 function getMaterialAmountForTerrain(type) {
   if (type === "mountain") {
-    return Math.max(0, clampInteger(rules.resources?.materials?.mountainStonePerTile, 0, 999999, 260));
+    return clampNonNegativeNumber(rules.resources?.materials?.mountainStonePerTile, 999999, 260);
   }
 
   if (type === "forest") {
-    return Math.max(0, clampInteger(rules.resources?.materials?.forestLumberPerTile, 0, 999999, 220));
+    return clampNonNegativeNumber(rules.resources?.materials?.forestLumberPerTile, 999999, 220);
   }
 
   return 0;
@@ -4545,7 +4691,7 @@ function getBuildingResourceStorageCapacity(type, resourceType, context = getRul
 
   return Math.max(
     0,
-    clampInteger(getEffectiveBuildingRules(type, context)?.resourceStorageCapacities?.[resourceType], 0, 999999, 0),
+    clampNumber(getEffectiveBuildingRules(type, context)?.resourceStorageCapacities?.[resourceType], 0, 999999, 0),
   );
 }
 
@@ -4585,8 +4731,8 @@ function getBuildingBuildCost(type = "house", context = getRuleContext()) {
   const buildCost = getEffectiveBuildingRules(type, context)?.buildCost || {};
 
   return {
-    stone: Math.max(0, clampInteger(buildCost.stone, 0, 999999, 20)),
-    lumber: Math.max(0, clampInteger(buildCost.lumber, 0, 999999, 30)),
+    stone: clampNonNegativeNumber(buildCost.stone, 999999, 20),
+    lumber: clampNonNegativeNumber(buildCost.lumber, 999999, 30),
   };
 }
 
@@ -4598,8 +4744,8 @@ function getVehicleBuildCost(type, context = getRuleContext()) {
   const buildCost = getEffectiveVehicleRules(type, context)?.buildCost || {};
 
   return {
-    stone: Math.max(0, clampInteger(buildCost.stone, 0, 999999, 0)),
-    lumber: Math.max(0, clampInteger(buildCost.lumber, 0, 999999, 0)),
+    stone: clampNonNegativeNumber(buildCost.stone, 999999, 0),
+    lumber: clampNonNegativeNumber(buildCost.lumber, 999999, 0),
   };
 }
 
@@ -4619,7 +4765,7 @@ function getBuildingBuildCostStatus(type = "house", context = getRuleContext()) 
   ].map((entry) => ({
     ...entry,
     missing: Math.max(0, entry.required - entry.available),
-    affordable: entry.available >= entry.required,
+    affordable: hasSufficientQuantity(entry.available, entry.required),
   }));
 
   return {
@@ -4649,7 +4795,7 @@ function getVehicleBuildCostStatus(type, context = getRuleContext()) {
   ].map((entry) => ({
     ...entry,
     missing: Math.max(0, entry.required - entry.available),
-    affordable: entry.available >= entry.required,
+    affordable: hasSufficientQuantity(entry.available, entry.required),
   }));
 
   return {
@@ -4704,7 +4850,7 @@ function getCellFoodMaxAmount(cell) {
     return 0;
   }
 
-  return Math.max(0, clampInteger(cell.foodCapacity, 0, 999999, getFoodTypeMaxAmount(cell.foodType)));
+  return clampNonNegativeNumber(cell.foodCapacity, 999999, getFoodTypeMaxAmount(cell.foodType));
 }
 
 function getResourceLabel(resourceType) {
@@ -4732,11 +4878,11 @@ function hasMaterialResource(cell) {
 }
 
 function getCurrentStockpileAmount(resourceType) {
-  return Math.max(0, clampInteger(stockpile?.[resourceType], 0, 999999, 0));
+  return clampNonNegativeNumber(stockpile?.[resourceType], 999999, 0);
 }
 
 function addToStockpile(resourceType, amount) {
-  const normalizedAmount = Math.max(0, Math.floor(amount));
+  const normalizedAmount = clampNonNegativeNumber(amount, 999999, 0);
   const capacity = getResourceStorageCapacity(resourceType);
   const currentAmount = getCurrentStockpileAmount(resourceType);
   const nextAmount = clamp(currentAmount + normalizedAmount, 0, capacity);
@@ -4754,14 +4900,14 @@ function clampStockpileToCapacity() {
 }
 
 function spendFromStockpile(resourceType, amount) {
-  const normalizedAmount = Math.max(0, Math.floor(amount));
+  const normalizedAmount = clampNonNegativeNumber(amount, 999999, 0);
   const currentAmount = getCurrentStockpileAmount(resourceType);
 
-  if (currentAmount < normalizedAmount) {
+  if (!hasSufficientQuantity(currentAmount, normalizedAmount)) {
     return false;
   }
 
-  stockpile[resourceType] = currentAmount - normalizedAmount;
+  stockpile[resourceType] = clamp(currentAmount - normalizedAmount, 0, getResourceStorageCapacity(resourceType));
   return true;
 }
 
@@ -4769,8 +4915,8 @@ function canAffordBuildingConstruction(type = "house") {
   const buildCost = getBuildingBuildCost(type);
 
   return (
-    getCurrentStockpileAmount("stone") >= buildCost.stone &&
-    getCurrentStockpileAmount("lumber") >= buildCost.lumber
+    hasSufficientQuantity(getCurrentStockpileAmount("stone"), buildCost.stone) &&
+    hasSufficientQuantity(getCurrentStockpileAmount("lumber"), buildCost.lumber)
   );
 }
 
@@ -4782,8 +4928,8 @@ function canAffordVehicleConstruction(type) {
   const buildCost = getVehicleBuildCost(type);
 
   return (
-    getCurrentStockpileAmount("stone") >= buildCost.stone &&
-    getCurrentStockpileAmount("lumber") >= buildCost.lumber
+    hasSufficientQuantity(getCurrentStockpileAmount("stone"), buildCost.stone) &&
+    hasSufficientQuantity(getCurrentStockpileAmount("lumber"), buildCost.lumber)
   );
 }
 
@@ -5657,11 +5803,11 @@ function getBuildingCompleteness(building) {
 }
 
 function getBuildingConstructionCost(type, context = getRuleContext()) {
-  return Math.max(1, clampInteger(getEffectiveBuildingRules(type, context)?.constructionCost, 1, 999999, 100));
+  return Math.max(1, clampNumber(getEffectiveBuildingRules(type, context)?.constructionCost, 1, 999999, 100));
 }
 
 function getVehicleConstructionCost(type, context = getRuleContext()) {
-  return Math.max(1, clampInteger(getEffectiveVehicleRules(type, context)?.constructionCost, 1, 999999, 100));
+  return Math.max(1, clampNumber(getEffectiveVehicleRules(type, context)?.constructionCost, 1, 999999, 100));
 }
 
 function isBuildingWalkable(type, context = getRuleContext()) {
@@ -7735,6 +7881,33 @@ function clampNumber(value, min, max, fallback = min) {
   return clamp(number, min, max);
 }
 
+const quantityEpsilon = 1e-6;
+
+function clampNonNegativeNumber(value, max = 999999, fallback = 0) {
+  return Math.max(0, clampNumber(value, 0, max, fallback));
+}
+
+function roundDisplayedNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Math.round(Number.isFinite(number) ? number : fallback);
+}
+
+function roundDisplayedQuantity(value, fallback = 0) {
+  return Math.max(0, roundDisplayedNumber(value, fallback));
+}
+
+function formatDisplayedNumber(value, fallback = 0) {
+  return String(roundDisplayedNumber(value, fallback));
+}
+
+function formatDisplayedQuantity(value, fallback = 0) {
+  return String(roundDisplayedQuantity(value, fallback));
+}
+
+function hasSufficientQuantity(available, required) {
+  return Number(available) + quantityEpsilon >= Number(required);
+}
+
 function getConfiguredUnitTypes() {
   const configured = rules.units?.types;
   return configured && typeof configured === "object" ? configured : {};
@@ -7947,6 +8120,16 @@ function mergeSpriteDirectionObjects(baseEntries, overrideEntries) {
   return merged;
 }
 
+function mergeDoubleNestedSpriteDirectionObjects(baseEntries, overrideEntries) {
+  const merged = { ...(baseEntries || {}) };
+
+  for (const [key, value] of Object.entries(overrideEntries || {})) {
+    merged[key] = mergeSpriteDirectionObjects(baseEntries?.[key], value);
+  }
+
+  return merged;
+}
+
 function mergeSpriteConfigs(baseConfig, overrideConfig) {
   const base = baseConfig && typeof baseConfig === "object" ? baseConfig : {};
   const override = overrideConfig && typeof overrideConfig === "object" ? overrideConfig : {};
@@ -7954,17 +8137,25 @@ function mergeSpriteConfigs(baseConfig, overrideConfig) {
   return {
     ...base,
     ...override,
-    fishingRenderSpec: {
-      ...(base.fishingRenderSpec || {}),
-      ...(override.fishingRenderSpec || {}),
-    },
     directionRenderOverrides: mergeSpriteDirectionObjects(
       base.directionRenderOverrides,
       override.directionRenderOverrides,
     ),
-    fishingDirectionRenderOverrides: mergeSpriteDirectionObjects(
-      base.fishingDirectionRenderOverrides,
-      override.fishingDirectionRenderOverrides,
+    sourceRenderOverrides: mergeSpriteDirectionObjects(
+      base.sourceRenderOverrides,
+      override.sourceRenderOverrides,
+    ),
+    sourceDirectionRenderOverrides: mergeDoubleNestedSpriteDirectionObjects(
+      base.sourceDirectionRenderOverrides,
+      override.sourceDirectionRenderOverrides,
+    ),
+    actionRenderOverrides: mergeSpriteDirectionObjects(
+      base.actionRenderOverrides,
+      override.actionRenderOverrides,
+    ),
+    actionDirectionRenderOverrides: mergeDoubleNestedSpriteDirectionObjects(
+      base.actionDirectionRenderOverrides,
+      override.actionDirectionRenderOverrides,
     ),
     fishingDirections: mergeSpriteDirectionObjects(
       base.fishingDirections,
@@ -8085,10 +8276,10 @@ function serializeCell(cell) {
     variant: ensureCellVariant(cell),
     visited: Boolean(cell.visited),
     visitsCount: Math.max(0, clampInteger(cell.visitsCount, 0, getCellPathWellKnownVisitsThreshold(cell), 0)),
-    materialAmount: Math.max(0, clampInteger(cell.materialAmount, 0, 999999, 0)),
+    materialAmount: clampNonNegativeNumber(cell.materialAmount, 999999, 0),
     foodType: typeof cell.foodType === "string" && cell.foodType ? cell.foodType : null,
     foodCapacity: getCellFoodMaxAmount(cell),
-    foodAmount: Math.max(0, clampInteger(cell.foodAmount, 0, 999999, 0)),
+    foodAmount: clampNonNegativeNumber(cell.foodAmount, 999999, 0),
   };
 }
 
@@ -9079,16 +9270,19 @@ function normalizeMapState(rawMap) {
       const variants = getTerrainVariants(cell.type);
       const foodCapacity =
         typeof sourceCell.foodType === "string" && sourceCell.foodType
-          ? Math.max(0, clampInteger(sourceCell.foodCapacity, 0, 999999, getFoodTypeMaxAmount(sourceCell.foodType)))
+          ? clampNonNegativeNumber(sourceCell.foodCapacity, 999999, getFoodTypeMaxAmount(sourceCell.foodType))
           : 0;
       cell.variant = variants.some((variant) => variant.id === sourceCell.variant)
         ? sourceCell.variant
         : chooseTerrainVariant(cell.type);
       cell.visitsCount = Math.max(0, clampInteger(sourceCell.visitsCount, 0, getPathWellKnownVisitsThreshold(), 0));
-      cell.materialAmount = Math.max(0, clampInteger(sourceCell.materialAmount, 0, 999999, 0));
+      cell.materialAmount = clampNonNegativeNumber(sourceCell.materialAmount, 999999, 0);
       cell.foodType = sourceCell.foodType;
       cell.foodCapacity = foodCapacity;
-      cell.foodAmount = Math.max(0, clampInteger(sourceCell.foodAmount, 0, foodCapacity, 0));
+      cell.foodAmount = clampNonNegativeNumber(sourceCell.foodAmount, 999999, 0);
+      if (cell.foodAmount > foodCapacity) {
+        cell.foodAmount = foodCapacity;
+      }
 
       if (cell.foodType && !getFoodDefinition(cell.foodType)) {
         throw new Error("Unsupported food type in map cell.");
@@ -9332,9 +9526,9 @@ function normalizeSituationMessagesState(rawMessages) {
 
 function normalizeStockpileState(rawStockpile) {
   return {
-    stone: Math.max(0, clampInteger(rawStockpile?.stone, 0, 999999, 0)),
-    lumber: Math.max(0, clampInteger(rawStockpile?.lumber, 0, 999999, 0)),
-    food: Math.max(0, clampInteger(rawStockpile?.food, 0, 999999, 0)),
+    stone: clampNonNegativeNumber(rawStockpile?.stone, 999999, 0),
+    lumber: clampNonNegativeNumber(rawStockpile?.lumber, 999999, 0),
+    food: clampNonNegativeNumber(rawStockpile?.food, 999999, 0),
   };
 }
 
@@ -9833,7 +10027,7 @@ function applyCompletedTaskDefaultAction(currentUnit) {
 
 function getCurrentSelectedUnitAction(currentUnit = getSelectedUnit()) {
   if (!currentUnit) {
-    return normalizeUnitAction(selectedUnitAction);
+    return normalizeSelectableUnitAction(selectedUnitAction);
   }
 
   return getPreferredUnitAction(currentUnit, selectedUnitAction);
@@ -10147,7 +10341,11 @@ function assignUnitTask(task, currentUnit = getSelectedUnit()) {
   currentUnit.lastStepFromX = null;
   currentUnit.lastStepFromY = null;
   unit = currentUnit;
-  selectedUnitAction = getActionForTask(task);
+  const taskAction = getActionForTask(task);
+  selectedUnitAction =
+    selectedUnitAction === unitUiActions.work && isUnitWorkRepresentedAction(taskAction)
+      ? unitUiActions.work
+      : taskAction;
   invalidateStaticUnitsLayer();
   updateUnitReadout();
   updateTurnControls();
@@ -10251,6 +10449,19 @@ function queueUnitGatherMaterialsTask(destinationCell, currentUnit = getSelected
   if (!canUnitUseAction(currentUnit, unitActions.gatherMaterials)) return false;
 
   return assignUnitTask(createGatherMaterialsTask(destinationCell), currentUnit);
+}
+
+function queueUnitWorkTask(destinationCell, currentUnit = getSelectedUnit()) {
+  if (!currentUnit || currentUnit.move) {
+    return false;
+  }
+
+  if (!canUnitUseWorkUiAction(currentUnit)) {
+    return false;
+  }
+
+  return queueUnitBuildHouseTask(destinationCell, currentUnit)
+    || queueUnitGatherMaterialsTask(destinationCell, currentUnit);
 }
 
 function queueUnitBuildHouseTask(destinationCell, currentUnit = getSelectedUnit()) {
@@ -10390,7 +10601,7 @@ function resolveGatherFoodTask(currentUnit) {
 
   const gatherAmount = Math.min(
     getUnitWorkPointsPerTurn("gatherFood"),
-    Math.max(0, Math.floor(targetCell.foodAmount)),
+    clampNonNegativeNumber(targetCell.foodAmount, 999999, 0),
   );
 
   if (gatherAmount <= 0) {
@@ -10428,7 +10639,7 @@ function resolveGatherMaterialsTask(currentUnit) {
   const materialType = getCellMaterialResourceType(targetCell);
   const gatherAmount = Math.min(
     getUnitWorkPointsPerTurn("gatherMaterials"),
-    Math.max(0, Math.floor(targetCell.materialAmount)),
+    clampNonNegativeNumber(targetCell.materialAmount, 999999, 0),
   );
 
   if (!materialType || gatherAmount <= 0) {
@@ -12431,6 +12642,7 @@ function updateUnitActionControls() {
   }
 
   const activeAction = getPreferredUnitAction(selectedUnit, getCurrentSelectedUnitAction());
+  const context = getRuleContext();
   const disabled = Boolean(selectedUnit?.move) || isReplayPhase();
 
   if (selectedUnitAction !== activeAction) {
@@ -12438,8 +12650,8 @@ function updateUnitActionControls() {
   }
 
   for (const button of unitActionButtons) {
-    const action = normalizeUnitAction(button.dataset.unitAction);
-    const isAvailable = canUnitUseAction(selectedUnit, action);
+    const action = normalizeSelectableUnitAction(button.dataset.unitAction);
+    const isAvailable = canUnitUseSelectableAction(selectedUnit, action, context);
     const isSelected = action === activeAction;
 
     button.hidden = !isAvailable;
@@ -12691,10 +12903,14 @@ function getUnitTargetCells() {
   if (
     selectedUnit.task &&
     isCellTargetUnitAction(action) &&
-    action === getActionForTask(selectedUnit.task)
+    doesSelectedUnitActionMatchTaskAction(action, getActionForTask(selectedUnit.task))
   ) {
     const destinationCell = getCell(selectedUnit.task.toX, selectedUnit.task.toY);
     return destinationCell ? [destinationCell] : [];
+  }
+
+  if (action === unitUiActions.work) {
+    return getWorkUiTargetCells(selectedUnit);
   }
 
   if (action === unitActions.buildHouse) {
@@ -12759,6 +12975,13 @@ function getUnitTargetStyle() {
     return {
       fill: "rgba(204, 156, 84, 0.18)",
       stroke: "rgba(243, 207, 127, 0.72)",
+    };
+  }
+
+  if (action === unitUiActions.work) {
+    return {
+      fill: "rgba(184, 172, 126, 0.2)",
+      stroke: "rgba(231, 219, 173, 0.76)",
     };
   }
 
@@ -13326,6 +13549,12 @@ function handlePlayModeClick(cell) {
       }
     }
 
+    if (action === unitUiActions.work) {
+      if (queueUnitWorkTask(cell, selectedUnit)) {
+        return;
+      }
+    }
+
     if (action === unitActions.gatherMaterials) {
       if (queueUnitGatherMaterialsTask(cell, selectedUnit)) {
         return;
@@ -13553,7 +13782,7 @@ function getStationaryUnitDrawScreenPosition(currentUnit, imagePath, now = perfo
     return baseScreen;
   }
 
-  const renderSpec = getUnitSpriteRenderSpec(imagePath, currentUnit);
+  const renderSpec = getUnitSpriteRenderSpec(currentUnit);
 
   return {
     x: taskGroundPoint.x,
@@ -13704,9 +13933,11 @@ function getConstructionHintBuildingType(currentUnit = getSelectedUnit(), cell =
   }
 
   const action = getCurrentSelectedUnitAction(currentUnit);
+  const canBuildHouse = canUnitUseAction(currentUnit, unitActions.buildHouse);
 
   if (
-    action === unitActions.buildHouse &&
+    (action === unitUiActions.work || action === unitActions.buildHouse) &&
+    canBuildHouse &&
     isBuildingTypeAvailable("house") &&
     canPlaceNewHouseConstructionOnCell(cell) &&
     areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y)
@@ -13823,9 +14054,9 @@ function drawBuildHouseCostHint() {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   const quantityMetrics = costStatus.entries.map((entry) => ({
-    text: String(entry.required),
+    text: formatDisplayedQuantity(entry.required),
     color: entry.affordable ? "rgba(247, 231, 181, 0.96)" : "rgba(255, 126, 122, 0.98)",
-    width: ctx.measureText(String(entry.required)).width,
+    width: ctx.measureText(formatDisplayedQuantity(entry.required)).width,
   }));
   const resourceBlockWidth = Math.max(
     resourceBoxSize.width,
@@ -14279,16 +14510,6 @@ function drawMountedVehicleAtScreen(
   drawContext.restore();
 }
 
-function getWorkingUnitImage(frameIndex = 0) {
-  const spriteConfig = getUnitSpriteConfig();
-
-  if (!spriteConfig || spriteConfig.workFrames.length === 0) {
-    return spriteConfig?.idleImage || "";
-  }
-
-  return spriteConfig.workFrames[frameIndex % spriteConfig.workFrames.length] || spriteConfig.idleImage;
-}
-
 function getAnimatedTaskFrameOffset(currentUnit) {
   if (!currentUnit) {
     return 0;
@@ -14493,43 +14714,257 @@ function getSpriteRenderDirection(currentUnit) {
   return getUnitDisplayDirection(currentUnit);
 }
 
+function getSpriteRenderAction(currentUnit) {
+  if (!currentUnit) {
+    return "";
+  }
+
+  if (currentUnit.move?.mode === "dismount") {
+    return unitActions.dismount;
+  }
+
+  if (currentUnit.move) {
+    return unitActions.walk;
+  }
+
+  if (!currentUnit.task) {
+    return "";
+  }
+
+  return getActionForTask(currentUnit.task);
+}
+
+function hasSpriteFrameSet(spriteConfig, fieldName) {
+  return Array.isArray(spriteConfig?.[fieldName]) && spriteConfig[fieldName].length > 0;
+}
+
+function hasSpriteImageSource(spriteConfig, fieldName) {
+  return typeof spriteConfig?.[fieldName] === "string" && spriteConfig[fieldName].trim().length > 0;
+}
+
+function hasSpriteSourceOverrides(spriteConfig, sourceKey) {
+  if (!spriteConfig || !sourceKey) {
+    return false;
+  }
+
+  if (spriteConfig?.sourceRenderOverrides?.[sourceKey]) {
+    return true;
+  }
+
+  const directionOverrides = spriteConfig?.sourceDirectionRenderOverrides?.[sourceKey];
+  return Boolean(directionOverrides && Object.keys(directionOverrides).length > 0);
+}
+
+function getFishingRenderSourceKey(currentUnit, spriteConfig) {
+  const fishingConfig = getFishingTaskDirectionConfig(currentUnit, spriteConfig);
+
+  if (fishingConfig?.frameSet) {
+    return fishingConfig.frameSet;
+  }
+
+  const direction = getRawUnitTaskDirection(currentUnit);
+
+  if (usesNorthUnitSprite(direction)) {
+    return "northFishingFrames";
+  }
+
+  if (usesSouthUnitSprite(direction)) {
+    return "southFishingFrames";
+  }
+
+  return "sideFishingFrames";
+}
+
+function getSpriteRenderSourceKey(currentUnit, spriteConfig) {
+  if (!spriteConfig) {
+    return "";
+  }
+
+  if (!currentUnit) {
+    return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+  }
+
+  if (currentUnit.move) {
+    const direction = currentUnit.move.direction || currentUnit.facing || "west";
+
+    if (usesNorthUnitSprite(direction)) {
+      if (hasSpriteFrameSet(spriteConfig, "northMoveFrames")) {
+        return "northMoveFrames";
+      }
+      if (hasSpriteImageSource(spriteConfig, "northImage")) {
+        return "northImage";
+      }
+      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+    }
+
+    if (usesSouthUnitSprite(direction)) {
+      if (hasSpriteFrameSet(spriteConfig, "southMoveFrames")) {
+        return "southMoveFrames";
+      }
+      if (hasSpriteImageSource(spriteConfig, "southImage")) {
+        return "southImage";
+      }
+      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+    }
+
+    if (hasSpriteFrameSet(spriteConfig, "moveFrames")) {
+      return "moveFrames";
+    }
+
+    return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+  }
+
+  if (isUnitWorking(currentUnit)) {
+    if (currentUnit.task?.type === "perform") {
+      if (hasSpriteFrameSet(spriteConfig, "playFrames")) {
+        return "playFrames";
+      }
+      if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
+        return "workFrames";
+      }
+      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+    }
+
+    if (currentUnit.task?.type === "research") {
+      if (hasSpriteFrameSet(spriteConfig, "researchFrames")) {
+        return "researchFrames";
+      }
+      if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
+        return "workFrames";
+      }
+      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+    }
+
+    if (isFishingTask(currentUnit)) {
+      const sourceKey = getFishingRenderSourceKey(currentUnit, spriteConfig);
+      if (sourceKey && (hasSpriteFrameSet(spriteConfig, sourceKey) || hasSpriteSourceOverrides(spriteConfig, sourceKey))) {
+        return sourceKey;
+      }
+      if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
+        return "workFrames";
+      }
+      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+    }
+
+    if (currentUnit.task?.type === "gatherFood") {
+      if (hasSpriteFrameSet(spriteConfig, "landFoodFrames")) {
+        return "landFoodFrames";
+      }
+      if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
+        return "workFrames";
+      }
+      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+    }
+
+    if (currentUnit.task?.type === "gatherMaterials") {
+      const materialType = getCellMaterialResourceType(getUnitTaskTargetCell(currentUnit));
+
+      if (materialType === "lumber" && hasSpriteFrameSet(spriteConfig, "lumberFrames")) {
+        return "lumberFrames";
+      }
+
+      if (materialType === "stone" && hasSpriteFrameSet(spriteConfig, "stoneFrames")) {
+        return "stoneFrames";
+      }
+
+      if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
+        return "workFrames";
+      }
+
+      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+    }
+
+    if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
+      return "workFrames";
+    }
+
+    return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+  }
+
+  const direction = getUnitDisplayDirection(currentUnit);
+
+  if (usesNorthUnitSprite(direction) && hasSpriteImageSource(spriteConfig, "northImage")) {
+    return "northImage";
+  }
+
+  if (usesSouthUnitSprite(direction) && hasSpriteImageSource(spriteConfig, "southImage")) {
+    return "southImage";
+  }
+
+  return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+}
+
 function getSpriteRenderSpec(spriteConfig, currentUnit = null) {
   const baseOffsetX = spriteConfig?.offsetX ?? 0;
   const baseOffsetY = spriteConfig?.offsetY ?? 0;
   const direction = getSpriteRenderDirection(currentUnit);
+  const action = getSpriteRenderAction(currentUnit);
+  const sourceKey = getSpriteRenderSourceKey(currentUnit, spriteConfig);
   const directionOverride = spriteConfig?.directionRenderOverrides?.[direction] || {};
-
-  if (isFishingTask(currentUnit)) {
-    const fishingSpec = spriteConfig?.fishingRenderSpec || {};
-    const fishingDirectionOverride = spriteConfig?.fishingDirectionRenderOverrides?.[direction] || {};
-
-    return {
-      width: fishingDirectionOverride.width ?? directionOverride.width ?? fishingSpec.width ?? spriteConfig?.width ?? 36,
-      height: fishingDirectionOverride.height ?? directionOverride.height ?? fishingSpec.height ?? spriteConfig?.height ?? 44,
-      anchorX: fishingDirectionOverride.anchorX ?? directionOverride.anchorX ?? fishingSpec.anchorX ?? spriteConfig?.anchorX ?? 18,
-      anchorY: fishingDirectionOverride.anchorY ?? directionOverride.anchorY ?? fishingSpec.anchorY ?? spriteConfig?.anchorY ?? 44,
-      groundOffset: fishingDirectionOverride.groundOffset
-        ?? directionOverride.groundOffset
-        ?? fishingSpec.groundOffset
-        ?? spriteConfig?.groundOffset
-        ?? 0.75,
-      offsetX: fishingDirectionOverride.offsetX ?? directionOverride.offsetX ?? fishingSpec.offsetX ?? baseOffsetX,
-      offsetY: fishingDirectionOverride.offsetY ?? directionOverride.offsetY ?? fishingSpec.offsetY ?? baseOffsetY,
-    };
-  }
+  const sourceRenderOverride = sourceKey ? (spriteConfig?.sourceRenderOverrides?.[sourceKey] || {}) : {};
+  const sourceDirectionRenderOverride = sourceKey
+    ? (spriteConfig?.sourceDirectionRenderOverrides?.[sourceKey]?.[direction] || {})
+    : {};
+  const actionRenderOverride = action ? (spriteConfig?.actionRenderOverrides?.[action] || {}) : {};
+  const actionDirectionRenderOverride = action
+    ? (spriteConfig?.actionDirectionRenderOverrides?.[action]?.[direction] || {})
+    : {};
 
   return {
-    width: directionOverride.width ?? spriteConfig?.width ?? 36,
-    height: directionOverride.height ?? spriteConfig?.height ?? 44,
-    anchorX: directionOverride.anchorX ?? spriteConfig?.anchorX ?? 18,
-    anchorY: directionOverride.anchorY ?? spriteConfig?.anchorY ?? 44,
-    groundOffset: directionOverride.groundOffset ?? spriteConfig?.groundOffset ?? 0.75,
-    offsetX: directionOverride.offsetX ?? baseOffsetX,
-    offsetY: directionOverride.offsetY ?? baseOffsetY,
+    width:
+      sourceDirectionRenderOverride.width
+      ?? actionDirectionRenderOverride.width
+      ?? directionOverride.width
+      ?? sourceRenderOverride.width
+      ?? actionRenderOverride.width
+      ?? spriteConfig?.width,
+    height:
+      sourceDirectionRenderOverride.height
+      ?? actionDirectionRenderOverride.height
+      ?? directionOverride.height
+      ?? sourceRenderOverride.height
+      ?? actionRenderOverride.height
+      ?? spriteConfig?.height,
+    anchorX:
+      sourceDirectionRenderOverride.anchorX
+      ?? actionDirectionRenderOverride.anchorX
+      ?? directionOverride.anchorX
+      ?? sourceRenderOverride.anchorX
+      ?? actionRenderOverride.anchorX
+      ?? spriteConfig?.anchorX,
+    anchorY:
+      sourceDirectionRenderOverride.anchorY
+      ?? actionDirectionRenderOverride.anchorY
+      ?? directionOverride.anchorY
+      ?? sourceRenderOverride.anchorY
+      ?? actionRenderOverride.anchorY
+      ?? spriteConfig?.anchorY,
+    groundOffset:
+      sourceDirectionRenderOverride.groundOffset
+      ?? actionDirectionRenderOverride.groundOffset
+      ?? directionOverride.groundOffset
+      ?? sourceRenderOverride.groundOffset
+      ?? actionRenderOverride.groundOffset
+      ?? spriteConfig?.groundOffset
+      ?? 0.75,
+    offsetX:
+      sourceDirectionRenderOverride.offsetX
+      ?? actionDirectionRenderOverride.offsetX
+      ?? directionOverride.offsetX
+      ?? sourceRenderOverride.offsetX
+      ?? actionRenderOverride.offsetX
+      ?? baseOffsetX,
+    offsetY:
+      sourceDirectionRenderOverride.offsetY
+      ?? actionDirectionRenderOverride.offsetY
+      ?? directionOverride.offsetY
+      ?? sourceRenderOverride.offsetY
+      ?? actionRenderOverride.offsetY
+      ?? baseOffsetY,
   };
 }
 
-function getUnitSpriteRenderSpec(imagePath, currentUnit = null) {
+function getUnitSpriteRenderSpec(currentUnit = null) {
   return getSpriteRenderSpec(getRenderedUnitSpriteConfig(currentUnit), currentUnit);
 }
 
@@ -14564,16 +14999,32 @@ function drawSpriteAtScreen(
 ) {
   const image = imageRegistry[imagePath];
   const renderSpec = getSpriteRenderSpec(spriteConfig, currentUnit);
+  const resolvedBaseWidth =
+    Number.isFinite(renderSpec.width) && renderSpec.width > 0
+      ? renderSpec.width
+      : (image?.complete && image.naturalWidth > 0 ? image.naturalWidth / 2 : 36);
+  const resolvedBaseHeight =
+    Number.isFinite(renderSpec.height) && renderSpec.height > 0
+      ? renderSpec.height
+      : (image?.complete && image.naturalHeight > 0 ? image.naturalHeight / 2 : 44);
+  const resolvedAnchorX =
+    Number.isFinite(renderSpec.anchorX)
+      ? renderSpec.anchorX
+      : (resolvedBaseWidth / 2);
+  const resolvedAnchorY =
+    Number.isFinite(renderSpec.anchorY)
+      ? renderSpec.anchorY
+      : resolvedBaseHeight;
   const renderScreen = {
     x: screen.x + (renderSpec.offsetX || 0) * zoomLevels[zoomIndex],
     y: screen.y + (renderSpec.offsetY || 0) * zoomLevels[zoomIndex],
   };
-  const drawWidth = renderSpec.width * zoomLevels[zoomIndex];
-  const drawHeight = renderSpec.height * zoomLevels[zoomIndex];
-  const drawX = renderScreen.x - renderSpec.anchorX * zoomLevels[zoomIndex];
+  const drawWidth = resolvedBaseWidth * zoomLevels[zoomIndex];
+  const drawHeight = resolvedBaseHeight * zoomLevels[zoomIndex];
+  const drawX = renderScreen.x - resolvedAnchorX * zoomLevels[zoomIndex];
   const ground = getUnitGroundPoint(renderScreen, renderSpec.groundOffset);
   const groundY = ground.y;
-  const drawY = groundY - renderSpec.anchorY * zoomLevels[zoomIndex];
+  const drawY = groundY - resolvedAnchorY * zoomLevels[zoomIndex];
 
   drawContext.save();
   if (showShadow) {
@@ -16743,7 +17194,7 @@ function getEditorResourceMode(cell) {
     return {
       kind: "material",
       title: getResourceLabel("lumber"),
-      current: Math.max(0, Math.floor(cell.materialAmount)),
+      current: clampNonNegativeNumber(cell.materialAmount, 999999, 0),
       total: null,
       showTotal: false,
     };
@@ -16753,7 +17204,7 @@ function getEditorResourceMode(cell) {
     return {
       kind: "material",
       title: getResourceLabel("stone"),
-      current: Math.max(0, Math.floor(cell.materialAmount)),
+      current: clampNonNegativeNumber(cell.materialAmount, 999999, 0),
       total: null,
       showTotal: false,
     };
@@ -16767,23 +17218,107 @@ function setEditorNumberInputValue(input, value) {
     return;
   }
 
-  input.value = Number.isFinite(value) ? String(Math.floor(value)) : "";
+  input.value = Number.isFinite(value) ? formatDisplayedNumber(value) : "";
 }
 
 function getEditorIntegerInputValue(input, fallback, min = 0, max = 999999) {
   return clampInteger(input?.value, min, max, fallback);
 }
 
-function getEditorUnitActionLabel(currentUnit) {
+function getEditorNumberInputValue(input, fallback, min = 0, max = 999999) {
+  return clampNumber(input?.value, min, max, fallback);
+}
+
+function applyEditorUnitSelection(unitTypeId) {
+  if (!activeCell) {
+    return;
+  }
+
+  const currentUnit = getUnitAtCell(activeCell.x, activeCell.y);
+
+  if (!unitTypeId) {
+    if (currentUnit) {
+      removeEditorUnit(currentUnit);
+      setEditStateDirty(true);
+    }
+    updateEditInspector();
+    closeEditorDropdowns();
+    draw();
+    return;
+  }
+
+  if (currentUnit) {
+    const previousSnapshot = JSON.stringify(serializeUnit(currentUnit));
+    currentUnit.unitType = normalizeUnitTypeId(unitTypeId);
+    currentUnit.name = getDefaultUnitName(currentUnit.unitType);
+    currentUnit.staminaMax = getDefaultUnitStamina(currentUnit.unitType);
+    currentUnit.stamina = clampNumber(currentUnit.stamina, 0, 999, currentUnit.staminaMax);
+
+    if (currentUnit.task && !canUnitUseAction(currentUnit, getActionForTask(currentUnit.task))) {
+      currentUnit.task = null;
+    }
+
+    invalidateStaticUnitsLayer();
+    updateUnitReadout();
+    if (JSON.stringify(serializeUnit(currentUnit)) !== previousSnapshot) {
+      setEditStateDirty(true);
+    }
+    updateEditInspector();
+    closeEditorDropdowns();
+    draw();
+    return;
+  }
+
+  if (placeEditorUnitAtCell(activeCell, unitTypeId)) {
+    setEditStateDirty(true);
+    updateEditInspector();
+    closeEditorDropdowns();
+    draw();
+  }
+}
+
+function applyEditorUnitActionSelection(action) {
+  if (!activeCell) {
+    return;
+  }
+
+  const currentUnit = getUnitAtCell(activeCell.x, activeCell.y);
+
   if (!currentUnit) {
-    return "";
+    return;
   }
 
-  if (currentUnit.move) {
-    return getUnitActionLabel(unitActions.walk);
+  const previousSnapshot = JSON.stringify(serializeUnit(currentUnit));
+
+  if (!action) {
+    currentUnit.task = null;
+  } else if (action === unitActions.play) {
+    if (!canUnitUseAction(currentUnit, unitActions.play)) {
+      return;
+    }
+    currentUnit.task = createPerformTask();
+  } else if (action === unitActions.research) {
+    if (!canUnitUseAction(currentUnit, unitActions.research) || !getSelectedResearchGoalTechnologyId()) {
+      return;
+    }
+    currentUnit.task = createResearchTask();
+  } else {
+    return;
   }
 
-  return getUnitActionLabel(getActionForTask(currentUnit.task));
+  currentUnit.turnRoute = null;
+  currentUnit.lastStepFromX = null;
+  currentUnit.lastStepFromY = null;
+  unit = currentUnit;
+  selectedUnitAction = getPreferredUnitAction(currentUnit, getActionForTask(currentUnit.task));
+  invalidateStaticUnitsLayer();
+  updateUnitReadout();
+  if (JSON.stringify(serializeUnit(currentUnit)) !== previousSnapshot) {
+    setEditStateDirty(true);
+  }
+  updateEditInspector();
+  closeEditorDropdowns();
+  draw();
 }
 
 function syncBuildingEditorState(building, { abandoned = building?.state === "abandoned" } = {}) {
@@ -16805,6 +17340,21 @@ function canPlaceEditorBuildingAtCell(cell, type) {
   }
 
   return canPlaceNewBuildingConstructionOnCell(cell, type);
+}
+
+function canPlaceEditorUnitTypeAtCell(cell, unitTypeId, currentUnit = null) {
+  if (!cell || !hasDefinedUnitType(unitTypeId)) {
+    return false;
+  }
+
+  if (currentUnit && currentUnit.x === cell.x && currentUnit.y === cell.y) {
+    return true;
+  }
+
+  return canUnitEnterUnmountedCell(cell, {
+    id: `editor_${unitTypeId}`,
+    mountedVehicleId: null,
+  });
 }
 
 function canCellHostVehiclePlacement(cell, allowedTerrains = null) {
@@ -16848,6 +17398,31 @@ function clearUnitsMountedVehicleId(vehicleId) {
       currentUnit.mountedVehicleId = null;
     }
   }
+}
+
+function removeEditorUnit(currentUnit) {
+  if (!currentUnit) {
+    return false;
+  }
+
+  const mountedVehicle = getMountedVehicle(currentUnit);
+
+  if (mountedVehicle) {
+    mountedVehicle.riderUnitId = null;
+    currentUnit.mountedVehicleId = null;
+    invalidateStaticLayer();
+  }
+
+  units = units.filter((candidate) => candidate !== currentUnit);
+
+  if (currentUnit.selected) {
+    clearUnitSelection();
+  }
+
+  syncActiveUnit();
+  invalidateStaticUnitsLayer();
+  updateUnitReadout();
+  return true;
 }
 
 function removeEditorBuilding(building) {
@@ -16919,6 +17494,40 @@ function placeEditorVehicleAtCell(cell, type) {
   return true;
 }
 
+function placeEditorUnitAtCell(cell, unitTypeId) {
+  if (!cell || !canPlaceEditorUnitTypeAtCell(cell, unitTypeId)) {
+    return false;
+  }
+
+  const normalizedTypeId = normalizeUnitTypeId(unitTypeId);
+  const staminaMax = getDefaultUnitStamina(normalizedTypeId);
+  const newUnit = {
+    id: createUnitId(),
+    unitType: normalizedTypeId,
+    name: getDefaultUnitName(normalizedTypeId),
+    x: cell.x,
+    y: cell.y,
+    facing: "west",
+    homeBuildingId: null,
+    mountedVehicleId: null,
+    staminaMax,
+    stamina: staminaMax,
+    selected: false,
+    task: null,
+    move: null,
+    turnRoute: null,
+    lastStepFromX: null,
+    lastStepFromY: null,
+  };
+
+  units.push(newUnit);
+  maybeMountUnitAtCurrentCell(newUnit);
+  syncActiveUnit();
+  invalidateStaticUnitsLayer();
+  updateUnitReadout();
+  return true;
+}
+
 function getEditorFoodLabel(cell) {
   if (!cell?.foodType) {
     return getEditorLabel("none");
@@ -16935,6 +17544,16 @@ function getEditorBuildingLabel(cell) {
 function getEditorVehicleLabel(cell) {
   const vehicle = cell ? getVehicleAtCell(cell.x, cell.y) : null;
   return vehicle ? getVehicleLabel(vehicle.type) : getEditorLabel("none");
+}
+
+function getEditorUnitLabel(cell) {
+  const currentUnit = cell ? getUnitAtCell(cell.x, cell.y) : null;
+  return currentUnit ? getDefaultUnitName(getUnitTypeId(currentUnit)) : getEditorLabel("none");
+}
+
+function getEditorUnitActionMenuLabel(currentUnit) {
+  const action = getActionForTask(currentUnit?.task);
+  return action ? getUnitActionLabel(action) : getEditorLabel("none");
 }
 
 function updateEditorTerrainMenuAvailability() {
@@ -17084,6 +17703,102 @@ function rebuildVehicleMenuOptions(displayCell) {
   }
 }
 
+function rebuildUnitMenuOptions(displayCell) {
+  if (!unitMenuOptions) {
+    return;
+  }
+
+  unitMenuOptions.replaceChildren();
+
+  if (!displayCell) {
+    return;
+  }
+
+  const currentUnit = getUnitAtCell(displayCell.x, displayCell.y);
+  const currentUnitType = currentUnit ? getUnitTypeId(currentUnit) : "";
+  const controlDisabled = !activeCell;
+
+  unitMenuOptions.append(
+    createEditorTextOptionButton({
+      label: getEditorLabel("none"),
+      value: "",
+      selected: !currentUnitType,
+      disabled: controlDisabled,
+      icon: "∅",
+    }),
+  );
+
+  for (const unitTypeId of getDefinedUnitTypeIds()) {
+    unitMenuOptions.append(
+      createEditorTextOptionButton({
+        label: getDefaultUnitName(unitTypeId),
+        value: unitTypeId,
+        selected: currentUnitType === unitTypeId,
+        disabled: controlDisabled || !canPlaceEditorUnitTypeAtCell(displayCell, unitTypeId, currentUnit),
+        icon: "☺",
+      }),
+    );
+  }
+}
+
+function rebuildUnitActionMenuOptions(displayCell) {
+  if (!unitActionMenuOptions) {
+    return;
+  }
+
+  unitActionMenuOptions.replaceChildren();
+
+  if (!displayCell) {
+    return;
+  }
+
+  const currentUnit = getUnitAtCell(displayCell.x, displayCell.y);
+
+  if (!currentUnit) {
+    return;
+  }
+
+  const currentAction = getActionForTask(currentUnit.task);
+  const controlDisabled = !activeCell;
+
+  if (currentAction && !editorSupportedUnitActions.includes(currentAction)) {
+    unitActionMenuOptions.append(
+      createEditorTextOptionButton({
+        label: getUnitActionLabel(currentAction),
+        value: currentAction,
+        selected: true,
+        disabled: true,
+        icon: "•",
+      }),
+    );
+  }
+
+  unitActionMenuOptions.append(
+    createEditorTextOptionButton({
+      label: getEditorLabel("none"),
+      value: "",
+      selected: !currentAction,
+      disabled: controlDisabled,
+      icon: "∅",
+    }),
+  );
+
+  for (const action of editorSupportedUnitActions) {
+    unitActionMenuOptions.append(
+      createEditorTextOptionButton({
+        label: getUnitActionLabel(action),
+        value: action,
+        selected: currentAction === action,
+        disabled:
+          controlDisabled
+          || !canUnitUseAction(currentUnit, action)
+          || (action === unitActions.research && !getSelectedResearchGoalTechnologyId()),
+        icon: action === unitActions.play ? "♪" : "✶",
+      }),
+    );
+  }
+}
+
 function updateEditInspector() {
   const displayCell = getEditInspectorDisplayCell();
   const resourceMode = getEditorResourceMode(displayCell);
@@ -17102,20 +17817,15 @@ function updateEditInspector() {
     rebuildFoodMenuOptions(null);
     rebuildBuildingMenuOptions(null);
     rebuildVehicleMenuOptions(null);
+    rebuildUnitMenuOptions(null);
+    rebuildUnitActionMenuOptions(null);
     setTextContent(editorTerrainLabelElements, formatEditorDropdownLabel("terrain", getEditorLabel("none")));
     setTextContent(editorVisualLabelElements, formatEditorDropdownLabel("visual", getEditorLabel("none")));
     setTextContent(editorFoodLabelElements, formatEditorDropdownLabel("food", getEditorLabel("none")));
     setTextContent(editorBuildingLabelElements, formatEditorDropdownLabel("building", getEditorLabel("none")));
     setTextContent(editorVehicleLabelElements, formatEditorDropdownLabel("vehicle", getEditorLabel("none")));
-    setTextContent(editorUnitNameElements, "");
-    setTextContent(editorUnitActionElements, "");
-    for (let index = 0; index < editorUnitPreviewElements.length; index += 1) {
-      editorUnitPreviewElements[index].classList.add("is-empty");
-      const image = editorUnitSpriteImages[index];
-      if (image) {
-        image.removeAttribute("src");
-      }
-    }
+    setTextContent(editorUnitLabelElements, formatEditorDropdownLabel("unit", getEditorLabel("none")));
+    setTextContent(editorUnitActionLabelElements, formatEditorDropdownLabel("action", getEditorLabel("none")));
     setTextContent(editorResourceTitleElements, "");
     setTextContent(editorCurrentLabelElements, strings.editor.current);
     setTextContent(editorTotalLabelElements, strings.editor.total);
@@ -17164,6 +17874,8 @@ function updateEditInspector() {
   rebuildFoodMenuOptions(displayCell);
   rebuildBuildingMenuOptions(displayCell);
   rebuildVehicleMenuOptions(displayCell);
+  rebuildUnitMenuOptions(displayCell);
+  rebuildUnitActionMenuOptions(displayCell);
   setTextContent(editorTerrainLabelElements, formatEditorDropdownLabel("terrain", terrain[displayCell.type].label));
   setTextContent(
     editorVisualLabelElements,
@@ -17172,20 +17884,8 @@ function updateEditInspector() {
   setTextContent(editorFoodLabelElements, formatEditorDropdownLabel("food", getEditorFoodLabel(displayCell)));
   setTextContent(editorBuildingLabelElements, formatEditorDropdownLabel("building", getEditorBuildingLabel(displayCell)));
   setTextContent(editorVehicleLabelElements, formatEditorDropdownLabel("vehicle", getEditorVehicleLabel(displayCell)));
-  setTextContent(editorUnitNameElements, displayUnit ? normalizeUnitName(displayUnit.name) : "");
-  setTextContent(editorUnitActionElements, displayUnit ? getEditorUnitActionLabel(displayUnit) : "");
-  for (let index = 0; index < editorUnitPreviewElements.length; index += 1) {
-    const preview = editorUnitPreviewElements[index];
-    const image = editorUnitSpriteImages[index];
-    preview.classList.toggle("is-empty", !displayUnit);
-    if (image) {
-      if (displayUnit) {
-        image.src = getUnitInspectorSpriteImage(displayUnit);
-      } else {
-        image.removeAttribute("src");
-      }
-    }
-  }
+  setTextContent(editorUnitLabelElements, formatEditorDropdownLabel("unit", getEditorUnitLabel(displayCell)));
+  setTextContent(editorUnitActionLabelElements, formatEditorDropdownLabel("action", getEditorUnitActionMenuLabel(displayUnit)));
   setTextContent(editorCurrentLabelElements, strings.editor.current);
   setTextContent(editorTotalLabelElements, strings.editor.total);
   setTextContent(editorCompletionLabelElements, strings.editor.completion);
@@ -17224,6 +17924,10 @@ function updateEditInspector() {
       disabled = !canEditBuildingSelection(activeCell);
     } else if (dropdownId === "vehicle") {
       disabled = !canEditVehicleSelection(activeCell);
+    } else if (dropdownId === "unit") {
+      disabled = !activeCell;
+    } else if (dropdownId === "unitAction") {
+      disabled = !(activeCell && getUnitAtCell(activeCell.x, activeCell.y));
     }
 
     button.disabled = disabled;
@@ -17469,7 +18173,7 @@ function applyEditorResourceCurrentValue() {
   }
 
   const previousValue =
-    resourceMode.kind === "path" ? getCellVisitsCount(activeCell) : Math.max(0, clampInteger(activeCell.materialAmount, 0, 999999, 0));
+    resourceMode.kind === "path" ? getCellVisitsCount(activeCell) : clampNonNegativeNumber(activeCell.materialAmount, 999999, 0);
 
   if (resourceMode.kind === "path") {
     activeCell.visitsCount = getEditorIntegerInputValue(
@@ -17479,12 +18183,12 @@ function applyEditorResourceCurrentValue() {
       getCellPathWellKnownVisitsThreshold(activeCell),
     );
   } else {
-    activeCell.materialAmount = getEditorIntegerInputValue(editorResourceCurrentInput, activeCell.materialAmount, 0);
+    activeCell.materialAmount = getEditorNumberInputValue(editorResourceCurrentInput, activeCell.materialAmount, 0);
   }
 
   invalidateStaticLayer();
   const nextValue =
-    resourceMode.kind === "path" ? getCellVisitsCount(activeCell) : Math.max(0, clampInteger(activeCell.materialAmount, 0, 999999, 0));
+    resourceMode.kind === "path" ? getCellVisitsCount(activeCell) : clampNonNegativeNumber(activeCell.materialAmount, 999999, 0);
   if (nextValue !== previousValue) {
     setEditStateDirty(true);
   }
@@ -17501,11 +18205,11 @@ function applyEditorFoodCurrentValue() {
     return;
   }
 
-  const previousValue = Math.max(0, clampInteger(activeCell.foodAmount, 0, 999999, 0));
-  activeCell.foodAmount = getEditorIntegerInputValue(editorFoodCurrentInput, activeCell.foodAmount, 0, getCellFoodMaxAmount(activeCell));
+  const previousValue = clampNonNegativeNumber(activeCell.foodAmount, 999999, 0);
+  activeCell.foodAmount = getEditorNumberInputValue(editorFoodCurrentInput, activeCell.foodAmount, 0, getCellFoodMaxAmount(activeCell));
 
   invalidateStaticLayer();
-  if (Math.max(0, clampInteger(activeCell.foodAmount, 0, 999999, 0)) !== previousValue) {
+  if (clampNonNegativeNumber(activeCell.foodAmount, 999999, 0) !== previousValue) {
     setEditStateDirty(true);
   }
   updateEditInspector();
@@ -17518,12 +18222,12 @@ function applyEditorFoodTotalValue() {
   }
 
   const previousCapacity = getCellFoodMaxAmount(activeCell);
-  const previousAmount = Math.max(0, clampInteger(activeCell.foodAmount, 0, 999999, 0));
-  activeCell.foodCapacity = getEditorIntegerInputValue(editorFoodTotalInput, getCellFoodMaxAmount(activeCell), 0);
-  activeCell.foodAmount = clampInteger(activeCell.foodAmount, 0, getCellFoodMaxAmount(activeCell), 0);
+  const previousAmount = clampNonNegativeNumber(activeCell.foodAmount, 999999, 0);
+  activeCell.foodCapacity = getEditorNumberInputValue(editorFoodTotalInput, getCellFoodMaxAmount(activeCell), 0);
+  activeCell.foodAmount = clampNumber(activeCell.foodAmount, 0, getCellFoodMaxAmount(activeCell), 0);
 
   invalidateStaticLayer();
-  if (getCellFoodMaxAmount(activeCell) !== previousCapacity || Math.max(0, clampInteger(activeCell.foodAmount, 0, 999999, 0)) !== previousAmount) {
+  if (getCellFoodMaxAmount(activeCell) !== previousCapacity || clampNonNegativeNumber(activeCell.foodAmount, 999999, 0) !== previousAmount) {
     setEditStateDirty(true);
   }
   updateEditInspector();
@@ -17735,6 +18439,22 @@ vehicleMenuOptions?.addEventListener("click", (event) => {
   if (!button) return;
 
   applyEditorVehicleSelection(button.dataset.value || "");
+});
+
+unitMenuOptions?.addEventListener("click", (event) => {
+  const button = event.target.closest(".terrain-option");
+
+  if (!button) return;
+
+  applyEditorUnitSelection(button.dataset.value || "");
+});
+
+unitActionMenuOptions?.addEventListener("click", (event) => {
+  const button = event.target.closest(".terrain-option");
+
+  if (!button) return;
+
+  applyEditorUnitActionSelection(button.dataset.value || "");
 });
 
 editorResourceCurrentInput?.addEventListener("change", () => {
@@ -18036,8 +18756,8 @@ for (const button of nextUnitButtons) {
 
       if (!selectedUnit || selectedUnit.move || isReplayPhase()) return;
 
-      const action = normalizeUnitAction(button.dataset.unitAction);
-      if (!canUnitUseAction(selectedUnit, action)) return;
+      const action = normalizeSelectableUnitAction(button.dataset.unitAction);
+      if (!canUnitUseSelectableAction(selectedUnit, action)) return;
       const currentAction = getCurrentSelectedUnitAction();
 
       if (action === unitActions.play) {
@@ -18310,8 +19030,8 @@ editorResearchList?.addEventListener("change", (event) => {
     return;
   }
 
-  const nextProgress = clampInteger(progressInput.value, 0, 999999999, getTechnologyProgress(technologyId));
-  const technologyCost = Math.max(0, Math.floor(Number(technology.cost) || 0));
+  const nextProgress = clampNumber(progressInput.value, 0, 999999999, getTechnologyProgress(technologyId));
+  const technologyCost = clampNonNegativeNumber(technology.cost, 999999999, 0);
 
   applyEditorResearchStateChange(() => {
     const discoveredIds = new Set(

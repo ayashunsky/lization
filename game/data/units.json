@@ -34,7 +34,94 @@
         "ru": "Папа Штрумф"
       },
       "researchPointsPerTurn": 1,
-      "allowedActions": ["walk", "layFoundation", "research"]
+      "allowedActions": ["walk", "layFoundation", "research"],
+      "modifiers": [
+        {
+          "when": {
+            "requiredBuildingsMin": {
+              "laboratory": 1
+            }
+          },
+          "set": {
+            "researchPointsPerTurn": 2
+          }
+        }
+      ]
+    },
+    "paresseux": {
+      "spriteTypeId": "paresseux",
+      "name": "Schtroumpf paresseux",
+      "labels": {
+        "fr": "Schtroumpf paresseux",
+        "en": "Lazy Smurf",
+        "es": "Pitufo Perezoso",
+        "ru": "Штрумф Лентяй"
+      },
+      "stamina": 1,
+      "foodConsumptionPerTurn": 1,
+      "researchPointsPerTurn": 0,
+      "allowedActions": ["walk", "play", "gatherFood", "gatherMaterials", "buildHouse", "demolish"],
+      "workPointsPerTurn": {
+        "buildHouse": 5,
+        "demolish": 5,
+        "gatherFood": 2,
+        "gatherMaterials": 2
+      }
+    },
+    "lunettes": {
+      "spriteTypeId": "lunettes",
+      "name": "Schtroumpf à lunettes",
+      "labels": {
+        "fr": "Schtroumpf à lunettes",
+        "en": "Brainy Smurf",
+        "es": "Pitufo Filósofo",
+        "ru": "Штрумф в очках"
+      },
+      "stamina": 2,
+      "foodConsumptionPerTurn": 1,
+      "researchPointsPerTurn": 0,
+      "allowedActions": ["walk", "play", "gatherMaterials", "buildHouse", "demolish"],
+      "workPointsPerTurn": {
+        "buildHouse": 10,
+        "demolish": 12,
+        "gatherMaterials": 6
+      }
+    },
+    "farceur": {
+      "spriteTypeId": "farceur",
+      "name": "Schtroumpf farceur",
+      "labels": {
+        "fr": "Schtroumpf farceur",
+        "en": "Jokey Smurf",
+        "es": "Pitufo Bromista",
+        "ru": "Штрумф-шутник"
+      }
+    },
+    "beta": {
+      "spriteTypeId": "beta",
+      "name": "Schtroumpf bêta",
+      "labels": {
+        "fr": "Schtroumpf bêta",
+        "en": "Dopey Smurf",
+        "es": "Pitufo Debilucho",
+        "ru": "Штрумф-глупыш"
+      },
+      "workPointsPerTurn": {
+        "buildHouse": 1,
+        "demolish": 1,
+        "gatherMaterials": 1
+      }
+    },
+    "gourmand": {
+      "spriteTypeId": "gourmand",
+      "name": "Schtroumpf gourmand",
+      "labels": {
+        "fr": "Schtroumpf gourmand",
+        "en": "Greedy Smurf",
+        "es": "Pitufo Goloso",
+        "ru": "Штрумф-обжора"
+      },
+      "foodConsumptionPerTurn": 2
     }
   },
   "spawnRules": [
@@ -112,20 +199,8 @@
         "../assets/units/unit_step_sprite.png"
       ],
       "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0],
-      "width": 36,
-      "height": 44,
-      "anchorX": 18,
-      "anchorY": 44,
-      "fishingRenderSpec": {
-        "width": 44.5,
-        "height": 54.5,
-        "anchorX": 22.25,
-        "anchorY": 54.5,
-        "groundOffset": 0.75
-      },
-      "fishingDirectionRenderOverrides": {
-        "south": {
-          "anchorX": 22.25,
+      "sourceRenderOverrides": {
+        "southFishingFrames": {
           "anchorY": 34.5
         }
       },
@@ -170,38 +245,6 @@
       "idleImage": "../assets/units/unit_grand_schtroumpf_sprite.png",
       "northImage": "../assets/units/unit_grand_schtroumpf_back_sprite.png",
       "southImage": "../assets/units/unit_grand_schtroumpf_front_sprite.png",
-      "workFrames": [
-        "../assets/units/unit_grand_schtroumpf_sprite.png",
-        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
-      ],
-      "landFoodFrames": [
-        "../assets/units/unit_grand_schtroumpf_sprite.png",
-        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
-      ],
-      "lumberFrames": [
-        "../assets/units/unit_grand_schtroumpf_sprite.png",
-        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
-      ],
-      "stoneFrames": [
-        "../assets/units/unit_grand_schtroumpf_sprite.png",
-        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
-      ],
-      "sideFishingFrames": [
-        "../assets/units/unit_grand_schtroumpf_sprite.png",
-        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
-      ],
-      "northFishingFrames": [
-        "../assets/units/unit_grand_schtroumpf_sprite.png",
-        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
-      ],
-      "southFishingFrames": [
-        "../assets/units/unit_grand_schtroumpf_front_sprite.png",
-        "../assets/units/unit_grand_schtroumpf_front_sprite.png"
-      ],
-      "playFrames": [
-        "../assets/units/unit_grand_schtroumpf_sprite.png",
-        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
-      ],
       "northMoveFrames": [
         "../assets/units/unit_grand_schtroumpf_back_step_sprite.png",
         "../assets/units/unit_grand_schtroumpf_back_step_sprite_2.png"
@@ -217,6 +260,51 @@
       "researchFrames": [
         "../assets/units/unit_gs_research_sprite.png",
         "../assets/units/unit_gs_research_sprite_1.png"
+      ]
+    },
+    "paresseux": {
+      "playFrames": [
+        "../assets/units/paresseux.png"
+      ]
+    },
+    "farceur": {
+      "playFrames": [
+        "../assets/units/farceur_play.png",
+        "../assets/units/farceur_play_1.png"
+      ]
+    },
+    "gourmand": {
+      "playFrames": [
+        "../assets/units/gourmand_play.png",
+        "../assets/units/gourmand_play_1.png"
+      ]
+    },
+    "lunettes": {
+      "idleImage": "../assets/units/lunettes.png",
+      "southImage": "../assets/units/lunettes_front.png",
+      "moveFrames": [
+        "../assets/units/lunettes.png",
+        "../assets/units/lunettes_step.png"
+      ],
+      "southMoveFrames": [
+        "../assets/units/lunettes_front_step.png",
+        "../assets/units/lunettes_front_step_2.png"
+      ],
+      "workFrames": [
+        "../assets/units/lunettes_work.png",
+        "../assets/units/lunettes_work_1.png"
+      ],
+      "lumberFrames": [
+        "../assets/units/lunettes_lumber.png",
+        "../assets/units/lunettes_lumber_1.png"
+      ],
+      "stoneFrames": [
+        "../assets/units/lunettes_stone.png",
+        "../assets/units/lunettes_stone_1.png"
+      ],
+      "playFrames": [
+        "../assets/units/lunettes_play.png",
+        "../assets/units/lunettes_play_1.png"
       ]
     }
   }

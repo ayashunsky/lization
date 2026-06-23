@@ -134,5 +134,6 @@ Example:
 ## Notes
 
 - Bindings are applied when a book page is rendered.
+- `data-book-bind` / `data-book-bind-text` set `textContent`, so they replace any existing child elements inside the bound node.
 - Array values are joined with `, ` when inserted as text.
 - Object values are JSON-stringified when inserted as text.
