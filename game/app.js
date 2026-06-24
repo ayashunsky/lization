@@ -4174,14 +4174,15 @@ function drawInspectorFoodOverlay(context, cell) {
   );
 }
 
-function drawInspectorBuildingOverlay(context, building) {
-  if (!context || !building) {
+function drawInspectorConstructibleOverlayForKind(kind, context, constructible) {
+  if (!context || !constructible) {
     return;
   }
 
-  const visual = getBuildingVisual(building);
-  const image = visual?.image ? buildingImages[visual.image] : null;
-  const renderMode = visual?.renderMode || getBuildingRenderMode(building.type);
+  const visual = getConstructibleVisualForKind(kind, constructible);
+  const imageRegistry = getConstructibleImageRegistryForKind(kind);
+  const image = visual?.image ? imageRegistry[visual.image] : null;
+  const renderMode = visual?.renderMode || getConstructibleRenderModeForKind(kind, constructible.type);
 
   if (!image?.complete || image.naturalWidth <= 0) {
     return;
@@ -4232,62 +4233,12 @@ function drawInspectorBuildingOverlay(context, building) {
   context.restore();
 }
 
+function drawInspectorBuildingOverlay(context, building) {
+  drawInspectorConstructibleOverlayForKind("building", context, building);
+}
+
 function drawInspectorVehicleOverlay(context, vehicle) {
-  if (!context || !vehicle) {
-    return;
-  }
-
-  const visual = getVehicleVisual(vehicle);
-  const image = visual?.image ? vehicleImages[visual.image] : null;
-  const renderMode = visual?.renderMode || getVehicleRenderMode(vehicle.type);
-
-  if (!image?.complete || image.naturalWidth <= 0) {
-    return;
-  }
-
-  context.save();
-  context.globalAlpha = visual.alpha ?? 1;
-
-  if (renderMode === "footprintImageNative" || renderMode === "footprintImage") {
-    const canvas = context.canvas;
-    const maxWidth = canvas.width * 0.9;
-    const maxHeight = canvas.height * 0.9;
-    const scale = Math.min(maxWidth / image.naturalWidth, maxHeight / image.naturalHeight);
-    const drawWidth = image.naturalWidth * scale;
-    const drawHeight = image.naturalHeight * scale;
-    const drawX = (canvas.width - drawWidth) / 2;
-    const drawY = canvas.height - drawHeight - 2;
-
-    context.drawImage(
-      image,
-      drawX,
-      drawY,
-      drawWidth,
-      drawHeight,
-    );
-  } else {
-    const drawBox = getNativeSingleCellDrawBox(
-      baseTile.width / 2,
-      baseTile.height,
-      image,
-      1,
-    );
-
-    if (!drawBox) {
-      context.restore();
-      return;
-    }
-
-    context.drawImage(
-      image,
-      drawBox.x,
-      drawBox.y,
-      drawBox.width,
-      drawBox.height,
-    );
-  }
-
-  context.restore();
+  drawInspectorConstructibleOverlayForKind("vehicle", context, vehicle);
 }
 
 function drawInspectorPathOverlay(context, isFull) {
@@ -4727,13 +4678,20 @@ function getFoodShortageResetTurns() {
   );
 }
 
-function getBuildingBuildCost(type = "house", context = getRuleContext()) {
-  const buildCost = getEffectiveBuildingRules(type, context)?.buildCost || {};
+function getConstructibleBuildCostForKind(kind, type, context = getRuleContext()) {
+  const buildCost = getEffectiveConstructibleRulesForKind(kind, type, context)?.buildCost || {};
+  const defaults = normalizeConstructibleKind(kind) === "vehicle"
+    ? { stone: 0, lumber: 0 }
+    : { stone: 20, lumber: 30 };
 
   return {
-    stone: clampNonNegativeNumber(buildCost.stone, 999999, 20),
-    lumber: clampNonNegativeNumber(buildCost.lumber, 999999, 30),
+    stone: clampNonNegativeNumber(buildCost.stone, 999999, defaults.stone),
+    lumber: clampNonNegativeNumber(buildCost.lumber, 999999, defaults.lumber),
   };
+}
+
+function getBuildingBuildCost(type = "house", context = getRuleContext()) {
+  return getConstructibleBuildCostForKind("building", type, context);
 }
 
 function getHouseBuildCost(type = "house") {
@@ -4741,16 +4699,11 @@ function getHouseBuildCost(type = "house") {
 }
 
 function getVehicleBuildCost(type, context = getRuleContext()) {
-  const buildCost = getEffectiveVehicleRules(type, context)?.buildCost || {};
-
-  return {
-    stone: clampNonNegativeNumber(buildCost.stone, 999999, 0),
-    lumber: clampNonNegativeNumber(buildCost.lumber, 999999, 0),
-  };
+  return getConstructibleBuildCostForKind("vehicle", type, context);
 }
 
-function getBuildingBuildCostStatus(type = "house", context = getRuleContext()) {
-  const buildCost = getBuildingBuildCost(type, context);
+function getConstructibleBuildCostStatusForKind(kind, type, context = getRuleContext()) {
+  const buildCost = getConstructibleBuildCostForKind(kind, type, context);
   const entries = [
     {
       resourceType: "stone",
@@ -4773,6 +4726,10 @@ function getBuildingBuildCostStatus(type = "house", context = getRuleContext()) 
     entries,
     affordable: entries.every((entry) => entry.affordable),
   };
+}
+
+function getBuildingBuildCostStatus(type = "house", context = getRuleContext()) {
+  return getConstructibleBuildCostStatusForKind("building", type, context);
 }
 
 function getHouseBuildCostStatus(type = "house") {
@@ -4780,29 +4737,7 @@ function getHouseBuildCostStatus(type = "house") {
 }
 
 function getVehicleBuildCostStatus(type, context = getRuleContext()) {
-  const buildCost = getVehicleBuildCost(type, context);
-  const entries = [
-    {
-      resourceType: "stone",
-      required: buildCost.stone,
-      available: getCurrentStockpileAmount("stone"),
-    },
-    {
-      resourceType: "lumber",
-      required: buildCost.lumber,
-      available: getCurrentStockpileAmount("lumber"),
-    },
-  ].map((entry) => ({
-    ...entry,
-    missing: Math.max(0, entry.required - entry.available),
-    affordable: hasSufficientQuantity(entry.available, entry.required),
-  }));
-
-  return {
-    type,
-    entries,
-    affordable: entries.every((entry) => entry.affordable),
-  };
+  return getConstructibleBuildCostStatusForKind("vehicle", type, context);
 }
 
 function getFoodDefinition(foodType) {
@@ -4984,12 +4919,26 @@ function createUnitId(items = units) {
   return `unit_${String(maxIndex + 1).padStart(2, "0")}`;
 }
 
+function normalizeConstructibleKind(kind) {
+  return kind === "vehicle" ? "vehicle" : "building";
+}
+
+function getConstructibleCollectionForKind(kind) {
+  return normalizeConstructibleKind(kind) === "vehicle" ? vehicles : buildings;
+}
+
+function getConstructibleRulesForKind(kind, type) {
+  return normalizeConstructibleKind(kind) === "vehicle"
+    ? (rules.vehicles?.[type] || null)
+    : (rules.buildings?.[type] || null);
+}
+
 function getBuildingRules(type) {
-  return rules.buildings?.[type] || null;
+  return getConstructibleRulesForKind("building", type);
 }
 
 function getVehicleRules(type) {
-  return rules.vehicles?.[type] || null;
+  return getConstructibleRulesForKind("vehicle", type);
 }
 
 function cloneBuildingRulesForEvaluation(rulesEntry) {
@@ -5062,32 +5011,47 @@ function applyBuildingRulesModifiers(rulesEntry, context = getRuleContext()) {
   return resolved;
 }
 
+function getEffectiveConstructibleRulesForKind(kind, type, context = getRuleContext()) {
+  return applyBuildingRulesModifiers(getConstructibleRulesForKind(kind, type), context);
+}
+
 function getEffectiveBuildingRules(type, context = getRuleContext()) {
-  return applyBuildingRulesModifiers(getBuildingRules(type), context);
+  return getEffectiveConstructibleRulesForKind("building", type, context);
 }
 
 function getEffectiveVehicleRules(type, context = getRuleContext()) {
-  return applyBuildingRulesModifiers(getVehicleRules(type), context);
+  return getEffectiveConstructibleRulesForKind("vehicle", type, context);
 }
 
 function getMountedVehicleRules(currentUnit = unit, context = getRuleContext()) {
   return getEffectiveVehicleRules(getMountedVehicle(currentUnit)?.type, context)?.mounted || null;
 }
 
+function getConstructibleSpecForKind(kind, type) {
+  return normalizeConstructibleKind(kind) === "vehicle"
+    ? (vehicleCatalog[type] || null)
+    : (buildingCatalog[type] || null);
+}
+
 function getBuildingSpec(type) {
-  return buildingCatalog[type] || null;
+  return getConstructibleSpecForKind("building", type);
 }
 
 function getVehicleSpec(type) {
-  return vehicleCatalog[type] || null;
+  return getConstructibleSpecForKind("vehicle", type);
+}
+
+function getDefinedConstructibleTypesForKind(kind) {
+  const catalog = normalizeConstructibleKind(kind) === "vehicle" ? vehicleCatalog : buildingCatalog;
+  return Object.keys(catalog).filter((type) => Boolean(type) && Boolean(getConstructibleRulesForKind(kind, type)));
 }
 
 function getDefinedBuildingTypes() {
-  return Object.keys(buildingCatalog).filter((type) => Boolean(type) && Boolean(getBuildingRules(type)));
+  return getDefinedConstructibleTypesForKind("building");
 }
 
 function getDefinedVehicleTypes() {
-  return Object.keys(vehicleCatalog).filter((type) => Boolean(type) && Boolean(getVehicleRules(type)));
+  return getDefinedConstructibleTypesForKind("vehicle");
 }
 
 function getUnitAvailability(unitOrTypeId = getDefaultUnitTypeId()) {
@@ -5136,40 +5100,30 @@ function getLivingUnitCountsByType() {
   return counts;
 }
 
-function getBuildingCountsByType({ includeConstruction = true } = {}) {
+function getConstructibleCountsByTypeForKind(kind, { includeConstruction = true } = {}) {
   const counts = {};
 
-  for (const building of buildings) {
-    if (!building) {
+  for (const constructible of getConstructibleCollectionForKind(kind)) {
+    if (!constructible) {
       continue;
     }
 
-    if (!includeConstruction && building.state === "construction") {
+    if (!includeConstruction && constructible.state === "construction") {
       continue;
     }
 
-    counts[building.type] = (counts[building.type] || 0) + 1;
+    counts[constructible.type] = (counts[constructible.type] || 0) + 1;
   }
 
   return counts;
 }
 
+function getBuildingCountsByType({ includeConstruction = true } = {}) {
+  return getConstructibleCountsByTypeForKind("building", { includeConstruction });
+}
+
 function getVehicleCountsByType({ includeConstruction = true } = {}) {
-  const counts = {};
-
-  for (const vehicle of vehicles) {
-    if (!vehicle) {
-      continue;
-    }
-
-    if (!includeConstruction && vehicle.state === "construction") {
-      continue;
-    }
-
-    counts[vehicle.type] = (counts[vehicle.type] || 0) + 1;
-  }
-
-  return counts;
+  return getConstructibleCountsByTypeForKind("vehicle", { includeConstruction });
 }
 
 function getRuleContext() {
@@ -5317,8 +5271,12 @@ function getAvailableVehicleTypes(context = getRuleContext()) {
   return getDefinedVehicleTypes().filter((type) => isVehicleTypeAvailable(type, context));
 }
 
-function getBuildingRenderMode(type) {
-  return getBuildingSpec(type)?.renderMode || "singleTile";
+function getConstructibleImageRegistryForKind(kind) {
+  return normalizeConstructibleKind(kind) === "vehicle" ? vehicleImages : buildingImages;
+}
+
+function getConstructibleRenderModeForKind(kind, type) {
+  return getConstructibleSpecForKind(kind, type)?.renderMode || "singleTile";
 }
 
 function getBuildingLabel(type) {
@@ -5329,46 +5287,56 @@ function getVehicleLabel(type) {
   return resolveLocalizedLabel(getVehicleSpec(type)?.labels, type) || type;
 }
 
+function getConstructibleSubtypeVariantsForKind(kind, type) {
+  return getConstructibleSpecForKind(kind, type)?.subtypes || [];
+}
+
 function getBuildingSubtypeVariants(type) {
-  return getBuildingSpec(type)?.subtypes || [];
+  return getConstructibleSubtypeVariantsForKind("building", type);
 }
 
 function getVehicleSubtypeVariants(type) {
-  return getVehicleSpec(type)?.subtypes || [];
+  return getConstructibleSubtypeVariantsForKind("vehicle", type);
+}
+
+function chooseConstructibleSubtypeForKind(kind, type) {
+  const variants = getConstructibleSubtypeVariantsForKind(kind, type);
+
+  if (variants.length === 0) return null;
+
+  const index = Math.floor(Math.random() * variants.length);
+  return variants[index].id;
 }
 
 function chooseBuildingSubtype(type) {
-  const variants = getBuildingSubtypeVariants(type);
-
-  if (variants.length === 0) return null;
-
-  const index = Math.floor(Math.random() * variants.length);
-  return variants[index].id;
+  return chooseConstructibleSubtypeForKind("building", type);
 }
 
 function chooseVehicleSubtype(type) {
-  const variants = getVehicleSubtypeVariants(type);
+  return chooseConstructibleSubtypeForKind("vehicle", type);
+}
 
-  if (variants.length === 0) return null;
-
-  const index = Math.floor(Math.random() * variants.length);
-  return variants[index].id;
+function getDefaultConstructibleDimensionForKind(kind, dimension) {
+  const defaults = normalizeConstructibleKind(kind) === "vehicle"
+    ? rules.vehicles?.default
+    : rules.buildings?.default;
+  return Math.max(1, clampInteger(defaults?.[dimension], 1, 16, 1));
 }
 
 function getDefaultBuildingWidth() {
-  return Math.max(1, clampInteger(rules.buildings?.default?.width, 1, 16, 1));
+  return getDefaultConstructibleDimensionForKind("building", "width");
 }
 
 function getDefaultBuildingHeight() {
-  return Math.max(1, clampInteger(rules.buildings?.default?.height, 1, 16, 1));
+  return getDefaultConstructibleDimensionForKind("building", "height");
 }
 
 function getDefaultVehicleWidth() {
-  return Math.max(1, clampInteger(rules.vehicles?.default?.width, 1, 16, 1));
+  return getDefaultConstructibleDimensionForKind("vehicle", "width");
 }
 
 function getDefaultVehicleHeight() {
-  return Math.max(1, clampInteger(rules.vehicles?.default?.height, 1, 16, 1));
+  return getDefaultConstructibleDimensionForKind("vehicle", "height");
 }
 
 function getBuildingFootprintRowStep() {
@@ -5381,55 +5349,61 @@ function getMaxBuildingHeightAtY(y, mapHeight = map.height) {
 }
 
 function getBuildingBottomRow(building) {
-  if (!building) {
-    return -1;
-  }
-
-  const occupiedCells = getBuildingOccupiedCells(building);
-
-  if (occupiedCells.length === 0) {
-    return building.y;
-  }
-
-  return Math.max(...occupiedCells.map((cell) => cell.y));
+  return getConstructibleBottomRowForKind("building", building);
 }
 
 function getVehicleBottomRow(vehicle) {
-  if (!vehicle) {
+  return getConstructibleBottomRowForKind("vehicle", vehicle);
+}
+
+function getConstructibleBottomRowForKind(kind, constructible) {
+  if (!constructible) {
     return -1;
   }
 
-  const occupiedCells = getVehicleOccupiedCells(vehicle);
+  const occupiedCells = getConstructibleOccupiedCellsForKind(kind, constructible);
 
   if (occupiedCells.length === 0) {
-    return vehicle.y;
+    return constructible.y;
   }
 
   return Math.max(...occupiedCells.map((cell) => cell.y));
 }
 
+function getConstructibleDimensionForKind(kind, type, dimension) {
+  return Math.max(
+    1,
+    clampInteger(
+      getConstructibleRulesForKind(kind, type)?.[dimension],
+      1,
+      16,
+      getDefaultConstructibleDimensionForKind(kind, dimension),
+    ),
+  );
+}
+
 function getBuildingWidth(type) {
-  return Math.max(1, clampInteger(getBuildingRules(type)?.width, 1, 16, getDefaultBuildingWidth()));
+  return getConstructibleDimensionForKind("building", type, "width");
 }
 
 function getBuildingHeight(type) {
-  return Math.max(1, clampInteger(getBuildingRules(type)?.height, 1, 16, getDefaultBuildingHeight()));
+  return getConstructibleDimensionForKind("building", type, "height");
 }
 
 function getVehicleWidth(type) {
-  return Math.max(1, clampInteger(getVehicleRules(type)?.width, 1, 16, getDefaultVehicleWidth()));
+  return getConstructibleDimensionForKind("vehicle", type, "width");
 }
 
 function getVehicleHeight(type) {
-  return Math.max(1, clampInteger(getVehicleRules(type)?.height, 1, 16, getDefaultVehicleHeight()));
+  return getConstructibleDimensionForKind("vehicle", type, "height");
 }
 
-function normalizeBuildingFootprintStep(direction) {
+function normalizeConstructibleFootprintStep(direction) {
   return getMovementDirections().includes(direction) ? direction : null;
 }
 
-function getBuildingFootprintPaths(type) {
-  const rawFootprint = getBuildingRules(type)?.footprint;
+function getConstructibleFootprintPathsForKind(kind, type) {
+  const rawFootprint = getConstructibleRulesForKind(kind, type)?.footprint;
 
   if (!Array.isArray(rawFootprint) || rawFootprint.length === 0) {
     return null;
@@ -5441,78 +5415,59 @@ function getBuildingFootprintPaths(type) {
         return null;
       }
 
-      const steps = path.map(normalizeBuildingFootprintStep);
+      const steps = path.map(normalizeConstructibleFootprintStep);
       return steps.every(Boolean) ? steps : null;
     })
     .filter(Boolean);
 
   return normalized.length > 0 ? normalized : null;
+}
+
+function getBuildingFootprintPaths(type) {
+  return getConstructibleFootprintPathsForKind("building", type);
+}
+
+function getConstructiblePlacementTerrainRulesForKind(kind, type) {
+  const placementTerrains = getConstructibleRulesForKind(kind, type)?.placementTerrains;
+
+  if (!Array.isArray(placementTerrains) || placementTerrains.length === 0) {
+    return null;
+  }
+
+  return placementTerrains.map((terrainList) =>
+    Array.isArray(terrainList)
+      ? terrainList.filter((terrainType) => typeof terrainType === "string" && terrainType.trim())
+      : null,
+  );
 }
 
 function getBuildingPlacementTerrainRules(type) {
-  const placementTerrains = getBuildingRules(type)?.placementTerrains;
-
-  if (!Array.isArray(placementTerrains) || placementTerrains.length === 0) {
-    return null;
-  }
-
-  return placementTerrains.map((terrainList) =>
-    Array.isArray(terrainList)
-      ? terrainList.filter((terrainType) => typeof terrainType === "string" && terrainType.trim())
-      : null,
-  );
+  return getConstructiblePlacementTerrainRulesForKind("building", type);
 }
 
 function getVehicleFootprintPaths(type) {
-  const rawFootprint = getVehicleRules(type)?.footprint;
-
-  if (!Array.isArray(rawFootprint) || rawFootprint.length === 0) {
-    return null;
-  }
-
-  const normalized = rawFootprint
-    .map((path) => {
-      if (!Array.isArray(path)) {
-        return null;
-      }
-
-      const steps = path.map(normalizeBuildingFootprintStep);
-      return steps.every(Boolean) ? steps : null;
-    })
-    .filter(Boolean);
-
-  return normalized.length > 0 ? normalized : null;
+  return getConstructibleFootprintPathsForKind("vehicle", type);
 }
 
 function getVehiclePlacementTerrainRules(type) {
-  const placementTerrains = getVehicleRules(type)?.placementTerrains;
-
-  if (!Array.isArray(placementTerrains) || placementTerrains.length === 0) {
-    return null;
-  }
-
-  return placementTerrains.map((terrainList) =>
-    Array.isArray(terrainList)
-      ? terrainList.filter((terrainType) => typeof terrainType === "string" && terrainType.trim())
-      : null,
-  );
+  return getConstructiblePlacementTerrainRulesForKind("vehicle", type);
 }
 
 function isMultiTileBuildingType(type) {
   return getBuildingWidth(type) > 1 || getBuildingHeight(type) > 1;
 }
 
-function getBuildingPlacementEntries(originCell, type) {
+function getConstructiblePlacementEntriesForKind(kind, originCell, type) {
   if (!originCell) {
     return [];
   }
 
-  const footprintPaths = getBuildingFootprintPaths(type);
-  const placementTerrainRules = getBuildingPlacementTerrainRules(type);
+  const footprintPaths = getConstructibleFootprintPathsForKind(kind, type);
+  const placementTerrainRules = getConstructiblePlacementTerrainRulesForKind(kind, type);
 
   if (!footprintPaths) {
-    const width = getBuildingWidth(type);
-    const height = getBuildingHeight(type);
+    const width = getConstructibleDimensionForKind(kind, type, "width");
+    const height = getConstructibleDimensionForKind(kind, type, "height");
     const entries = [];
     let placementIndex = 0;
 
@@ -5570,132 +5525,72 @@ function getBuildingPlacementEntries(originCell, type) {
   });
 
   return entries.length === footprintPaths.length ? entries : [];
+}
+
+function getBuildingPlacementEntries(originCell, type) {
+  return getConstructiblePlacementEntriesForKind("building", originCell, type);
 }
 
 function getVehiclePlacementEntries(originCell, type) {
-  if (!originCell) {
-    return [];
-  }
+  return getConstructiblePlacementEntriesForKind("vehicle", originCell, type);
+}
 
-  const footprintPaths = getVehicleFootprintPaths(type);
-  const placementTerrainRules = getVehiclePlacementTerrainRules(type);
-
-  if (!footprintPaths) {
-    const width = getVehicleWidth(type);
-    const height = getVehicleHeight(type);
-    const entries = [];
-    let placementIndex = 0;
-
-    for (let offsetY = 0; offsetY < height; offsetY += 1) {
-      for (let offsetX = 0; offsetX < width; offsetX += 1) {
-        const cell = getCell(
-          originCell.x + offsetX,
-          originCell.y + offsetY * getBuildingFootprintRowStep(),
-        );
-
-        if (!cell) {
-          return [];
-        }
-
-        entries.push({
-          cell,
-          allowedTerrains: placementTerrainRules?.[placementIndex] || null,
-        });
-        placementIndex += 1;
-      }
-    }
-
-    return entries;
-  }
-
-  const entries = [];
-  const seenKeys = new Set();
-
-  footprintPaths.forEach((path, pathIndex) => {
-    let currentCell = originCell;
-
-    for (const direction of path) {
-      currentCell = getNeighborByDirection(currentCell, direction);
-
-      if (!currentCell) {
-        return;
-      }
-    }
-
-    if (!currentCell) {
-      return;
-    }
-
-    const cellKey = createCellKey(currentCell.x, currentCell.y);
-
-    if (seenKeys.has(cellKey)) {
-      return;
-    }
-
-    seenKeys.add(cellKey);
-    entries.push({
-      cell: currentCell,
-      allowedTerrains: placementTerrainRules?.[pathIndex] || null,
-    });
-  });
-
-  return entries.length === footprintPaths.length ? entries : [];
+function getConstructiblePlacementCellsForKind(kind, originCell, type) {
+  return getConstructiblePlacementEntriesForKind(kind, originCell, type).map((entry) => entry.cell);
 }
 
 function getBuildingCellsFromOrigin(originCell, type) {
-  return getBuildingPlacementEntries(originCell, type).map((entry) => entry.cell);
+  return getConstructiblePlacementCellsForKind("building", originCell, type);
+}
+
+function getBuildingPlacementCells(originCell, type) {
+  return getConstructiblePlacementCellsForKind("building", originCell, type);
+}
+
+function getVehiclePlacementCells(originCell, type) {
+  return getConstructiblePlacementCellsForKind("vehicle", originCell, type);
+}
+
+function getConstructibleOccupiedCellsForKind(kind, constructible) {
+  if (!constructible) {
+    return [];
+  }
+
+  const originCell = getCell(constructible.x, constructible.y);
+
+  return getConstructiblePlacementCellsForKind(kind, originCell, constructible.type);
 }
 
 function getBuildingOccupiedCells(building) {
-  if (!building) {
-    return [];
-  }
-
-  const originCell = getCell(building.x, building.y);
-
-  return getBuildingPlacementCells(originCell, building.type);
+  return getConstructibleOccupiedCellsForKind("building", building);
 }
 
 function getVehicleOccupiedCells(vehicle) {
-  if (!vehicle) {
-    return [];
+  return getConstructibleOccupiedCellsForKind("vehicle", vehicle);
+}
+
+function getConstructiblePlacementIndexAtCellForKind(kind, constructible, x, y) {
+  if (!constructible) {
+    return -1;
   }
 
-  const originCell = getCell(vehicle.x, vehicle.y);
+  const originCell = getCell(constructible.x, constructible.y);
 
-  return getVehiclePlacementEntries(originCell, vehicle.type).map((entry) => entry.cell);
+  if (!originCell) {
+    return -1;
+  }
+
+  return getConstructiblePlacementEntriesForKind(kind, originCell, constructible.type).findIndex(
+    ({ cell }) => cell.x === x && cell.y === y,
+  );
 }
 
 function getBuildingPlacementIndexAtCell(building, x, y) {
-  if (!building) {
-    return -1;
-  }
-
-  const originCell = getCell(building.x, building.y);
-
-  if (!originCell) {
-    return -1;
-  }
-
-  return getBuildingPlacementEntries(originCell, building.type).findIndex(
-    ({ cell }) => cell.x === x && cell.y === y,
-  );
+  return getConstructiblePlacementIndexAtCellForKind("building", building, x, y);
 }
 
 function getVehiclePlacementIndexAtCell(vehicle, x, y) {
-  if (!vehicle) {
-    return -1;
-  }
-
-  const originCell = getCell(vehicle.x, vehicle.y);
-
-  if (!originCell) {
-    return -1;
-  }
-
-  return getVehiclePlacementEntries(originCell, vehicle.type).findIndex(
-    ({ cell }) => cell.x === x && cell.y === y,
-  );
+  return getConstructiblePlacementIndexAtCellForKind("vehicle", vehicle, x, y);
 }
 
 function createFoundationConstructibleDescriptor(kind, type) {
@@ -5802,20 +5697,31 @@ function getBuildingCompleteness(building) {
   return clamp(completeness, 0, 1);
 }
 
+function getConstructibleConstructionCostForKind(kind, type, context = getRuleContext()) {
+  return Math.max(
+    1,
+    clampNumber(getEffectiveConstructibleRulesForKind(kind, type, context)?.constructionCost, 1, 999999, 100),
+  );
+}
+
 function getBuildingConstructionCost(type, context = getRuleContext()) {
-  return Math.max(1, clampNumber(getEffectiveBuildingRules(type, context)?.constructionCost, 1, 999999, 100));
+  return getConstructibleConstructionCostForKind("building", type, context);
 }
 
 function getVehicleConstructionCost(type, context = getRuleContext()) {
-  return Math.max(1, clampNumber(getEffectiveVehicleRules(type, context)?.constructionCost, 1, 999999, 100));
+  return getConstructibleConstructionCostForKind("vehicle", type, context);
+}
+
+function isConstructibleWalkableForKind(kind, type, context = getRuleContext()) {
+  return Boolean(getEffectiveConstructibleRulesForKind(kind, type, context)?.walkable);
 }
 
 function isBuildingWalkable(type, context = getRuleContext()) {
-  return Boolean(getEffectiveBuildingRules(type, context)?.walkable);
+  return isConstructibleWalkableForKind("building", type, context);
 }
 
 function isVehicleWalkable(type, context = getRuleContext()) {
-  return Boolean(getEffectiveVehicleRules(type, context)?.walkable);
+  return isConstructibleWalkableForKind("vehicle", type, context);
 }
 
 function getBuildingAbandonedDecay(type, context = getRuleContext()) {
@@ -5828,8 +5734,8 @@ function getBuildingAbandonedDecay(type, context = getRuleContext()) {
   return clamp(decay, 0, 1);
 }
 
-function getBuildingConstructionThresholds(type, context = getRuleContext()) {
-  const thresholds = getEffectiveBuildingRules(type, context)?.constructionVisualThresholds || {};
+function getConstructibleConstructionThresholdsForKind(kind, type, context = getRuleContext()) {
+  const thresholds = getEffectiveConstructibleRulesForKind(kind, type, context)?.constructionVisualThresholds || {};
   const initialValue = Number(thresholds.initialMax);
   const halfValue = Number(thresholds.halfMax);
   const initialMax = Number.isFinite(initialValue) ? clamp(initialValue, 0, 1) : 0.34;
@@ -8283,47 +8189,55 @@ function serializeCell(cell) {
   };
 }
 
-function serializeBuilding(building, width = map.width, height = map.height) {
-  if (!building) return null;
+function serializeConstructibleForKind(kind, constructible, width = map.width, height = map.height) {
+  if (!constructible) {
+    return null;
+  }
 
-  const x = clampInteger(building.x, 0, width - 1, 0);
-  const y = clampInteger(building.y, 0, height - 1, 0);
+  const normalizedKind = normalizeConstructibleKind(kind);
+  const x = clampInteger(constructible.x, 0, width - 1, 0);
+  const y = clampInteger(constructible.y, 0, height - 1, 0);
 
   return {
-    id: building.id || "building_01",
-    type: building.type,
-    subtype: building.subtype,
+    id: constructible.id || `${normalizedKind}_01`,
+    type: constructible.type,
+    subtype: constructible.subtype,
     x,
     y,
-    width: Math.max(1, clampInteger(building.width, 1, width - x, getDefaultBuildingWidth())),
-    height: Math.max(1, clampInteger(building.height, 1, height - y, getDefaultBuildingHeight())),
-    state: building.state || "complete",
-    walkable: Boolean(building.walkable),
-    completeness: getBuildingCompleteness(building),
-    constructionCost: getBuildingConstructionCost(building.type),
+    width: Math.max(
+      1,
+      clampInteger(
+        constructible.width,
+        1,
+        width - x,
+        getDefaultConstructibleDimensionForKind(normalizedKind, "width"),
+      ),
+    ),
+    height: Math.max(
+      1,
+      clampInteger(
+        constructible.height,
+        1,
+        height - y,
+        getDefaultConstructibleDimensionForKind(normalizedKind, "height"),
+      ),
+    ),
+    state: constructible.state || "complete",
+    walkable: Boolean(constructible.walkable),
+    completeness: getBuildingCompleteness(constructible),
+    constructionCost: getConstructibleConstructionCostForKind(normalizedKind, constructible.type),
+    ...(normalizedKind === "vehicle"
+      ? { riderUnitId: normalizeLinkedEntityId(constructible.riderUnitId) }
+      : {}),
   };
 }
 
+function serializeBuilding(building, width = map.width, height = map.height) {
+  return serializeConstructibleForKind("building", building, width, height);
+}
+
 function serializeVehicle(vehicle, width = map.width, height = map.height) {
-  if (!vehicle) return null;
-
-  const x = clampInteger(vehicle.x, 0, width - 1, 0);
-  const y = clampInteger(vehicle.y, 0, height - 1, 0);
-
-  return {
-    id: vehicle.id || "vehicle_01",
-    type: vehicle.type,
-    subtype: vehicle.subtype,
-    x,
-    y,
-    width: Math.max(1, clampInteger(vehicle.width, 1, width - x, getDefaultVehicleWidth())),
-    height: Math.max(1, clampInteger(vehicle.height, 1, height - y, getDefaultVehicleHeight())),
-    state: vehicle.state || "complete",
-    walkable: Boolean(vehicle.walkable),
-    completeness: getBuildingCompleteness(vehicle),
-    constructionCost: getVehicleConstructionCost(vehicle.type),
-    riderUnitId: normalizeLinkedEntityId(vehicle.riderUnitId),
-  };
+  return serializeConstructibleForKind("vehicle", vehicle, width, height);
 }
 
 function serializeTask(task) {
@@ -8859,37 +8773,25 @@ function createDefaultUnitState(cells, width, height, unitTypeId = getDefaultUni
 }
 
 function createBuildingId() {
-  let maxIndex = 0;
-
-  for (const building of buildings) {
-    const match = /^building_(\d+)$/.exec(building?.id || "");
-
-    if (!match) continue;
-    maxIndex = Math.max(maxIndex, Number.parseInt(match[1], 10) || 0);
-  }
-
-  return `building_${String(maxIndex + 1).padStart(2, "0")}`;
+  return createConstructibleIdForKind("building");
 }
 
 function createVehicleId(items = vehicles) {
+  return createConstructibleIdForKind("vehicle", items);
+}
+
+function createConstructibleIdForKind(kind, items = getConstructibleCollectionForKind(kind)) {
+  const normalizedKind = normalizeConstructibleKind(kind);
   let maxIndex = 0;
 
-  for (const vehicle of items) {
-    const match = /^vehicle_(\d+)$/.exec(vehicle?.id || "");
+  for (const constructible of items) {
+    const match = new RegExp(`^${normalizedKind}_(\\d+)$`).exec(constructible?.id || "");
 
     if (!match) continue;
     maxIndex = Math.max(maxIndex, Number.parseInt(match[1], 10) || 0);
   }
 
-  return `vehicle_${String(maxIndex + 1).padStart(2, "0")}`;
-}
-
-function getBuildingPlacementCells(originCell, type) {
-  return getBuildingPlacementEntries(originCell, type).map((entry) => entry.cell);
-}
-
-function getVehiclePlacementCells(originCell, type) {
-  return getVehiclePlacementEntries(originCell, type).map((entry) => entry.cell);
+  return `${normalizedKind}_${String(maxIndex + 1).padStart(2, "0")}`;
 }
 
 function canCellHostBuildingPlacement(cell, allowedTerrains = null) {
@@ -8931,30 +8833,35 @@ function canPlaceNewVehicleConstructionOnCell(originCell, type, currentUnit = nu
 }
 
 function markBuildingCellsVisited(building) {
-  if (!building) {
-    return;
-  }
-
-  for (const cell of getBuildingOccupiedCells(building)) {
-    cell.visited = true;
-  }
+  markConstructibleCellsVisitedForKind("building", building);
 }
 
 function markVehicleCellsVisited(vehicle) {
-  if (!vehicle) {
+  markConstructibleCellsVisitedForKind("vehicle", vehicle);
+}
+
+function markConstructibleCellsVisitedForKind(kind, constructible) {
+  if (!constructible) {
     return;
   }
 
-  for (const cell of getVehicleOccupiedCells(vehicle)) {
+  for (const cell of getConstructibleOccupiedCellsForKind(kind, constructible)) {
     cell.visited = true;
   }
 }
 
-function createBuildingConstructionAtCell(cell, type = "house", { spendResources = true } = {}) {
-  if (!canPlaceNewBuildingConstructionOnCell(cell, type)) return null;
+function createConstructibleConstructionAtCellForKind(kind, cell, type, { spendResources = true } = {}) {
+  const normalizedKind = normalizeConstructibleKind(kind);
+  const canPlace = normalizedKind === "vehicle"
+    ? canPlaceNewVehicleConstructionOnCell(cell, type)
+    : canPlaceNewBuildingConstructionOnCell(cell, type);
 
-  const buildCost = getBuildingBuildCost(type);
-  const buildCostStatus = getBuildingBuildCostStatus(type);
+  if (!canPlace) {
+    return null;
+  }
+
+  const buildCost = getConstructibleBuildCostForKind(normalizedKind, type);
+  const buildCostStatus = getConstructibleBuildCostStatusForKind(normalizedKind, type);
 
   if (spendResources && !buildCostStatus.affordable) {
     return null;
@@ -8967,23 +8874,28 @@ function createBuildingConstructionAtCell(cell, type = "house", { spendResources
     return null;
   }
 
-  const building = {
-    id: createBuildingId(),
+  const constructible = {
+    id: createConstructibleIdForKind(normalizedKind),
     type,
-    subtype: chooseBuildingSubtype(type) || `${type}_01`,
+    subtype: chooseConstructibleSubtypeForKind(normalizedKind, type) || `${type}_01`,
     x: cell.x,
     y: cell.y,
-    width: getBuildingWidth(type),
-    height: getBuildingHeight(type),
+    width: getConstructibleDimensionForKind(normalizedKind, type, "width"),
+    height: getConstructibleDimensionForKind(normalizedKind, type, "height"),
     state: "construction",
-    walkable: isBuildingWalkable(type),
+    walkable: isConstructibleWalkableForKind(normalizedKind, type),
     completeness: 0,
-    constructionCost: getBuildingConstructionCost(type),
+    constructionCost: getConstructibleConstructionCostForKind(normalizedKind, type),
+    ...(normalizedKind === "vehicle" ? { riderUnitId: null } : {}),
   };
 
-  buildings.push(building);
-  markBuildingCellsVisited(building);
-  return building;
+  getConstructibleCollectionForKind(normalizedKind).push(constructible);
+  markConstructibleCellsVisitedForKind(normalizedKind, constructible);
+  return constructible;
+}
+
+function createBuildingConstructionAtCell(cell, type = "house", { spendResources = true } = {}) {
+  return createConstructibleConstructionAtCellForKind("building", cell, type, { spendResources });
 }
 
 function createHouseConstructionAtCell(cell) {
@@ -8991,40 +8903,7 @@ function createHouseConstructionAtCell(cell) {
 }
 
 function createVehicleConstructionAtCell(cell, type, { spendResources = true } = {}) {
-  if (!canPlaceNewVehicleConstructionOnCell(cell, type)) return null;
-
-  const buildCost = getVehicleBuildCost(type);
-  const buildCostStatus = getVehicleBuildCostStatus(type);
-
-  if (spendResources && !buildCostStatus.affordable) {
-    return null;
-  }
-
-  if (
-    spendResources &&
-    (!spendFromStockpile("stone", buildCost.stone) || !spendFromStockpile("lumber", buildCost.lumber))
-  ) {
-    return null;
-  }
-
-  const vehicle = {
-    id: createVehicleId(),
-    type,
-    subtype: chooseVehicleSubtype(type) || `${type}_01`,
-    x: cell.x,
-    y: cell.y,
-    width: getVehicleWidth(type),
-    height: getVehicleHeight(type),
-    state: "construction",
-    walkable: isVehicleWalkable(type),
-    completeness: 0,
-    constructionCost: getVehicleConstructionCost(type),
-    riderUnitId: null,
-  };
-
-  vehicles.push(vehicle);
-  markVehicleCellsVisited(vehicle);
-  return vehicle;
+  return createConstructibleConstructionAtCellForKind("vehicle", cell, type, { spendResources });
 }
 
 function canAffordConstructibleConstruction(constructible, context = getRuleContext()) {
@@ -9052,9 +8931,7 @@ function getConstructiblePlacementCells(originCell, constructible) {
     return [];
   }
 
-  return constructible.kind === "vehicle"
-    ? getVehiclePlacementCells(originCell, constructible.type)
-    : getBuildingPlacementCells(originCell, constructible.type);
+  return getConstructiblePlacementCellsForKind(constructible.kind, originCell, constructible.type);
 }
 
 function isMultiTileConstructible(constructible) {
@@ -9062,9 +8939,8 @@ function isMultiTileConstructible(constructible) {
     return false;
   }
 
-  return constructible.kind === "vehicle"
-    ? getVehicleWidth(constructible.type) > 1 || getVehicleHeight(constructible.type) > 1
-    : isMultiTileBuildingType(constructible.type);
+  return getConstructibleDimensionForKind(constructible.kind, constructible.type, "width") > 1
+    || getConstructibleDimensionForKind(constructible.kind, constructible.type, "height") > 1;
 }
 
 function createConstructibleConstructionAtCell(cell, constructible, options = {}) {
@@ -9072,9 +8948,7 @@ function createConstructibleConstructionAtCell(cell, constructible, options = {}
     return null;
   }
 
-  return constructible.kind === "vehicle"
-    ? createVehicleConstructionAtCell(cell, constructible.type, options)
-    : createBuildingConstructionAtCell(cell, constructible.type, options);
+  return createConstructibleConstructionAtCellForKind(constructible.kind, cell, constructible.type, options);
 }
 
 function markCellVisitedByUnit(cell, { invalidate = true } = {}) {
@@ -9538,117 +9412,96 @@ function normalizeBuildingState(state) {
     : "complete";
 }
 
-function normalizeBuildingSubtype(type, subtype) {
-  const variants = getBuildingSubtypeVariants(type);
+function normalizeConstructibleSubtypeForKind(kind, type, subtype) {
+  const variants = getConstructibleSubtypeVariantsForKind(kind, type);
 
   if (variants.some((variant) => variant.id === subtype)) {
     return subtype;
   }
 
   return variants[0]?.id || null;
+}
+
+function normalizeBuildingSubtype(type, subtype) {
+  return normalizeConstructibleSubtypeForKind("building", type, subtype);
 }
 
 function normalizeVehicleSubtype(type, subtype) {
-  const variants = getVehicleSubtypeVariants(type);
+  return normalizeConstructibleSubtypeForKind("vehicle", type, subtype);
+}
 
-  if (variants.some((variant) => variant.id === subtype)) {
-    return subtype;
+function normalizeConstructiblesStateForKind(kind, rawConstructibles, { requireArray = false } = {}) {
+  if (!Array.isArray(rawConstructibles)) {
+    if (requireArray) {
+      throw new Error(`Missing ${normalizeConstructibleKind(kind)} data.`);
+    }
+
+    return [];
   }
 
-  return variants[0]?.id || null;
+  const normalizedKind = normalizeConstructibleKind(kind);
+
+  return rawConstructibles.map((sourceConstructible, index) => {
+    const type = sourceConstructible?.type;
+
+    if (!getConstructibleSpecForKind(normalizedKind, type) || !getConstructibleRulesForKind(normalizedKind, type)) {
+      throw new Error(`Unsupported ${normalizedKind} type: ${type}`);
+    }
+
+    const x = clampInteger(sourceConstructible.x, 0, map.width - 1, 0);
+    const y = clampInteger(sourceConstructible.y, 0, map.height - 1, 0);
+    const width = Math.max(
+      1,
+      Math.min(
+        map.width - x,
+        clampInteger(
+          sourceConstructible.width,
+          1,
+          map.width,
+          getDefaultConstructibleDimensionForKind(normalizedKind, "width"),
+        ),
+      ),
+    );
+    const height = Math.max(
+      1,
+      Math.min(
+        map.height - y,
+        clampInteger(
+          sourceConstructible.height,
+          1,
+          map.height,
+          getDefaultConstructibleDimensionForKind(normalizedKind, "height"),
+        ),
+      ),
+    );
+
+    return {
+      id: typeof sourceConstructible.id === "string" ? sourceConstructible.id : `${normalizedKind}_${index + 1}`,
+      type,
+      subtype: normalizeConstructibleSubtypeForKind(normalizedKind, type, sourceConstructible.subtype),
+      x,
+      y,
+      width,
+      height,
+      state: normalizeBuildingState(sourceConstructible.state),
+      walkable: typeof sourceConstructible.walkable === "boolean"
+        ? sourceConstructible.walkable
+        : isConstructibleWalkableForKind(normalizedKind, type),
+      completeness: getBuildingCompleteness(sourceConstructible),
+      constructionCost: getConstructibleConstructionCostForKind(normalizedKind, type),
+      ...(normalizedKind === "vehicle"
+        ? { riderUnitId: normalizeLinkedEntityId(sourceConstructible.riderUnitId) }
+        : {}),
+    };
+  });
 }
 
 function normalizeBuildingsState(rawBuildings) {
-  if (!Array.isArray(rawBuildings)) {
-    throw new Error("Missing building data.");
-  }
-
-  return rawBuildings.map((sourceBuilding, index) => {
-    const type = sourceBuilding?.type;
-
-    if (!getBuildingSpec(type) || !getBuildingRules(type)) {
-      throw new Error(`Unsupported building type: ${type}`);
-    }
-
-    const x = clampInteger(sourceBuilding.x, 0, map.width - 1, 0);
-    const y = clampInteger(sourceBuilding.y, 0, map.height - 1, 0);
-    const width = Math.max(
-      1,
-      Math.min(
-        map.width - x,
-        clampInteger(sourceBuilding.width, 1, map.width, getDefaultBuildingWidth()),
-      ),
-    );
-    const height = Math.max(
-      1,
-      Math.min(
-        map.height - y,
-        clampInteger(sourceBuilding.height, 1, map.height, getDefaultBuildingHeight()),
-      ),
-    );
-
-    return {
-      id: typeof sourceBuilding.id === "string" ? sourceBuilding.id : `building_${index + 1}`,
-      type,
-      subtype: normalizeBuildingSubtype(type, sourceBuilding.subtype),
-      x,
-      y,
-      width,
-      height,
-      state: normalizeBuildingState(sourceBuilding.state),
-      walkable: typeof sourceBuilding.walkable === "boolean"
-        ? sourceBuilding.walkable
-        : isBuildingWalkable(type),
-      completeness: getBuildingCompleteness(sourceBuilding),
-      constructionCost: getBuildingConstructionCost(type),
-    };
-  });
+  return normalizeConstructiblesStateForKind("building", rawBuildings, { requireArray: true });
 }
 
 function normalizeVehiclesState(rawVehicles) {
-  const sourceVehicles = Array.isArray(rawVehicles) ? rawVehicles : [];
-
-  return sourceVehicles.map((sourceVehicle, index) => {
-    const type = sourceVehicle?.type;
-
-    if (!getVehicleSpec(type) || !getVehicleRules(type)) {
-      throw new Error(`Unsupported vehicle type: ${type}`);
-    }
-
-    const x = clampInteger(sourceVehicle.x, 0, map.width - 1, 0);
-    const y = clampInteger(sourceVehicle.y, 0, map.height - 1, 0);
-    const width = Math.max(
-      1,
-      Math.min(
-        map.width - x,
-        clampInteger(sourceVehicle.width, 1, map.width, getDefaultVehicleWidth()),
-      ),
-    );
-    const height = Math.max(
-      1,
-      Math.min(
-        map.height - y,
-        clampInteger(sourceVehicle.height, 1, map.height, getDefaultVehicleHeight()),
-      ),
-    );
-
-    return {
-      id: typeof sourceVehicle.id === "string" ? sourceVehicle.id : `vehicle_${index + 1}`,
-      type,
-      subtype: normalizeVehicleSubtype(type, sourceVehicle.subtype),
-      x,
-      y,
-      width,
-      height,
-      state: normalizeBuildingState(sourceVehicle.state),
-      walkable: typeof sourceVehicle.walkable === "boolean"
-        ? sourceVehicle.walkable
-        : isVehicleWalkable(type),
-      completeness: getBuildingCompleteness(sourceVehicle),
-      constructionCost: getVehicleConstructionCost(type),
-      riderUnitId: normalizeLinkedEntityId(sourceVehicle.riderUnitId),
-    };
-  });
+  return normalizeConstructiblesStateForKind("vehicle", rawVehicles);
 }
 
 function normalizeLinkedEntityId(value) {
@@ -11882,28 +11735,51 @@ function getTerrainVariant(type, variantId) {
   return variants.find((variant) => variant.id === variantId) || variants[0] || null;
 }
 
+function constructibleOccupiesCell(kind, constructible, x, y) {
+  return getConstructibleOccupiedCellsForKind(kind, constructible).some((cell) => cell.x === x && cell.y === y);
+}
+
 function buildingOccupiesCell(building, x, y) {
-  return getBuildingOccupiedCells(building).some((cell) => cell.x === x && cell.y === y);
+  return constructibleOccupiesCell("building", building, x, y);
 }
 
 function vehicleOccupiesCell(vehicle, x, y) {
-  return getVehicleOccupiedCells(vehicle).some((cell) => cell.x === x && cell.y === y);
+  return constructibleOccupiesCell("vehicle", vehicle, x, y);
 }
 
-function getBuildingsAtCell(x, y) {
-  return buildings.filter((building) => buildingOccupiesCell(building, x, y));
+function doesConstructibleMatchCellQuery(kind, constructible, x, y, { excludeConstructibleId = null, predicate = null } = {}) {
+  return Boolean(
+    constructible &&
+    constructible.id !== excludeConstructibleId &&
+    constructibleOccupiesCell(kind, constructible, x, y) &&
+    (typeof predicate !== "function" || predicate(constructible)),
+  );
+}
+
+function getConstructiblesAtCellForKind(kind, x, y, options = {}) {
+  return getConstructibleCollectionForKind(kind).filter((constructible) =>
+    doesConstructibleMatchCellQuery(kind, constructible, x, y, options),
+  );
+}
+
+function findConstructibleAtCellForKind(kind, x, y, options = {}) {
+  return (
+    getConstructibleCollectionForKind(kind).find((constructible) =>
+      doesConstructibleMatchCellQuery(kind, constructible, x, y, options),
+    ) || null
+  );
 }
 
 function getBuildingAtCell(x, y) {
-  return getBuildingsAtCell(x, y)[0] || null;
+  return findConstructibleAtCellForKind("building", x, y);
 }
 
 function getVehiclesAtCell(x, y) {
-  return vehicles.filter((vehicle) => vehicleOccupiesCell(vehicle, x, y));
+  return getConstructiblesAtCellForKind("vehicle", x, y);
 }
 
 function getVehicleAtCell(x, y) {
-  return getVehiclesAtCell(x, y)[0] || null;
+  return findConstructibleAtCellForKind("vehicle", x, y);
 }
 
 function getUnitAtCell(x, y, { excludeUnitId = null } = {}) {
@@ -11918,58 +11794,62 @@ function getUnitAtCell(x, y, { excludeUnitId = null } = {}) {
   );
 }
 
-function getBlockingBuildingAtCell(x, y) {
-  return (
-    buildings.find(
-      (building) => buildingOccupiesCell(building, x, y) && !isBuildingInstanceWalkable(building),
-    ) || null
-  );
+function isConstructibleInstanceWalkableForKind(_kind, constructible) {
+  return Boolean(constructible?.walkable) && constructible.state === "complete";
 }
 
 function isBuildingInstanceWalkable(building) {
-  return Boolean(building?.walkable) && building.state === "complete";
+  return isConstructibleInstanceWalkableForKind("building", building);
 }
 
 function isVehicleInstanceWalkable(vehicle) {
-  return Boolean(vehicle?.walkable) && vehicle.state === "complete";
+  return isConstructibleInstanceWalkableForKind("vehicle", vehicle);
+}
+
+function getBlockingConstructibleAtCellForKind(kind, x, y, { excludeConstructibleId = null } = {}) {
+  return findConstructibleAtCellForKind(kind, x, y, {
+    excludeConstructibleId,
+    predicate: (constructible) => !isConstructibleInstanceWalkableForKind(kind, constructible),
+  });
+}
+
+function getWalkableConstructibleAtCellForKind(kind, x, y, { excludeConstructibleId = null } = {}) {
+  return findConstructibleAtCellForKind(kind, x, y, {
+    excludeConstructibleId,
+    predicate: (constructible) => isConstructibleInstanceWalkableForKind(kind, constructible),
+  });
+}
+
+function hasWalkableConstructibleAtCellForKind(kind, x, y, options = {}) {
+  return Boolean(getWalkableConstructibleAtCellForKind(kind, x, y, options));
+}
+
+function getBlockingBuildingAtCell(x, y) {
+  return getBlockingConstructibleAtCellForKind("building", x, y);
 }
 
 function getWalkableBuildingAtCell(x, y) {
-  return (
-    buildings.find(
-      (building) => buildingOccupiesCell(building, x, y) && isBuildingInstanceWalkable(building),
-    ) || null
-  );
+  return getWalkableConstructibleAtCellForKind("building", x, y);
 }
 
 function hasWalkableBuildingAtCell(x, y) {
-  return Boolean(getWalkableBuildingAtCell(x, y));
+  return hasWalkableConstructibleAtCellForKind("building", x, y);
 }
 
 function getBlockingVehicleAtCell(x, y, { excludeVehicleId = null } = {}) {
-  return (
-    vehicles.find(
-      (vehicle) =>
-        vehicle?.id !== excludeVehicleId &&
-        vehicleOccupiesCell(vehicle, x, y) &&
-        !isVehicleInstanceWalkable(vehicle),
-    ) || null
-  );
+  return getBlockingConstructibleAtCellForKind("vehicle", x, y, {
+    excludeConstructibleId: excludeVehicleId,
+  });
 }
 
 function getWalkableVehicleAtCell(x, y, { excludeVehicleId = null } = {}) {
-  return (
-    vehicles.find(
-      (vehicle) =>
-        vehicle?.id !== excludeVehicleId &&
-        vehicleOccupiesCell(vehicle, x, y) &&
-        isVehicleInstanceWalkable(vehicle),
-    ) || null
-  );
+  return getWalkableConstructibleAtCellForKind("vehicle", x, y, {
+    excludeConstructibleId: excludeVehicleId,
+  });
 }
 
 function hasWalkableVehicleAtCell(x, y, options = {}) {
-  return Boolean(getWalkableVehicleAtCell(x, y, options));
+  return hasWalkableConstructibleAtCellForKind("vehicle", x, y, options);
 }
 
 function getBuildingUnitRenderOffsetAtCell(building, x, y) {
@@ -12178,21 +12058,21 @@ function spawnUnitFromHouse(building, unitTypeId = getNextHouseSpawnUnitTypeId()
   return spawnedUnit;
 }
 
-function getBuildingVisual(building) {
-  const spec = getBuildingSpec(building?.type);
+function getConstructibleVisualForKind(kind, constructible) {
+  const spec = getConstructibleSpecForKind(kind, constructible?.type);
 
   if (!spec) return null;
 
-  if (building.state === "abandoned") {
+  if (constructible.state === "abandoned") {
     return {
       image: spec.abandonedImage,
-      alpha: clamp(0.28 + getBuildingCompleteness(building) * 0.72, 0.2, 1),
+      alpha: clamp(0.28 + getBuildingCompleteness(constructible) * 0.72, 0.2, 1),
     };
   }
 
-  if (building.state === "construction") {
-    const completeness = getBuildingCompleteness(building);
-    const thresholds = getBuildingConstructionThresholds(building.type);
+  if (constructible.state === "construction") {
+    const completeness = getBuildingCompleteness(constructible);
+    const thresholds = getConstructibleConstructionThresholdsForKind(kind, constructible.type);
 
     if (completeness < thresholds.initialMax) {
       const initialStageVisual = spec.constructionStages?.initial || {};
@@ -12217,7 +12097,7 @@ function getBuildingVisual(building) {
     }
   }
 
-  const subtype = spec.subtypes.find((variant) => variant.id === building.subtype) || spec.subtypes[0];
+  const subtype = spec.subtypes.find((variant) => variant.id === constructible.subtype) || spec.subtypes[0];
 
   return subtype
     ? {
@@ -12228,65 +12108,11 @@ function getBuildingVisual(building) {
 }
 
 function getVehicleRenderMode(type) {
-  return getVehicleSpec(type)?.renderMode || "singleTile";
-}
-
-function getVehicleConstructionThresholds(type, context = getRuleContext()) {
-  const thresholds = getEffectiveVehicleRules(type, context)?.constructionVisualThresholds || {};
-
-  return {
-    initialMax: clamp(Number(thresholds.initialMax), 0, 1, 0.34),
-    halfMax: clamp(Number(thresholds.halfMax), 0, 1, 0.79),
-  };
+  return getConstructibleRenderModeForKind("vehicle", type);
 }
 
 function getVehicleVisual(vehicle) {
-  const spec = getVehicleSpec(vehicle?.type);
-
-  if (!spec) return null;
-
-  if (vehicle.state === "abandoned") {
-    return {
-      image: spec.abandonedImage,
-      alpha: clamp(0.28 + getBuildingCompleteness(vehicle) * 0.72, 0.2, 1),
-    };
-  }
-
-  if (vehicle.state === "construction") {
-    const completeness = getBuildingCompleteness(vehicle);
-    const thresholds = getVehicleConstructionThresholds(vehicle.type);
-
-    if (completeness < thresholds.initialMax) {
-      const initialStageVisual = spec.constructionStages?.initial || {};
-      return {
-        image: spec.constructionImages.initial,
-        ...(Array.isArray(initialStageVisual.tileImages) ? { tileImages: initialStageVisual.tileImages } : {}),
-        alpha: 1,
-        yOffsetFactor: Number.isFinite(initialStageVisual.yOffsetFactor) ? initialStageVisual.yOffsetFactor : 0.2,
-        renderMode: initialStageVisual.renderMode || "perTile",
-      };
-    }
-
-    if (completeness < thresholds.halfMax) {
-      const halfStageVisual = spec.constructionStages?.half || {};
-      return {
-        image: spec.constructionImages.half,
-        ...(Array.isArray(halfStageVisual.tileImages) ? { tileImages: halfStageVisual.tileImages } : {}),
-        alpha: 1,
-        ...(Number.isFinite(halfStageVisual.yOffsetFactor) ? { yOffsetFactor: halfStageVisual.yOffsetFactor } : {}),
-        renderMode: halfStageVisual.renderMode || spec.constructionRenderMode || spec.renderMode,
-      };
-    }
-  }
-
-  const subtype = spec.subtypes.find((variant) => variant.id === vehicle.subtype) || spec.subtypes[0];
-
-  return subtype
-    ? {
-        image: subtype.image,
-        alpha: 1,
-      }
-    : null;
+  return getConstructibleVisualForKind("vehicle", vehicle);
 }
 
 function makeMap() {
@@ -15883,8 +15709,8 @@ function drawNativeSingleCellImageAtCell(image, cell, drawContext = ctx) {
   );
 }
 
-function getBuildingFootprintVisualBounds(building, visual) {
-  const occupiedCells = getBuildingOccupiedCells(building);
+function getConstructibleFootprintVisualBoundsForKind(kind, constructible, visual) {
+  const occupiedCells = getConstructibleOccupiedCellsForKind(kind, constructible);
 
   if (occupiedCells.length === 0) {
     return null;
@@ -15919,10 +15745,11 @@ function getBuildingFootprintVisualBounds(building, visual) {
   };
 }
 
-function getFootprintImageNativeDrawBox(building, image, visual) {
-  const bounds = getBuildingFootprintVisualBounds(building, visual);
-  const baseScale = Number(getBuildingSpec(building?.type)?.nativeScaleAt100Zoom);
-  const baseOffsetY = Number(getBuildingSpec(building?.type)?.nativeOffsetYAt100Zoom);
+function getConstructibleFootprintImageNativeDrawBoxForKind(kind, constructible, image, visual) {
+  const bounds = getConstructibleFootprintVisualBoundsForKind(kind, constructible, visual);
+  const spec = getConstructibleSpecForKind(kind, constructible?.type);
+  const baseScale = Number(spec?.nativeScaleAt100Zoom);
+  const baseOffsetY = Number(spec?.nativeOffsetYAt100Zoom);
 
   if (!bounds || !image?.naturalWidth || !image?.naturalHeight) {
     return null;
@@ -15942,289 +15769,129 @@ function getFootprintImageNativeDrawBox(building, image, visual) {
   };
 }
 
-function getVehicleFootprintVisualBounds(vehicle, visual) {
-  const occupiedCells = getVehicleOccupiedCells(vehicle);
+function drawConstructibleForKind(kind, constructible, drawContext = ctx) {
+  const visual = getConstructibleVisualForKind(kind, constructible);
 
-  if (occupiedCells.length === 0) {
-    return null;
+  if (!visual) return;
+
+  const imageRegistry = getConstructibleImageRegistryForKind(kind);
+  const renderMode = visual.renderMode || getConstructibleRenderModeForKind(kind, constructible.type);
+  const occupiedCells = renderMode === "perTile"
+    ? getConstructibleOccupiedCellsForKind(kind, constructible)
+    : null;
+
+  drawContext.save();
+  drawContext.globalAlpha = visual.alpha ?? 1;
+
+  if (renderMode === "perTile") {
+    const tileImages = Array.isArray(visual.tileImages) ? visual.tileImages : null;
+
+    if (tileImages && tileImages.length > 0) {
+      occupiedCells.forEach((cell, index) => {
+        const imagePath = index < tileImages.length ? tileImages[index] : visual.image;
+
+        if (!imagePath) {
+          return;
+        }
+
+        const tileImage = imageRegistry[imagePath];
+
+        if (!tileImage?.complete || tileImage.naturalWidth <= 0) {
+          return;
+        }
+
+        drawNativeSingleCellImageAtCell(tileImage, cell, drawContext);
+      });
+    } else {
+      if (!visual.image) {
+        drawContext.restore();
+        return;
+      }
+
+      const image = imageRegistry[visual.image];
+
+      if (!image?.complete || image.naturalWidth <= 0) {
+        drawContext.restore();
+        return;
+      }
+
+      for (const cell of occupiedCells) {
+        drawNativeSingleCellImageAtCell(image, cell, drawContext);
+      }
+    }
+  } else if (renderMode === "footprintImageNative") {
+    if (!visual.image) {
+      drawContext.restore();
+      return;
+    }
+
+    const image = imageRegistry[visual.image];
+
+    if (!image?.complete || image.naturalWidth <= 0) {
+      drawContext.restore();
+      return;
+    }
+
+    const drawBox = getConstructibleFootprintImageNativeDrawBoxForKind(kind, constructible, image, visual);
+
+    if (drawBox) {
+      drawContext.drawImage(
+        image,
+        drawBox.x,
+        drawBox.y,
+        drawBox.width,
+        drawBox.height,
+      );
+    }
+  } else if (renderMode === "footprintImage") {
+    if (!visual.image) {
+      drawContext.restore();
+      return;
+    }
+
+    const image = imageRegistry[visual.image];
+
+    if (!image?.complete || image.naturalWidth <= 0) {
+      drawContext.restore();
+      return;
+    }
+
+    const bounds = getConstructibleFootprintVisualBoundsForKind(kind, constructible, visual);
+
+    if (bounds) {
+      drawContext.drawImage(
+        image,
+        bounds.x,
+        bounds.y,
+        bounds.width,
+        bounds.height,
+      );
+    }
+  } else {
+    if (!visual.image) {
+      drawContext.restore();
+      return;
+    }
+
+    const image = imageRegistry[visual.image];
+
+    if (!image?.complete || image.naturalWidth <= 0) {
+      drawContext.restore();
+      return;
+    }
+
+    drawNativeSingleCellImageAtCell(image, getCell(constructible.x, constructible.y), drawContext);
   }
 
-  let minLeft = Number.POSITIVE_INFINITY;
-  let minTop = Number.POSITIVE_INFINITY;
-  let maxRight = Number.NEGATIVE_INFINITY;
-  let maxBottom = Number.NEGATIVE_INFINITY;
-
-  for (const cell of occupiedCells) {
-    const screen = isoToScreen(cell.x, cell.y);
-    const drawY =
-      screen.y - tile.edge - tile.height * 0.32 + tile.height * (visual.yOffsetFactor || 0);
-    const drawBottom = drawY + tile.height + tile.edge;
-
-    minLeft = Math.min(minLeft, screen.x - tile.width / 2);
-    minTop = Math.min(minTop, drawY);
-    maxRight = Math.max(maxRight, screen.x + tile.width / 2);
-    maxBottom = Math.max(maxBottom, drawBottom);
-  }
-
-  if (!Number.isFinite(minLeft) || !Number.isFinite(minTop) || !Number.isFinite(maxRight) || !Number.isFinite(maxBottom)) {
-    return null;
-  }
-
-  return {
-    x: minLeft,
-    y: minTop,
-    width: maxRight - minLeft,
-    height: maxBottom - minTop,
-  };
-}
-
-function getVehicleFootprintImageNativeDrawBox(vehicle, image, visual) {
-  const bounds = getVehicleFootprintVisualBounds(vehicle, visual);
-  const baseScale = Number(getVehicleSpec(vehicle?.type)?.nativeScaleAt100Zoom);
-  const baseOffsetY = Number(getVehicleSpec(vehicle?.type)?.nativeOffsetYAt100Zoom);
-
-  if (!bounds || !image?.naturalWidth || !image?.naturalHeight) {
-    return null;
-  }
-
-  const zoomScale = zoomLevels[zoomIndex] * (Number.isFinite(baseScale) ? baseScale : 0.5);
-  const drawWidth = image.naturalWidth * zoomScale;
-  const drawHeight = image.naturalHeight * zoomScale;
-  const centerX = bounds.x + bounds.width / 2;
-  const offsetY = zoomLevels[zoomIndex] * (Number.isFinite(baseOffsetY) ? baseOffsetY : 0);
-
-  return {
-    x: centerX - drawWidth / 2,
-    y: bounds.y + bounds.height - drawHeight + offsetY,
-    width: drawWidth,
-    height: drawHeight,
-  };
+  drawContext.restore();
 }
 
 function drawBuilding(building) {
-  const visual = getBuildingVisual(building);
-
-  if (!visual) return;
-  const renderMode = visual.renderMode || getBuildingRenderMode(building.type);
-
-  ctx.save();
-  ctx.globalAlpha = visual.alpha ?? 1;
-
-  if (renderMode === "perTile") {
-    const occupiedCells = getBuildingOccupiedCells(building);
-    const tileImages = Array.isArray(visual.tileImages) ? visual.tileImages : null;
-
-    if (tileImages && tileImages.length > 0) {
-      occupiedCells.forEach((cell, index) => {
-        const imagePath = index < tileImages.length ? tileImages[index] : visual.image;
-
-        if (!imagePath) {
-          return;
-        }
-
-        const tileImage = buildingImages[imagePath];
-
-        if (!tileImage?.complete || tileImage.naturalWidth <= 0) {
-          return;
-        }
-
-        drawNativeSingleCellImageAtCell(tileImage, cell);
-      });
-    } else {
-      if (!visual.image) {
-        ctx.restore();
-        return;
-      }
-
-      const image = buildingImages[visual.image];
-
-      if (!image?.complete || image.naturalWidth <= 0) {
-        ctx.restore();
-        return;
-      }
-
-      for (const cell of occupiedCells) {
-        drawNativeSingleCellImageAtCell(image, cell);
-      }
-    }
-  } else if (renderMode === "footprintImageNative") {
-    if (!visual.image) {
-      ctx.restore();
-      return;
-    }
-
-    const image = buildingImages[visual.image];
-
-    if (!image?.complete || image.naturalWidth <= 0) {
-      ctx.restore();
-      return;
-    }
-
-    const drawBox = getFootprintImageNativeDrawBox(building, image, visual);
-
-    if (drawBox) {
-      ctx.drawImage(
-        image,
-        drawBox.x,
-        drawBox.y,
-        drawBox.width,
-        drawBox.height,
-      );
-    }
-  } else if (renderMode === "footprintImage") {
-    if (!visual.image) {
-      ctx.restore();
-      return;
-    }
-
-    const image = buildingImages[visual.image];
-
-    if (!image?.complete || image.naturalWidth <= 0) {
-      ctx.restore();
-      return;
-    }
-
-    const bounds = getBuildingFootprintVisualBounds(building, visual);
-
-    if (bounds) {
-      ctx.drawImage(
-        image,
-        bounds.x,
-        bounds.y,
-        bounds.width,
-        bounds.height,
-      );
-    }
-  } else {
-    if (!visual.image) {
-      ctx.restore();
-      return;
-    }
-
-    const image = buildingImages[visual.image];
-
-    if (!image?.complete || image.naturalWidth <= 0) {
-      ctx.restore();
-      return;
-    }
-
-    drawNativeSingleCellImageAtCell(image, getCell(building.x, building.y));
-  }
-
-  ctx.restore();
+  drawConstructibleForKind("building", building);
 }
 
 function drawVehicle(vehicle) {
-  const visual = getVehicleVisual(vehicle);
-
-  if (!visual) return;
-  const renderMode = visual.renderMode || getVehicleRenderMode(vehicle.type);
-
-  ctx.save();
-  ctx.globalAlpha = visual.alpha ?? 1;
-
-  if (renderMode === "perTile") {
-    const occupiedCells = getVehicleOccupiedCells(vehicle);
-    const tileImages = Array.isArray(visual.tileImages) ? visual.tileImages : null;
-
-    if (tileImages && tileImages.length > 0) {
-      occupiedCells.forEach((cell, index) => {
-        const imagePath = index < tileImages.length ? tileImages[index] : visual.image;
-
-        if (!imagePath) {
-          return;
-        }
-
-        const tileImage = vehicleImages[imagePath];
-
-        if (!tileImage?.complete || tileImage.naturalWidth <= 0) {
-          return;
-        }
-
-        drawNativeSingleCellImageAtCell(tileImage, cell);
-      });
-    } else {
-      if (!visual.image) {
-        ctx.restore();
-        return;
-      }
-
-      const image = vehicleImages[visual.image];
-
-      if (!image?.complete || image.naturalWidth <= 0) {
-        ctx.restore();
-        return;
-      }
-
-      for (const cell of occupiedCells) {
-        drawNativeSingleCellImageAtCell(image, cell);
-      }
-    }
-  } else if (renderMode === "footprintImageNative") {
-    if (!visual.image) {
-      ctx.restore();
-      return;
-    }
-
-    const image = vehicleImages[visual.image];
-
-    if (!image?.complete || image.naturalWidth <= 0) {
-      ctx.restore();
-      return;
-    }
-
-    const drawBox = getVehicleFootprintImageNativeDrawBox(vehicle, image, visual);
-
-    if (drawBox) {
-      ctx.drawImage(
-        image,
-        drawBox.x,
-        drawBox.y,
-        drawBox.width,
-        drawBox.height,
-      );
-    }
-  } else if (renderMode === "footprintImage") {
-    if (!visual.image) {
-      ctx.restore();
-      return;
-    }
-
-    const image = vehicleImages[visual.image];
-
-    if (!image?.complete || image.naturalWidth <= 0) {
-      ctx.restore();
-      return;
-    }
-
-    const bounds = getVehicleFootprintVisualBounds(vehicle, visual);
-
-    if (bounds) {
-      ctx.drawImage(
-        image,
-        bounds.x,
-        bounds.y,
-        bounds.width,
-        bounds.height,
-      );
-    }
-  } else {
-    if (!visual.image) {
-      ctx.restore();
-      return;
-    }
-
-    const image = vehicleImages[visual.image];
-
-    if (!image?.complete || image.naturalWidth <= 0) {
-      ctx.restore();
-      return;
-    }
-
-    drawNativeSingleCellImageAtCell(image, getCell(vehicle.x, vehicle.y));
-  }
-
-  ctx.restore();
+  drawConstructibleForKind("vehicle", vehicle);
 }
 
 function drawFogBorders(cell, screen, lift) {
