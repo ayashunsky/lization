@@ -1,3 +1,13 @@
+import { createConstructiblesApi } from "./constructibles.js";
+import { createBookContentApi } from "./book-content.js";
+import { createEditorUiApi } from "./editor-ui.js";
+import {
+  clamp,
+  clampInteger,
+  clampNumber,
+  clampNonNegativeNumber,
+} from "./number-utils.js";
+
 const canvas = document.querySelector("#mapCanvas");
 const ctx = canvas.getContext("2d");
 const viewport = document.querySelector(".viewport");
@@ -477,10 +487,9 @@ const julianTurnEpochJdn = getJulianDayNumber(
   julianTurnEpoch.day,
 );
 
-let bookDocument = createDefaultBookDocument();
+let bookDocument = null;
 let bookContentLoadPromise = null;
 let bookState = createInitialBookState();
-let bookTechArrowMarkerSequence = 0;
 let technologyCatalog = createDefaultTechnologyCatalog();
 let technologyCatalogLoadPromise = null;
 let buildingCatalog = createDefaultBuildingCatalog();
@@ -494,6 +503,80 @@ let researchState = createDefaultResearchState();
 let editStateDirty = false;
 let editorResearchReturnFocusButton = null;
 let pendingBookResearchAssignmentUnitId = null;
+
+const {
+  normalizeConstructibleKind,
+  getConstructibleCollectionForKind,
+  getConstructibleRulesForKind,
+  getEffectiveConstructibleRulesForKind,
+  getConstructibleSpecForKind,
+  getDefinedConstructibleTypesForKind,
+  getConstructibleCountsByTypeForKind,
+  getConstructibleImageRegistryForKind,
+  getConstructibleRenderModeForKind,
+  getConstructibleSubtypeVariantsForKind,
+  chooseConstructibleSubtypeForKind,
+  getDefaultConstructibleDimensionForKind,
+  getConstructibleBottomRowForKind,
+  getConstructibleDimensionForKind,
+  getConstructibleFootprintPathsForKind,
+  getConstructiblePlacementTerrainRulesForKind,
+  getConstructiblePlacementEntriesForKind,
+  getConstructiblePlacementCellsForKind,
+  getConstructibleOccupiedCellsForKind,
+  getConstructiblePlacementIndexAtCellForKind,
+  createFoundationConstructibleDescriptor,
+  parseFoundationConstructibleId,
+  getConstructibleBuildCostForKind,
+  getConstructibleBuildCostStatusForKind,
+  getBuildingCompleteness,
+  getConstructibleConstructionCostForKind,
+  isConstructibleWalkableForKind,
+  getConstructibleConstructionThresholdsForKind,
+  serializeConstructibleForKind,
+  createConstructibleIdForKind,
+  markConstructibleCellsVisitedForKind,
+  createConstructibleConstructionAtCellForKind,
+  normalizeConstructibleSubtypeForKind,
+  normalizeConstructiblesStateForKind,
+  constructibleOccupiesCell,
+  getConstructiblesAtCellForKind,
+  findConstructibleAtCellForKind,
+  isConstructibleInstanceWalkableForKind,
+  getBlockingConstructibleAtCellForKind,
+  getWalkableConstructibleAtCellForKind,
+  hasWalkableConstructibleAtCellForKind,
+  getConstructibleVisualForKind,
+  drawConstructibleForKind,
+} = createConstructiblesApi({
+  rules,
+  map,
+  tile,
+  zoomLevels,
+  ctx,
+  buildingImages,
+  vehicleImages,
+  getZoomIndex: () => zoomIndex,
+  getBuildings: () => buildings,
+  getVehicles: () => vehicles,
+  getBuildingCatalog: () => buildingCatalog,
+  getVehicleCatalog: () => vehicleCatalog,
+  getCell,
+  getNeighborByDirection,
+  getMovementDirections,
+  createCellKey,
+  getRuleContext,
+  matchesRequirements,
+  hasSufficientQuantity,
+  getCurrentStockpileAmount,
+  spendFromStockpile,
+  canPlaceNewBuildingConstructionOnCell,
+  canPlaceNewVehicleConstructionOnCell,
+  normalizeLinkedEntityId,
+  normalizeBuildingState,
+  drawNativeSingleCellImageAtCell,
+  isoToScreen,
+});
 
 function setTextContent(elements, text) {
   for (const element of elements) {
@@ -539,21 +622,234 @@ function setAttributeForElements(elements, name, value) {
   }
 }
 
-function getBookManifestPaths(language = currentLanguage) {
-  const defaultBookLanguage = localization?.defaultLanguage || "fr";
-  const normalizedLanguage = availableLanguages[language] ? language : defaultBookLanguage;
-  const localizedManifestPath = `book/${normalizedLanguage}/index.json`;
+const {
+  createDefaultBookDocument,
+  loadBookManifestDocument,
+  fillBookPageSideContent,
+  getBookTargetPageIdFromLink,
+} = createBookContentApi({
+  localizationApi: {
+    localization,
+    availableLanguages,
+    getCurrentLanguage: () => currentLanguage,
+    bookMinimumPageCount,
+    getBookTotalPageCount: () => bookTotalPageCount,
+  },
+  bindingApi: {
+    strings,
+    rules,
+    formatDisplayedNumber,
+    resourceUiIcons,
+    getDefaultUnitTypeId,
+    normalizeUnitTypeId,
+    hasDefinedUnitType,
+    getResolvedUnitConfig,
+    getUnitSpriteConfig,
+    getDefaultUnitName,
+    getTechnologyDefinition,
+    getTechnologyLabel,
+    getTechnologyDisplayState,
+    getTechnologyProgressPercent,
+    getSelectedResearchGoalTechnologyId,
+    canSelectResearchGoal,
+    getBuildingRules,
+    getBuildingSpec,
+    getBuildingLabel,
+    getVehicleRules,
+    getVehicleSpec,
+    getVehicleLabel,
+    getFoodDefinition,
+    getResourceLabel,
+  },
+  pageApi: {
+    bookPageContentHiddenClass,
+    getBookPageDefinition,
+    getBookPageNumberById,
+  },
+});
 
-  if (normalizedLanguage === defaultBookLanguage) {
-    return [localizedManifestPath];
-  }
+bookDocument = createDefaultBookDocument();
 
-  return [localizedManifestPath, `book/${defaultBookLanguage}/index.json`];
-}
-
-function resolveBookAssetPath(path, manifestPath) {
-  return new URL(path, new URL(manifestPath, window.location.href)).toString();
-}
+const {
+  populateTerrainMenu,
+  closeEditorDropdowns,
+  updateEditorDropdownMenus,
+  updateEditorResearchPanel,
+  openEditorResearchPanel,
+  closeEditorResearchPanel,
+  applyEditorResearchStateChange,
+  clearEditHoverState,
+  updateEditInspector,
+  openTileMenu,
+  hideTileMenu,
+  handleEditCanvasMove,
+  handleEditCanvasClick,
+  handleEditCanvasLeave,
+  canEditFoodSelection,
+  canEditBuildingSelection,
+  canEditVehicleSelection,
+  getEditorResourceMode,
+  getEditorIntegerInputValue,
+  getEditorNumberInputValue,
+  bindEvents: bindEditorUiEvents,
+} = createEditorUiApi({
+  strings,
+  terrain,
+  rules,
+  unitActions,
+  editorSupportedUnitActions,
+  getEditorLabel,
+  state: {
+    getHoverCell: () => hoverCell,
+    setHoverCell: (cell) => {
+      hoverCell = cell;
+    },
+    getActiveCell: () => activeCell,
+    setActiveCell: (cell) => {
+      activeCell = cell;
+    },
+    getOpenDropdownId: () => openEditorDropdownId,
+    setOpenDropdownId: (dropdownId) => {
+      openEditorDropdownId = dropdownId;
+    },
+    getEditorResearchReturnFocusButton: () => editorResearchReturnFocusButton,
+    setEditorResearchReturnFocusButton: (button) => {
+      editorResearchReturnFocusButton = button;
+    },
+    getResearchState: () => researchState,
+    setResearchState: (state) => {
+      researchState = state;
+    },
+    getMainMenuOpen: () => mainMenuOpen,
+  },
+  dom: {
+    elements: {
+      canvas,
+      editInspector,
+      hoverReadouts,
+      editorResearchOverlay,
+      editorResearchPanel,
+      editorResearchList,
+      editorResearchEmpty,
+      tileMenuTitle,
+      terrainMenuOptions,
+      variantMenuOptions,
+      foodMenuOptions,
+      buildingMenuOptions,
+      vehicleMenuOptions,
+      unitMenuOptions,
+      unitActionMenuOptions,
+      editorDropdownToggleButtons,
+      editorDropdownMenuElements,
+      editorTerrainLabelElements,
+      editorVisualLabelElements,
+      editorFoodLabelElements,
+      editorBuildingLabelElements,
+      editorVehicleLabelElements,
+      editorUnitLabelElements,
+      editorUnitActionLabelElements,
+      openEditorResearchButtons,
+      closeEditorResearchButtons,
+      clearEditorResearchGoalButtons,
+      editorResearchTitleElements,
+      editorResearchGoalElements,
+      editorResourcePanels,
+      editorResourceTitleElements,
+      editorResourceSeparators,
+      editorResourceTotalFields,
+      editorFoodPanels,
+      editorBuildingPanels,
+      editorVehiclePanels,
+      editorCurrentLabelElements,
+      editorTotalLabelElements,
+      editorCompletionLabelElements,
+      editorAbandonedLabelElements,
+      editorResourceCurrentInput,
+      editorResourceTotalInput,
+      editorFoodCurrentInput,
+      editorFoodTotalInput,
+      editorBuildingCompletionInput,
+      editorBuildingAbandonedInput,
+      editorVehicleCompletionInput,
+      editorVehicleAbandonedInput,
+    },
+    setTextContent,
+    setAttributeForElements,
+    setDisabledState,
+    setHiddenState,
+    roundDisplayedQuantity,
+    formatDisplayedQuantity,
+    formatDisplayedNumber,
+  },
+  research: {
+    getTechnologyCatalog: () => technologyCatalog,
+    normalizeResearchState,
+    ensureTechnologyCatalogLoaded,
+    getSelectedResearchGoalTechnologyId,
+    setSelectedResearchGoalTechnologyId,
+    getTechnologyDisplayState,
+    getTechnologyLabel,
+    isTechnologyDiscovered,
+    canSelectResearchGoal,
+    getTechnologyProgress,
+    getTechnologyDefinition,
+    serializeResearchState,
+    updateResearchPresentation,
+  },
+  world: {
+    isEditMode,
+    draw,
+    resetTileReadout,
+    getTerrainVariant,
+    ensureCellVariant,
+    getTerrainVariants,
+    hasFoodResource,
+    getBuildingAtCell,
+    getVehicleAtCell,
+    getUnitAtCell,
+    getDefinedBuildingTypes,
+    getDefinedVehicleTypes,
+    getDefinedUnitTypeIds,
+    canPlaceEditorBuildingAtCell,
+    canPlaceEditorVehicleAtCell,
+    canPlaceEditorUnitTypeAtCell,
+    getCellVisitsCount,
+    getCellPathWellKnownVisitsThreshold,
+    getResourceLabel,
+    getCellFoodMaxAmount,
+    getBuildingCompleteness,
+    getBuildingLabel,
+    getVehicleLabel,
+    getDefaultUnitName,
+    getUnitTypeId,
+    getUnitActionLabel,
+    getFoundationBuildingTypeIcon,
+    getVehicleTypeIcon,
+    canUnitUseAction,
+    getActionForTask,
+    serializeCell,
+    pickTile,
+  },
+  mutations: {
+    invalidateStaticLayer,
+    setEditStateDirty,
+    syncCellResourcesWithVariant,
+    applyTerrainSelection,
+    applyEditorFoodSelection,
+    applyEditorBuildingSelection,
+    applyEditorVehicleSelection,
+    applyEditorUnitSelection,
+    applyEditorUnitActionSelection,
+    applyEditorResourceCurrentValue,
+    applyEditorResourceTotalValue,
+    applyEditorFoodCurrentValue,
+    applyEditorFoodTotalValue,
+    applyEditorBuildingCompletionValue,
+    applyEditorBuildingAbandonedValue,
+    applyEditorVehicleCompletionValue,
+    applyEditorVehicleAbandonedValue,
+  },
+});
 
 function resolveBuildingAssetPath(path, manifestPath = buildingManifestPath) {
   if (typeof path !== "string" || !path.trim()) {
@@ -1697,365 +1993,6 @@ async function ensureVehicleDefinitionsLoaded() {
   return vehicleDefinitionsLoadPromise;
 }
 
-function resolveBookPageAssetUrl(reference, pageUrl) {
-  if (typeof reference !== "string") {
-    return reference;
-  }
-
-  const trimmedReference = reference.trim();
-  if (!trimmedReference || trimmedReference.startsWith("#")) {
-    return reference;
-  }
-
-  try {
-    return new URL(trimmedReference, pageUrl).toString();
-  } catch {
-    return reference;
-  }
-}
-
-function resolveBookPageSrcSet(srcset, pageUrl) {
-  if (typeof srcset !== "string" || !srcset.trim()) {
-    return srcset;
-  }
-
-  return srcset
-    .split(",")
-    .map((candidate) => {
-      const trimmedCandidate = candidate.trim();
-      if (!trimmedCandidate) {
-        return trimmedCandidate;
-      }
-
-      const [url, ...descriptorParts] = trimmedCandidate.split(/\s+/);
-      const resolvedUrl = resolveBookPageAssetUrl(url, pageUrl);
-      return [resolvedUrl, ...descriptorParts].filter(Boolean).join(" ");
-    })
-    .join(", ");
-}
-
-function normalizeBookPageHtml(rawHtml, pageUrl) {
-  const template = document.createElement("template");
-  template.innerHTML = rawHtml;
-
-  for (const element of template.content.querySelectorAll("img[src], audio[src], video[src], source[src]")) {
-    element.setAttribute("src", resolveBookPageAssetUrl(element.getAttribute("src"), pageUrl));
-  }
-
-  for (const element of template.content.querySelectorAll("img[srcset], source[srcset]")) {
-    element.setAttribute("srcset", resolveBookPageSrcSet(element.getAttribute("srcset"), pageUrl));
-  }
-
-  for (const element of template.content.querySelectorAll("video[poster]")) {
-    element.setAttribute("poster", resolveBookPageAssetUrl(element.getAttribute("poster"), pageUrl));
-  }
-
-  return template.innerHTML;
-}
-
-function getBookBindingValueAtPath(rootValue, pathSegments = []) {
-  let currentValue = rootValue;
-
-  for (const rawSegment of pathSegments) {
-    const segment = typeof rawSegment === "string" ? rawSegment.trim() : "";
-
-    if (!segment || currentValue == null) {
-      return null;
-    }
-
-    if (Array.isArray(currentValue)) {
-      const index = Number.parseInt(segment, 10);
-
-      if (!Number.isInteger(index) || index < 0 || index >= currentValue.length) {
-        return null;
-      }
-
-      currentValue = currentValue[index];
-      continue;
-    }
-
-    if (typeof currentValue !== "object") {
-      return null;
-    }
-
-    if (!Object.prototype.hasOwnProperty.call(currentValue, segment)) {
-      return null;
-    }
-
-    currentValue = currentValue[segment];
-  }
-
-  return currentValue;
-}
-
-function formatBookBindingValue(value) {
-  if (value == null) {
-    return "";
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
-    return typeof value === "number"
-      ? formatDisplayedNumber(value)
-      : String(value);
-  }
-
-  if (typeof value === "function") {
-    return "";
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => formatBookBindingValue(item)).filter(Boolean).join(", ");
-  }
-
-  if (typeof value === "object") {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return "";
-    }
-  }
-
-  return String(value);
-}
-
-function getResolvedBookBindingTechnologyId(technologyId) {
-  return typeof technologyId === "string" && technologyId.trim()
-    ? technologyId.trim()
-    : null;
-}
-
-function getResolvedBookBindingBuildingTypeId(typeId) {
-  return typeof typeId === "string" && typeId.trim()
-    ? typeId.trim()
-    : null;
-}
-
-function getResolvedBookBindingVehicleTypeId(typeId) {
-  return typeof typeId === "string" && typeId.trim()
-    ? typeId.trim()
-    : null;
-}
-
-function getResolvedBookBindingUnitTypeId(typeId) {
-  const normalizedTypeId = typeof typeId === "string" ? typeId.trim() : "";
-
-  if (!normalizedTypeId || normalizedTypeId === "default") {
-    return getDefaultUnitTypeId();
-  }
-
-  return normalizeUnitTypeId(normalizedTypeId);
-}
-
-function createBookBindingTechnologyView(technologyId) {
-  const resolvedTechnologyId = getResolvedBookBindingTechnologyId(technologyId);
-  const technology = resolvedTechnologyId ? getTechnologyDefinition(resolvedTechnologyId) : null;
-
-  if (!technology) {
-    return null;
-  }
-
-  return {
-    ...technology,
-    id: technology.id,
-    name: getTechnologyLabel(technology),
-    label: getTechnologyLabel(technology),
-    icon: technology.icon || null,
-    prerequisiteTechIds: [...(technology.prerequisites?.tech || [])],
-    prerequisiteEventIds: [...(technology.prerequisites?.events || [])],
-  };
-}
-
-function createBookBindingBuildingView(typeId) {
-  const resolvedTypeId = getResolvedBookBindingBuildingTypeId(typeId);
-  const rulesEntry = resolvedTypeId ? getBuildingRules(resolvedTypeId) : null;
-  const spec = resolvedTypeId ? getBuildingSpec(resolvedTypeId) : null;
-
-  if (!resolvedTypeId || (!rulesEntry && !spec)) {
-    return null;
-  }
-
-  const image = spec?.subtypes?.[0]?.image || null;
-
-  return {
-    ...(rulesEntry && typeof rulesEntry === "object" ? rulesEntry : {}),
-    ...(spec && typeof spec === "object" ? spec : {}),
-    id: resolvedTypeId,
-    name: getBuildingLabel(resolvedTypeId),
-    label: getBuildingLabel(resolvedTypeId),
-    icon: image,
-    iconText: typeof spec?.icon === "string" ? spec.icon : "",
-    image,
-  };
-}
-
-function createBookBindingVehicleView(typeId) {
-  const resolvedTypeId = getResolvedBookBindingVehicleTypeId(typeId);
-  const rulesEntry = resolvedTypeId ? getVehicleRules(resolvedTypeId) : null;
-  const spec = resolvedTypeId ? getVehicleSpec(resolvedTypeId) : null;
-
-  if (!resolvedTypeId || (!rulesEntry && !spec)) {
-    return null;
-  }
-
-  const image = spec?.subtypes?.[0]?.image || null;
-
-  return {
-    ...(rulesEntry && typeof rulesEntry === "object" ? rulesEntry : {}),
-    ...(spec && typeof spec === "object" ? spec : {}),
-    id: resolvedTypeId,
-    name: getVehicleLabel(resolvedTypeId),
-    label: getVehicleLabel(resolvedTypeId),
-    icon: image,
-    iconText: typeof spec?.icon === "string" ? spec.icon : "",
-    image,
-  };
-}
-
-function createBookBindingUnitView(typeId) {
-  const resolvedTypeId = getResolvedBookBindingUnitTypeId(typeId);
-
-  if (!resolvedTypeId || !hasDefinedUnitType(resolvedTypeId)) {
-    return null;
-  }
-
-  const config = getResolvedUnitConfig(resolvedTypeId);
-  const spriteConfig = getUnitSpriteConfig(resolvedTypeId);
-  const icon = spriteConfig?.idleImage || null;
-
-  return {
-    ...(config && typeof config === "object" ? config : {}),
-    id: resolvedTypeId,
-    typeId: resolvedTypeId,
-    name: getDefaultUnitName(resolvedTypeId),
-    label: getDefaultUnitName(resolvedTypeId),
-    icon,
-    image: icon,
-    sprite: icon,
-  };
-}
-
-function createBookBindingResourceView(resourceType) {
-  const normalizedResourceType = typeof resourceType === "string" ? resourceType.trim() : "";
-
-  if (!normalizedResourceType) {
-    return null;
-  }
-
-  const iconPath = resourceUiIcons[normalizedResourceType];
-  const foodDefinition = getFoodDefinition(normalizedResourceType);
-
-  return {
-    ...(foodDefinition && typeof foodDefinition === "object" ? foodDefinition : {}),
-    id: normalizedResourceType,
-    name: getResourceLabel(normalizedResourceType),
-    label: getResourceLabel(normalizedResourceType),
-    icon: iconPath ? new URL(iconPath, window.location.href).toString() : null,
-  };
-}
-
-function resolveBookBindingValue(reference) {
-  const normalizedReference = typeof reference === "string" ? reference.trim() : "";
-
-  if (!normalizedReference) {
-    return null;
-  }
-
-  const segments = normalizedReference.split(".").map((segment) => segment.trim()).filter(Boolean);
-  const [namespace, ...rest] = segments;
-
-  if (!namespace) {
-    return null;
-  }
-
-  if (namespace === "strings" || namespace === "string") {
-    return getBookBindingValueAtPath(strings, rest);
-  }
-
-  if (namespace === "rules" || namespace === "rule") {
-    return getBookBindingValueAtPath(rules, rest);
-  }
-
-  if (namespace === "technology" || namespace === "technologies" || namespace === "tech") {
-    const [technologyId, ...pathSegments] = rest;
-    return getBookBindingValueAtPath(createBookBindingTechnologyView(technologyId), pathSegments);
-  }
-
-  if (namespace === "building" || namespace === "buildings") {
-    const [buildingType, ...pathSegments] = rest;
-    return getBookBindingValueAtPath(createBookBindingBuildingView(buildingType), pathSegments);
-  }
-
-  if (namespace === "vehicle" || namespace === "vehicles") {
-    const [vehicleType, ...pathSegments] = rest;
-    return getBookBindingValueAtPath(createBookBindingVehicleView(vehicleType), pathSegments);
-  }
-
-  if (namespace === "unit" || namespace === "units") {
-    const [unitType, ...pathSegments] = rest;
-    return getBookBindingValueAtPath(createBookBindingUnitView(unitType), pathSegments);
-  }
-
-  if (namespace === "resource" || namespace === "resources") {
-    const [resourceType, ...pathSegments] = rest;
-    return getBookBindingValueAtPath(createBookBindingResourceView(resourceType), pathSegments);
-  }
-
-  return null;
-}
-
-function applyBookBindingToElement(element, bindingTarget, bindingReference) {
-  if (!(element instanceof HTMLElement) || typeof bindingTarget !== "string") {
-    return;
-  }
-
-  const value = resolveBookBindingValue(bindingReference);
-  const formattedValue = formatBookBindingValue(value);
-  const target = bindingTarget.trim();
-
-  if (!target || target === "text") {
-    element.textContent = formattedValue;
-    return;
-  }
-
-  if (formattedValue) {
-    element.setAttribute(target, formattedValue);
-  } else {
-    element.removeAttribute(target);
-  }
-}
-
-function applyBookBindings(pageBodyElement) {
-  if (!(pageBodyElement instanceof HTMLElement)) {
-    return;
-  }
-
-  const elements = [pageBodyElement, ...pageBodyElement.querySelectorAll("*")];
-
-  for (const element of elements) {
-    if (!(element instanceof HTMLElement)) {
-      continue;
-    }
-
-    for (const attributeName of element.getAttributeNames()) {
-      if (attributeName === "data-book-bind") {
-        applyBookBindingToElement(element, "text", element.getAttribute(attributeName));
-        continue;
-      }
-
-      if (!attributeName.startsWith("data-book-bind-")) {
-        continue;
-      }
-
-      const bindingTarget = attributeName.slice("data-book-bind-".length);
-      applyBookBindingToElement(element, bindingTarget, element.getAttribute(attributeName));
-    }
-  }
-}
-
 function resolveTechnologyAssetPath(path, manifestPath = technologyManifestPath) {
   return new URL(path, new URL(manifestPath, window.location.href)).toString();
 }
@@ -2466,412 +2403,10 @@ function addResearchProgressToTechnology(technologyId, amount, { refresh = true 
   return true;
 }
 
-function getEditorResearchStatusLabel(displayState) {
-  if (displayState === "discovered") {
-    return getEditorLabel("statusDiscovered");
-  }
-
-  if (displayState === "available") {
-    return getEditorLabel("statusAvailable");
-  }
-
-  if (displayState === "locked") {
-    return getEditorLabel("statusLocked");
-  }
-
-  return getEditorLabel("none");
-}
-
-function getEditorResearchGoalReadout() {
-  const selectedGoalTechnologyId = getSelectedResearchGoalTechnologyId(researchState, {
-    requireAvailable: false,
-  });
-  const selectedGoalLabel = selectedGoalTechnologyId
-    ? getTechnologyLabel(selectedGoalTechnologyId)
-    : getEditorLabel("none");
-
-  return `${getEditorLabel("goal")}: ${selectedGoalLabel}`;
-}
-
-function renderEditorResearchPanel() {
-  if (!editorResearchList || !editorResearchEmpty) {
-    return;
-  }
-
-  const technologies = Array.isArray(technologyCatalog?.technologies)
-    ? technologyCatalog.technologies
-    : [];
-
-  editorResearchList.replaceChildren();
-  editorResearchEmpty.hidden = technologies.length > 0;
-  editorResearchEmpty.textContent = getEditorLabel("noTechnologies");
-
-  for (const technology of technologies) {
-    const displayState = getTechnologyDisplayState(technology.id);
-    const technologyLabel = getTechnologyLabel(technology);
-    const isDiscovered = isTechnologyDiscovered(technology.id);
-    const isSelectedGoal = researchState.selectedGoalTechId === technology.id;
-    const canSelectGoal = canSelectResearchGoal(technology.id);
-    const item = document.createElement("article");
-    const main = document.createElement("div");
-    const header = document.createElement("div");
-    const icon = technology.icon ? document.createElement("img") : document.createElement("span");
-    const copy = document.createElement("div");
-    const name = document.createElement("div");
-    const meta = document.createElement("div");
-    const status = document.createElement("span");
-    const controls = document.createElement("div");
-    const goalButton = document.createElement("button");
-    const discoveredLabel = document.createElement("label");
-    const discoveredInput = document.createElement("input");
-    const discoveredText = document.createElement("span");
-    const progressField = document.createElement("label");
-    const progressInput = document.createElement("input");
-    const progressSuffix = document.createElement("span");
-
-    item.className = "editor-research-item";
-    item.dataset.technologyId = technology.id;
-    item.dataset.techState = displayState;
-    item.setAttribute("role", "listitem");
-
-    main.className = "editor-research-main";
-    header.className = "editor-research-header";
-    copy.className = "editor-research-copy";
-    name.className = "editor-research-name";
-    meta.className = "editor-research-meta";
-    status.className = "editor-research-status";
-    controls.className = "editor-research-controls";
-
-    if (technology.icon) {
-      icon.className = "editor-research-icon";
-      icon.src = technology.icon;
-      icon.alt = technologyLabel;
-      icon.decoding = "async";
-    } else {
-      icon.className = "editor-research-icon-placeholder";
-      icon.setAttribute("aria-hidden", "true");
-    }
-
-    name.textContent = technologyLabel;
-    status.textContent = getEditorResearchStatusLabel(displayState);
-    meta.append(status);
-
-    goalButton.type = "button";
-    goalButton.className = "menu-button editor-research-goal-button";
-    goalButton.dataset.action = "editor-research-select-goal";
-    goalButton.dataset.technologyId = technology.id;
-    goalButton.disabled = !canSelectGoal;
-    goalButton.textContent = getEditorLabel("goal");
-    goalButton.classList.toggle("is-selected", isSelectedGoal);
-    goalButton.setAttribute("aria-pressed", isSelectedGoal ? "true" : "false");
-
-    discoveredLabel.className = "toggle-control edit-toggle-control editor-research-discovered";
-    discoveredInput.dataset.action = "editor-research-discovered";
-    discoveredInput.dataset.technologyId = technology.id;
-    discoveredInput.type = "checkbox";
-    discoveredInput.checked = isDiscovered;
-    discoveredText.textContent = getEditorLabel("statusDiscovered");
-    discoveredLabel.append(discoveredInput, discoveredText);
-
-    progressField.className = "edit-number-field edit-number-field-inline editor-research-progress-field";
-    progressInput.className = "edit-number-input";
-    progressInput.dataset.action = "editor-research-progress";
-    progressInput.dataset.technologyId = technology.id;
-    progressInput.type = "number";
-    progressInput.min = "0";
-    progressInput.step = "any";
-    progressInput.disabled = isDiscovered;
-    progressInput.value = String(
-      isDiscovered
-        ? roundDisplayedQuantity(technology.cost)
-        : roundDisplayedQuantity(getTechnologyProgress(technology.id)),
-    );
-    progressSuffix.className = "edit-field-suffix";
-    progressSuffix.textContent = `/${formatDisplayedQuantity(technology.cost)}`;
-    progressField.append(progressInput, progressSuffix);
-
-    copy.append(name, meta);
-    header.append(icon, copy);
-    main.append(header);
-    controls.append(goalButton, discoveredLabel, progressField);
-    item.append(main, controls);
-    editorResearchList.append(item);
-  }
-}
-
-function updateEditorResearchPanel() {
-  setTextContent(openEditorResearchButtons, getEditorLabel("technologies"));
-  setTextContent(editorResearchTitleElements, getEditorLabel("technologies"));
-  setTextContent(editorResearchGoalElements, getEditorResearchGoalReadout());
-  setTextContent(clearEditorResearchGoalButtons, getEditorLabel("clearGoal"));
-  setAttributeForElements(closeEditorResearchButtons, "aria-label", strings.actions.close);
-  if (editorResearchEmpty) {
-    editorResearchEmpty.textContent = getEditorLabel("noTechnologies");
-  }
-  setDisabledState(
-    clearEditorResearchGoalButtons,
-    !getSelectedResearchGoalTechnologyId(researchState, { requireAvailable: false }),
-  );
-
-  if (!editorResearchOverlay || editorResearchOverlay.hidden) {
-    return;
-  }
-
-  renderEditorResearchPanel();
-}
-
-function openEditorResearchPanel(triggerButton = null) {
-  if (!editorResearchOverlay || !isEditMode() || mainMenuOpen) {
-    return Promise.resolve(false);
-  }
-
-  editorResearchReturnFocusButton = triggerButton instanceof HTMLElement ? triggerButton : null;
-  closeEditorDropdowns();
-  return ensureTechnologyCatalogLoaded()
-    .then(() => {
-      if (!editorResearchOverlay || !isEditMode() || mainMenuOpen) {
-        return false;
-      }
-
-      researchState = normalizeResearchState(researchState);
-      setSelectedResearchGoalTechnologyId(researchState.selectedGoalTechId, { refresh: false });
-      editorResearchOverlay.hidden = false;
-      updateEditorResearchPanel();
-      requestAnimationFrame(() => {
-        editorResearchPanel?.querySelector(
-          '.editor-research-goal-button.is-selected, .editor-research-goal-button:not(:disabled), .slot-panel-close',
-        )?.focus({ preventScroll: true });
-      });
-      return true;
-    });
-}
-
-function closeEditorResearchPanel({ restoreFocus = false } = {}) {
-  if (editorResearchOverlay) {
-    editorResearchOverlay.hidden = true;
-  }
-
-  if (restoreFocus && editorResearchReturnFocusButton) {
-    editorResearchReturnFocusButton.focus({ preventScroll: true });
-  }
-
-  editorResearchReturnFocusButton = null;
-}
-
-function applyEditorResearchStateChange(mutator) {
-  if (typeof mutator !== "function") {
-    return false;
-  }
-
-  const previousSnapshot = JSON.stringify(serializeResearchState(researchState));
-  mutator();
-  researchState = normalizeResearchState(researchState);
-  setSelectedResearchGoalTechnologyId(researchState.selectedGoalTechId, { refresh: false });
-  const nextSnapshot = JSON.stringify(serializeResearchState(researchState));
-
-  if (nextSnapshot === previousSnapshot) {
-    updateEditorResearchPanel();
-    return false;
-  }
-
-  setEditStateDirty(true);
-  updateResearchPresentation();
-  return true;
-}
-
-function normalizeBookPageCount(count, minimumPageCount = bookMinimumPageCount) {
-  const normalizedCount = Math.max(0, Math.floor(Number(count) || 0));
-  const evenCount = normalizedCount % 2 === 0 ? normalizedCount : normalizedCount + 1;
-  return Math.max(Math.max(0, Math.floor(Number(minimumPageCount) || 0)), evenCount);
-}
-
-function normalizeBookManifestMeta(meta) {
-  const minimumPageCount = Math.max(
-    bookMinimumPageCount,
-    Math.floor(Number(meta?.minimumPageCount) || 0),
-  );
-
-  return {
-    minimumPageCount,
-  };
-}
-
-function normalizeBookManifestBookmarks(rawBookmarks) {
-  if (!Array.isArray(rawBookmarks)) {
-    return [];
-  }
-
-  return rawBookmarks
-    .map((bookmark) => {
-      if (!bookmark || typeof bookmark !== "object") {
-        return null;
-      }
-
-      const id = typeof bookmark.id === "string" ? bookmark.id.trim() : "";
-      const page = typeof bookmark.page === "string" ? bookmark.page.trim() : "";
-      const label = typeof bookmark.label === "string" ? bookmark.label.trim() : "";
-
-      if (!id || !page) {
-        return null;
-      }
-
-      return {
-        id,
-        page,
-        label,
-      };
-    })
-    .filter(Boolean);
-}
-
-function normalizeBookManifestSequences(rawSequences) {
-  if (!rawSequences || typeof rawSequences !== "object" || Array.isArray(rawSequences)) {
-    return {};
-  }
-
-  const normalizedEntries = Object.entries(rawSequences).map(([sequenceId, sequencePages]) => {
-    const id = typeof sequenceId === "string" ? sequenceId.trim() : "";
-    if (!id || !Array.isArray(sequencePages)) {
-      return null;
-    }
-
-    const pages = sequencePages
-      .map((pageId) => (typeof pageId === "string" ? pageId.trim() : ""))
-      .filter(Boolean);
-
-    return [id, pages];
-  }).filter(Boolean);
-
-  return Object.fromEntries(normalizedEntries);
-}
-
 function createInitialBookState(totalPageCount = bookTotalPageCount) {
   const normalizedTotalPageCount = Math.max(2, Math.floor(totalPageCount / 2) * 2);
   const initialSpreadIndex = Math.floor(normalizedTotalPageCount / 4);
   return getBookStateForSpreadIndex(initialSpreadIndex, normalizedTotalPageCount);
-}
-
-function createBlankBookPageDefinition(index, totalCount = bookMinimumPageCount) {
-  return {
-    id: `blank-page-${String(index + 1).padStart(2, "0")}`,
-    file: null,
-    html: "",
-    showPageNumber: index < totalCount,
-    isBlank: true,
-  };
-}
-
-function createDefaultBookDocument(pageCount = bookTotalPageCount) {
-  const meta = normalizeBookManifestMeta();
-  const normalizedPageCount = normalizeBookPageCount(pageCount, meta.minimumPageCount);
-  const pages = Array.from({ length: normalizedPageCount }, (_, index) => createBlankBookPageDefinition(index, normalizedPageCount));
-
-  return {
-    loaded: false,
-    language: null,
-    requestedLanguage: null,
-    manifestPath: null,
-    meta,
-    bookmarks: [],
-    sequences: {},
-    pages,
-  };
-}
-
-function normalizeBookManifestEntry(entry, index) {
-  if (!entry || typeof entry !== "object") {
-    return null;
-  }
-
-  const id = typeof entry.id === "string" ? entry.id.trim() : "";
-  const file = typeof entry.file === "string" ? entry.file.trim() : "";
-
-  if (!id || !file) {
-    return null;
-  }
-
-  return {
-    id,
-    file,
-    showPageNumber: entry.showPageNumber !== false,
-    html: "",
-    isBlank: false,
-    sourceIndex: index,
-  };
-}
-
-function normalizeBookManifestPages(rawPages, minimumPageCount = bookMinimumPageCount) {
-  const pages = [];
-  const seenIds = new Set();
-
-  for (const [index, entry] of rawPages.entries()) {
-    const normalizedEntry = normalizeBookManifestEntry(entry, index);
-    if (!normalizedEntry || seenIds.has(normalizedEntry.id)) {
-      continue;
-    }
-
-    seenIds.add(normalizedEntry.id);
-    pages.push(normalizedEntry);
-  }
-
-  const targetCount = normalizeBookPageCount(pages.length, minimumPageCount);
-  while (pages.length < targetCount) {
-    pages.push(createBlankBookPageDefinition(pages.length, targetCount));
-  }
-
-  return pages;
-}
-
-async function loadBookManifestDocument(language = currentLanguage) {
-  let lastError = null;
-
-  for (const manifestPath of getBookManifestPaths(language)) {
-    try {
-      const manifestResponse = await fetch(manifestPath, { cache: "no-cache" });
-      if (!manifestResponse.ok) {
-        lastError = new Error(`Failed to load book manifest: ${manifestResponse.status}`);
-        continue;
-      }
-
-      const manifest = await manifestResponse.json();
-      const meta = normalizeBookManifestMeta(manifest?.meta);
-      const bookmarks = normalizeBookManifestBookmarks(manifest?.bookmarks);
-      const sequences = normalizeBookManifestSequences(manifest?.sequences);
-      const rawPages = Array.isArray(manifest?.pages) ? manifest.pages : [];
-      const pages = normalizeBookManifestPages(rawPages, meta.minimumPageCount);
-
-      await Promise.all(pages.map(async (page) => {
-        if (!page.file) {
-          return;
-        }
-
-        const pageUrl = resolveBookAssetPath(page.file, manifestPath);
-        const pageResponse = await fetch(pageUrl, { cache: "no-cache" });
-        if (!pageResponse.ok) {
-          throw new Error(`Failed to load book page "${page.id}": ${pageResponse.status}`);
-        }
-
-        page.html = normalizeBookPageHtml(await pageResponse.text(), pageUrl);
-      }));
-
-      const manifestLanguageMatch = manifestPath.match(/book\/([^/]+)\/index\.json$/);
-
-      return {
-        loaded: true,
-        language: manifestLanguageMatch ? manifestLanguageMatch[1] : language,
-        requestedLanguage: language,
-        manifestPath,
-        meta,
-        bookmarks,
-        sequences,
-        pages,
-      };
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  throw lastError || new Error("Failed to load localized book manifest.");
 }
 
 async function ensureBookContentLoaded() {
@@ -4678,18 +4213,6 @@ function getFoodShortageResetTurns() {
   );
 }
 
-function getConstructibleBuildCostForKind(kind, type, context = getRuleContext()) {
-  const buildCost = getEffectiveConstructibleRulesForKind(kind, type, context)?.buildCost || {};
-  const defaults = normalizeConstructibleKind(kind) === "vehicle"
-    ? { stone: 0, lumber: 0 }
-    : { stone: 20, lumber: 30 };
-
-  return {
-    stone: clampNonNegativeNumber(buildCost.stone, 999999, defaults.stone),
-    lumber: clampNonNegativeNumber(buildCost.lumber, 999999, defaults.lumber),
-  };
-}
-
 function getBuildingBuildCost(type = "house", context = getRuleContext()) {
   return getConstructibleBuildCostForKind("building", type, context);
 }
@@ -4700,32 +4223,6 @@ function getHouseBuildCost(type = "house") {
 
 function getVehicleBuildCost(type, context = getRuleContext()) {
   return getConstructibleBuildCostForKind("vehicle", type, context);
-}
-
-function getConstructibleBuildCostStatusForKind(kind, type, context = getRuleContext()) {
-  const buildCost = getConstructibleBuildCostForKind(kind, type, context);
-  const entries = [
-    {
-      resourceType: "stone",
-      required: buildCost.stone,
-      available: getCurrentStockpileAmount("stone"),
-    },
-    {
-      resourceType: "lumber",
-      required: buildCost.lumber,
-      available: getCurrentStockpileAmount("lumber"),
-    },
-  ].map((entry) => ({
-    ...entry,
-    missing: Math.max(0, entry.required - entry.available),
-    affordable: hasSufficientQuantity(entry.available, entry.required),
-  }));
-
-  return {
-    type,
-    entries,
-    affordable: entries.every((entry) => entry.affordable),
-  };
 }
 
 function getBuildingBuildCostStatus(type = "house", context = getRuleContext()) {
@@ -4919,100 +4416,12 @@ function createUnitId(items = units) {
   return `unit_${String(maxIndex + 1).padStart(2, "0")}`;
 }
 
-function normalizeConstructibleKind(kind) {
-  return kind === "vehicle" ? "vehicle" : "building";
-}
-
-function getConstructibleCollectionForKind(kind) {
-  return normalizeConstructibleKind(kind) === "vehicle" ? vehicles : buildings;
-}
-
-function getConstructibleRulesForKind(kind, type) {
-  return normalizeConstructibleKind(kind) === "vehicle"
-    ? (rules.vehicles?.[type] || null)
-    : (rules.buildings?.[type] || null);
-}
-
 function getBuildingRules(type) {
   return getConstructibleRulesForKind("building", type);
 }
 
 function getVehicleRules(type) {
   return getConstructibleRulesForKind("vehicle", type);
-}
-
-function cloneBuildingRulesForEvaluation(rulesEntry) {
-  const base = rulesEntry && typeof rulesEntry === "object" ? rulesEntry : {};
-
-  return {
-    ...base,
-    buildCost: base.buildCost ? { ...base.buildCost } : undefined,
-    resourceStorageCapacities: base.resourceStorageCapacities ? { ...base.resourceStorageCapacities } : undefined,
-    constructionVisualThresholds: base.constructionVisualThresholds ? { ...base.constructionVisualThresholds } : undefined,
-    availability: base.availability ? { ...base.availability } : undefined,
-    limits: base.limits ? { ...base.limits } : undefined,
-    modifiers: Array.isArray(base.modifiers) ? [...base.modifiers] : undefined,
-  };
-}
-
-function applyBuildingRulesModifiers(rulesEntry, context = getRuleContext()) {
-  const resolved = cloneBuildingRulesForEvaluation(rulesEntry);
-  const modifiers = Array.isArray(resolved.modifiers) ? resolved.modifiers : [];
-
-  for (const modifier of modifiers) {
-    if (!modifier || !matchesRequirements(modifier.when, context)) {
-      continue;
-    }
-
-    const set = modifier.set && typeof modifier.set === "object" ? modifier.set : null;
-
-    if (!set) {
-      continue;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(set, "walkable")) {
-      resolved.walkable = Boolean(set.walkable);
-    }
-
-    if (Object.prototype.hasOwnProperty.call(set, "foundationActionAvailable")) {
-      resolved.foundationActionAvailable = Boolean(set.foundationActionAvailable);
-    }
-
-    if (Number.isFinite(set.constructionCost)) {
-      resolved.constructionCost = set.constructionCost;
-    }
-
-    if (set.buildCost && typeof set.buildCost === "object") {
-      resolved.buildCost = {
-        ...(resolved.buildCost || {}),
-        ...set.buildCost,
-      };
-    }
-
-    if (set.resourceStorageCapacities && typeof set.resourceStorageCapacities === "object") {
-      resolved.resourceStorageCapacities = {
-        ...(resolved.resourceStorageCapacities || {}),
-        ...set.resourceStorageCapacities,
-      };
-    }
-
-    if (set.constructionVisualThresholds && typeof set.constructionVisualThresholds === "object") {
-      resolved.constructionVisualThresholds = {
-        ...(resolved.constructionVisualThresholds || {}),
-        ...set.constructionVisualThresholds,
-      };
-    }
-
-    if (Number.isFinite(set.abandonedDecayPerTurn)) {
-      resolved.abandonedDecayPerTurn = set.abandonedDecayPerTurn;
-    }
-  }
-
-  return resolved;
-}
-
-function getEffectiveConstructibleRulesForKind(kind, type, context = getRuleContext()) {
-  return applyBuildingRulesModifiers(getConstructibleRulesForKind(kind, type), context);
 }
 
 function getEffectiveBuildingRules(type, context = getRuleContext()) {
@@ -5027,23 +4436,12 @@ function getMountedVehicleRules(currentUnit = unit, context = getRuleContext()) 
   return getEffectiveVehicleRules(getMountedVehicle(currentUnit)?.type, context)?.mounted || null;
 }
 
-function getConstructibleSpecForKind(kind, type) {
-  return normalizeConstructibleKind(kind) === "vehicle"
-    ? (vehicleCatalog[type] || null)
-    : (buildingCatalog[type] || null);
-}
-
 function getBuildingSpec(type) {
   return getConstructibleSpecForKind("building", type);
 }
 
 function getVehicleSpec(type) {
   return getConstructibleSpecForKind("vehicle", type);
-}
-
-function getDefinedConstructibleTypesForKind(kind) {
-  const catalog = normalizeConstructibleKind(kind) === "vehicle" ? vehicleCatalog : buildingCatalog;
-  return Object.keys(catalog).filter((type) => Boolean(type) && Boolean(getConstructibleRulesForKind(kind, type)));
 }
 
 function getDefinedBuildingTypes() {
@@ -5095,24 +4493,6 @@ function getLivingUnitCountsByType() {
   for (const currentUnit of getUnits()) {
     const typeId = getUnitTypeId(currentUnit);
     counts[typeId] = (counts[typeId] || 0) + 1;
-  }
-
-  return counts;
-}
-
-function getConstructibleCountsByTypeForKind(kind, { includeConstruction = true } = {}) {
-  const counts = {};
-
-  for (const constructible of getConstructibleCollectionForKind(kind)) {
-    if (!constructible) {
-      continue;
-    }
-
-    if (!includeConstruction && constructible.state === "construction") {
-      continue;
-    }
-
-    counts[constructible.type] = (counts[constructible.type] || 0) + 1;
   }
 
   return counts;
@@ -5271,24 +4651,12 @@ function getAvailableVehicleTypes(context = getRuleContext()) {
   return getDefinedVehicleTypes().filter((type) => isVehicleTypeAvailable(type, context));
 }
 
-function getConstructibleImageRegistryForKind(kind) {
-  return normalizeConstructibleKind(kind) === "vehicle" ? vehicleImages : buildingImages;
-}
-
-function getConstructibleRenderModeForKind(kind, type) {
-  return getConstructibleSpecForKind(kind, type)?.renderMode || "singleTile";
-}
-
 function getBuildingLabel(type) {
   return resolveLocalizedLabel(getBuildingSpec(type)?.labels, strings.buildings?.[type] || type) || type;
 }
 
 function getVehicleLabel(type) {
   return resolveLocalizedLabel(getVehicleSpec(type)?.labels, type) || type;
-}
-
-function getConstructibleSubtypeVariantsForKind(kind, type) {
-  return getConstructibleSpecForKind(kind, type)?.subtypes || [];
 }
 
 function getBuildingSubtypeVariants(type) {
@@ -5299,28 +4667,12 @@ function getVehicleSubtypeVariants(type) {
   return getConstructibleSubtypeVariantsForKind("vehicle", type);
 }
 
-function chooseConstructibleSubtypeForKind(kind, type) {
-  const variants = getConstructibleSubtypeVariantsForKind(kind, type);
-
-  if (variants.length === 0) return null;
-
-  const index = Math.floor(Math.random() * variants.length);
-  return variants[index].id;
-}
-
 function chooseBuildingSubtype(type) {
   return chooseConstructibleSubtypeForKind("building", type);
 }
 
 function chooseVehicleSubtype(type) {
   return chooseConstructibleSubtypeForKind("vehicle", type);
-}
-
-function getDefaultConstructibleDimensionForKind(kind, dimension) {
-  const defaults = normalizeConstructibleKind(kind) === "vehicle"
-    ? rules.vehicles?.default
-    : rules.buildings?.default;
-  return Math.max(1, clampInteger(defaults?.[dimension], 1, 16, 1));
 }
 
 function getDefaultBuildingWidth() {
@@ -5356,32 +4708,6 @@ function getVehicleBottomRow(vehicle) {
   return getConstructibleBottomRowForKind("vehicle", vehicle);
 }
 
-function getConstructibleBottomRowForKind(kind, constructible) {
-  if (!constructible) {
-    return -1;
-  }
-
-  const occupiedCells = getConstructibleOccupiedCellsForKind(kind, constructible);
-
-  if (occupiedCells.length === 0) {
-    return constructible.y;
-  }
-
-  return Math.max(...occupiedCells.map((cell) => cell.y));
-}
-
-function getConstructibleDimensionForKind(kind, type, dimension) {
-  return Math.max(
-    1,
-    clampInteger(
-      getConstructibleRulesForKind(kind, type)?.[dimension],
-      1,
-      16,
-      getDefaultConstructibleDimensionForKind(kind, dimension),
-    ),
-  );
-}
-
 function getBuildingWidth(type) {
   return getConstructibleDimensionForKind("building", type, "width");
 }
@@ -5398,47 +4724,8 @@ function getVehicleHeight(type) {
   return getConstructibleDimensionForKind("vehicle", type, "height");
 }
 
-function normalizeConstructibleFootprintStep(direction) {
-  return getMovementDirections().includes(direction) ? direction : null;
-}
-
-function getConstructibleFootprintPathsForKind(kind, type) {
-  const rawFootprint = getConstructibleRulesForKind(kind, type)?.footprint;
-
-  if (!Array.isArray(rawFootprint) || rawFootprint.length === 0) {
-    return null;
-  }
-
-  const normalized = rawFootprint
-    .map((path) => {
-      if (!Array.isArray(path)) {
-        return null;
-      }
-
-      const steps = path.map(normalizeConstructibleFootprintStep);
-      return steps.every(Boolean) ? steps : null;
-    })
-    .filter(Boolean);
-
-  return normalized.length > 0 ? normalized : null;
-}
-
 function getBuildingFootprintPaths(type) {
   return getConstructibleFootprintPathsForKind("building", type);
-}
-
-function getConstructiblePlacementTerrainRulesForKind(kind, type) {
-  const placementTerrains = getConstructibleRulesForKind(kind, type)?.placementTerrains;
-
-  if (!Array.isArray(placementTerrains) || placementTerrains.length === 0) {
-    return null;
-  }
-
-  return placementTerrains.map((terrainList) =>
-    Array.isArray(terrainList)
-      ? terrainList.filter((terrainType) => typeof terrainType === "string" && terrainType.trim())
-      : null,
-  );
 }
 
 function getBuildingPlacementTerrainRules(type) {
@@ -5457,86 +4744,12 @@ function isMultiTileBuildingType(type) {
   return getBuildingWidth(type) > 1 || getBuildingHeight(type) > 1;
 }
 
-function getConstructiblePlacementEntriesForKind(kind, originCell, type) {
-  if (!originCell) {
-    return [];
-  }
-
-  const footprintPaths = getConstructibleFootprintPathsForKind(kind, type);
-  const placementTerrainRules = getConstructiblePlacementTerrainRulesForKind(kind, type);
-
-  if (!footprintPaths) {
-    const width = getConstructibleDimensionForKind(kind, type, "width");
-    const height = getConstructibleDimensionForKind(kind, type, "height");
-    const entries = [];
-    let placementIndex = 0;
-
-    for (let offsetY = 0; offsetY < height; offsetY += 1) {
-      for (let offsetX = 0; offsetX < width; offsetX += 1) {
-        const cell = getCell(
-          originCell.x + offsetX,
-          originCell.y + offsetY * getBuildingFootprintRowStep(),
-        );
-
-        if (!cell) {
-          return [];
-        }
-
-        entries.push({
-          cell,
-          allowedTerrains: placementTerrainRules?.[placementIndex] || null,
-        });
-        placementIndex += 1;
-      }
-    }
-
-    return entries;
-  }
-
-  const entries = [];
-  const seenKeys = new Set();
-
-  footprintPaths.forEach((path, pathIndex) => {
-    let currentCell = originCell;
-
-    for (const direction of path) {
-      currentCell = getNeighborByDirection(currentCell, direction);
-
-      if (!currentCell) {
-        return;
-      }
-    }
-
-    if (!currentCell) {
-      return;
-    }
-
-    const cellKey = createCellKey(currentCell.x, currentCell.y);
-
-    if (seenKeys.has(cellKey)) {
-      return;
-    }
-
-    seenKeys.add(cellKey);
-    entries.push({
-      cell: currentCell,
-      allowedTerrains: placementTerrainRules?.[pathIndex] || null,
-    });
-  });
-
-  return entries.length === footprintPaths.length ? entries : [];
-}
-
 function getBuildingPlacementEntries(originCell, type) {
   return getConstructiblePlacementEntriesForKind("building", originCell, type);
 }
 
 function getVehiclePlacementEntries(originCell, type) {
   return getConstructiblePlacementEntriesForKind("vehicle", originCell, type);
-}
-
-function getConstructiblePlacementCellsForKind(kind, originCell, type) {
-  return getConstructiblePlacementEntriesForKind(kind, originCell, type).map((entry) => entry.cell);
 }
 
 function getBuildingCellsFromOrigin(originCell, type) {
@@ -5551,16 +4764,6 @@ function getVehiclePlacementCells(originCell, type) {
   return getConstructiblePlacementCellsForKind("vehicle", originCell, type);
 }
 
-function getConstructibleOccupiedCellsForKind(kind, constructible) {
-  if (!constructible) {
-    return [];
-  }
-
-  const originCell = getCell(constructible.x, constructible.y);
-
-  return getConstructiblePlacementCellsForKind(kind, originCell, constructible.type);
-}
-
 function getBuildingOccupiedCells(building) {
   return getConstructibleOccupiedCellsForKind("building", building);
 }
@@ -5569,52 +4772,12 @@ function getVehicleOccupiedCells(vehicle) {
   return getConstructibleOccupiedCellsForKind("vehicle", vehicle);
 }
 
-function getConstructiblePlacementIndexAtCellForKind(kind, constructible, x, y) {
-  if (!constructible) {
-    return -1;
-  }
-
-  const originCell = getCell(constructible.x, constructible.y);
-
-  if (!originCell) {
-    return -1;
-  }
-
-  return getConstructiblePlacementEntriesForKind(kind, originCell, constructible.type).findIndex(
-    ({ cell }) => cell.x === x && cell.y === y,
-  );
-}
-
 function getBuildingPlacementIndexAtCell(building, x, y) {
   return getConstructiblePlacementIndexAtCellForKind("building", building, x, y);
 }
 
 function getVehiclePlacementIndexAtCell(vehicle, x, y) {
   return getConstructiblePlacementIndexAtCellForKind("vehicle", vehicle, x, y);
-}
-
-function createFoundationConstructibleDescriptor(kind, type) {
-  const normalizedKind = kind === "vehicle" ? "vehicle" : "building";
-  const normalizedType = typeof type === "string" ? type.trim() : "";
-
-  if (!normalizedType) {
-    return null;
-  }
-
-  return {
-    kind: normalizedKind,
-    type: normalizedType,
-    id: `${normalizedKind}:${normalizedType}`,
-  };
-}
-
-function parseFoundationConstructibleId(id) {
-  if (typeof id !== "string") {
-    return null;
-  }
-
-  const [kind, ...rest] = id.split(":");
-  return createFoundationConstructibleDescriptor(kind, rest.join(":"));
 }
 
 function getBuildingFoundationActionTypes(context = getRuleContext()) {
@@ -5687,33 +4850,12 @@ function setSelectedFoundationConstructible(id) {
   return true;
 }
 
-function getBuildingCompleteness(building) {
-  const completeness = Number(building?.completeness);
-
-  if (!Number.isFinite(completeness)) {
-    return 1;
-  }
-
-  return clamp(completeness, 0, 1);
-}
-
-function getConstructibleConstructionCostForKind(kind, type, context = getRuleContext()) {
-  return Math.max(
-    1,
-    clampNumber(getEffectiveConstructibleRulesForKind(kind, type, context)?.constructionCost, 1, 999999, 100),
-  );
-}
-
 function getBuildingConstructionCost(type, context = getRuleContext()) {
   return getConstructibleConstructionCostForKind("building", type, context);
 }
 
 function getVehicleConstructionCost(type, context = getRuleContext()) {
   return getConstructibleConstructionCostForKind("vehicle", type, context);
-}
-
-function isConstructibleWalkableForKind(kind, type, context = getRuleContext()) {
-  return Boolean(getEffectiveConstructibleRulesForKind(kind, type, context)?.walkable);
 }
 
 function isBuildingWalkable(type, context = getRuleContext()) {
@@ -5732,19 +4874,6 @@ function getBuildingAbandonedDecay(type, context = getRuleContext()) {
   }
 
   return clamp(decay, 0, 1);
-}
-
-function getConstructibleConstructionThresholdsForKind(kind, type, context = getRuleContext()) {
-  const thresholds = getEffectiveConstructibleRulesForKind(kind, type, context)?.constructionVisualThresholds || {};
-  const initialValue = Number(thresholds.initialMax);
-  const halfValue = Number(thresholds.halfMax);
-  const initialMax = Number.isFinite(initialValue) ? clamp(initialValue, 0, 1) : 0.34;
-  const halfMax = Number.isFinite(halfValue) ? clamp(halfValue, initialMax, 1) : 0.79;
-
-  return {
-    initialMax,
-    halfMax,
-  };
 }
 
 function getBuildingWorkCompletenessDelta(taskType, buildingType) {
@@ -6492,32 +5621,6 @@ function updateBookBookmarks(state = bookState) {
   }
 }
 
-function getBookTargetPageIdFromLink(link) {
-  if (!link) {
-    return null;
-  }
-
-  const explicitTarget = link.dataset.bookTarget?.trim();
-  if (explicitTarget) {
-    return explicitTarget;
-  }
-
-  const href = link.getAttribute("href")?.trim();
-  if (!href || href === "#") {
-    return null;
-  }
-
-  if (href.startsWith("book:")) {
-    return href.slice("book:".length).trim() || null;
-  }
-
-  if (href.startsWith("#")) {
-    return href.slice(1).trim() || null;
-  }
-
-  return getBookPageNumberById(href) ? href : null;
-}
-
 function getBookSequencePageNumbers(sequenceId) {
   const sequenceEntries = bookDocument?.sequences?.[sequenceId];
   if (!Array.isArray(sequenceEntries)) {
@@ -6702,472 +5805,6 @@ function startBookSequencePlayback(sequenceId = bookIntroSequenceId) {
   }
 
   return true;
-}
-
-function createBookTechArrowSvgElement(tagName) {
-  return document.createElementNS("http://www.w3.org/2000/svg", tagName);
-}
-
-function clearBookTechWidgetArrows(pageBodyElement) {
-  if (!(pageBodyElement instanceof HTMLElement)) {
-    return;
-  }
-
-  for (const overlay of pageBodyElement.querySelectorAll(".book-tech-arrow-layer")) {
-    overlay.remove();
-  }
-}
-
-function isBookTechWidgetElement(element) {
-  return element instanceof HTMLElement && element.dataset.bookWidget === "tech";
-}
-
-function getBookTechWidgetTechnologyId(widget) {
-  return typeof widget?.dataset?.techId === "string" ? widget.dataset.techId.trim() : "";
-}
-
-function groupBookTechWidgetsIntoRows(pageBodyElement) {
-  if (!(pageBodyElement instanceof HTMLElement)) {
-    return;
-  }
-
-  const children = [...pageBodyElement.children];
-  let index = 0;
-
-  while (index < children.length) {
-    if (!isBookTechWidgetElement(children[index])) {
-      index += 1;
-      continue;
-    }
-
-    const row = document.createElement("div");
-    row.className = "book-tech-widget-row";
-    children[index].before(row);
-
-    while (index < children.length && isBookTechWidgetElement(children[index])) {
-      row.append(children[index]);
-      index += 1;
-    }
-  }
-}
-
-function enhanceBookTechWidget(widget) {
-  if (!(widget instanceof HTMLElement)) {
-    return;
-  }
-
-  const technologyId = getBookTechWidgetTechnologyId(widget);
-  const technology = getTechnologyDefinition(technologyId);
-  const technologyLabel = getTechnologyLabel(technology);
-  const contentMarkup = widget.innerHTML;
-  const displayState = getTechnologyDisplayState(technologyId);
-  const progressPercent = getTechnologyProgressPercent(technologyId);
-  const isSelectedGoal = technologyId && getSelectedResearchGoalTechnologyId() === technologyId;
-  const isSelectable = technologyId && canSelectResearchGoal(technologyId);
-  const header = document.createElement("div");
-  const body = document.createElement("div");
-
-  widget.classList.add("book-tech-widget");
-  widget.dataset.techState = displayState;
-  widget.dataset.techSelectable = isSelectable ? "true" : "false";
-  widget.dataset.techSelectedGoal = isSelectedGoal ? "true" : "false";
-  widget.dataset.techLabel = technologyLabel;
-  widget.style.setProperty("--book-tech-progress-percent", `${progressPercent}%`);
-  if (technologyLabel) {
-    widget.setAttribute("aria-label", technologyLabel);
-    widget.title = technologyLabel;
-  }
-  widget.replaceChildren();
-
-  header.className = "book-tech-header";
-  body.className = "book-tech-body";
-  body.innerHTML = contentMarkup;
-
-  if (technology?.icon) {
-    const iconImage = document.createElement("img");
-    iconImage.className = "book-tech-icon";
-    iconImage.src = technology.icon;
-    iconImage.alt = technologyLabel;
-    iconImage.decoding = "async";
-    header.append(iconImage);
-  }
-
-  if (technology) {
-    const costBadge = document.createElement("span");
-    costBadge.className = "book-tech-cost";
-    costBadge.textContent = String(technology.cost);
-    header.append(costBadge);
-  } else {
-    widget.dataset.techState = "missing";
-  }
-
-  widget.append(header, body);
-}
-
-function getBookTechWidgetBounds(widget, containerRect) {
-  const rect = widget.getBoundingClientRect();
-
-  return {
-    left: rect.left - containerRect.left,
-    right: rect.right - containerRect.left,
-    top: rect.top - containerRect.top,
-    bottom: rect.bottom - containerRect.top,
-    width: rect.width,
-    height: rect.height,
-    centerX: rect.left - containerRect.left + rect.width / 2,
-    centerY: rect.top - containerRect.top + rect.height / 2,
-  };
-}
-
-function getBookTechArrowAxis(fromBounds, toBounds) {
-  if (!fromBounds || !toBounds) {
-    return "horizontal";
-  }
-
-  const isClearlyVertical =
-    toBounds.top >= fromBounds.bottom ||
-    toBounds.bottom <= fromBounds.top;
-
-  return isClearlyVertical ? "vertical" : "horizontal";
-}
-
-function getBookTechArrowSides(axis, fromBounds, toBounds) {
-  if (axis === "vertical") {
-    const isForward = toBounds.centerY >= fromBounds.centerY;
-    return {
-      startSide: isForward ? "bottom" : "top",
-      endSide: isForward ? "top" : "bottom",
-    };
-  }
-
-  const isForward = toBounds.centerX >= fromBounds.centerX;
-  return {
-    startSide: isForward ? "right" : "left",
-    endSide: isForward ? "left" : "right",
-  };
-}
-
-function createBookTechArrowConnectionLayout(fromWidget, toWidget, containerRect) {
-  const fromBounds = getBookTechWidgetBounds(fromWidget, containerRect);
-  const toBounds = getBookTechWidgetBounds(toWidget, containerRect);
-  const axis = getBookTechArrowAxis(fromBounds, toBounds);
-  const { startSide, endSide } = getBookTechArrowSides(axis, fromBounds, toBounds);
-  const sortValue = axis === "vertical" ? toBounds.centerX : toBounds.centerY;
-  const reverseSortValue = axis === "vertical" ? fromBounds.centerX : fromBounds.centerY;
-
-  return {
-    from: fromWidget,
-    to: toWidget,
-    fromBounds,
-    toBounds,
-    axis,
-    startSide,
-    endSide,
-    startSortValue: sortValue,
-    endSortValue: reverseSortValue,
-    startFraction: 0.5,
-    endFraction: 0.5,
-  };
-}
-
-function getBookTechArrowDistributedFraction(index, count) {
-  if (!Number.isInteger(index) || !Number.isInteger(count) || count <= 1) {
-    return 0.5;
-  }
-
-  const minimum = 0.28;
-  const maximum = 0.72;
-  return minimum + ((maximum - minimum) * index) / (count - 1);
-}
-
-function getBookTechArrowGroupBuckets(groupMap, widget) {
-  if (!groupMap.has(widget)) {
-    groupMap.set(widget, {
-      top: [],
-      right: [],
-      bottom: [],
-      left: [],
-    });
-  }
-
-  return groupMap.get(widget);
-}
-
-function assignBookTechArrowAttachmentFractions(connections) {
-  const endGroups = new Map();
-
-  for (const connection of connections) {
-    getBookTechArrowGroupBuckets(endGroups, connection.to)[connection.endSide].push(connection);
-  }
-
-  const assignFractionsForGroups = (groupMap, sortKey, fractionKey) => {
-    for (const sideGroups of groupMap.values()) {
-      for (const group of Object.values(sideGroups)) {
-        if (group.length === 0) {
-          continue;
-        }
-
-        group.sort((leftConnection, rightConnection) => leftConnection[sortKey] - rightConnection[sortKey]);
-
-        for (const [index, connection] of group.entries()) {
-          connection[fractionKey] = getBookTechArrowDistributedFraction(index, group.length);
-        }
-      }
-    }
-  };
-
-  assignFractionsForGroups(endGroups, "endSortValue", "endFraction");
-}
-
-function getBookTechArrowAnchorPoint(bounds, side, fraction = 0.5) {
-  const clampedFraction = clampNumber(fraction, 0, 1, 0.5);
-
-  if (side === "top") {
-    return {
-      x: bounds.left + bounds.width * clampedFraction,
-      y: bounds.top,
-    };
-  }
-
-  if (side === "bottom") {
-    return {
-      x: bounds.left + bounds.width * clampedFraction,
-      y: bounds.bottom,
-    };
-  }
-
-  if (side === "left") {
-    return {
-      x: bounds.left,
-      y: bounds.top + bounds.height * clampedFraction,
-    };
-  }
-
-  return {
-    x: bounds.right,
-    y: bounds.top + bounds.height * clampedFraction,
-  };
-}
-
-function getBookTechArrowHeadReachPx() {
-  return 8;
-}
-
-function buildBookTechArrowPath(start, end, axis) {
-  const headReach = getBookTechArrowHeadReachPx();
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const length = Math.hypot(dx, dy);
-
-  if (!Number.isFinite(length) || length <= 0.001) {
-    return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
-  }
-
-  const shaftLength = Math.max(0, length - headReach);
-  const unitX = dx / length;
-  const unitY = dy / length;
-  const shaftEnd = {
-    x: start.x + unitX * shaftLength,
-    y: start.y + unitY * shaftLength,
-  };
-
-  return `M ${start.x} ${start.y} L ${shaftEnd.x} ${shaftEnd.y}`;
-}
-
-function renderBookTechWidgetArrows(pageBodyElement) {
-  if (!(pageBodyElement instanceof HTMLElement)) {
-    return false;
-  }
-
-  clearBookTechWidgetArrows(pageBodyElement);
-
-  const widgets = [...pageBodyElement.querySelectorAll('[data-book-widget="tech"]')];
-  const containerRect = pageBodyElement.getBoundingClientRect();
-
-  if (widgets.length === 0) {
-    return false;
-  }
-
-  const hasUsableContainerSize =
-    Number.isFinite(containerRect.width) &&
-    Number.isFinite(containerRect.height) &&
-    containerRect.width > 1 &&
-    containerRect.height > 1;
-
-  if (!hasUsableContainerSize) {
-    return false;
-  }
-
-  const widgetsById = new Map();
-  for (const widget of widgets) {
-    const widgetRect = widget.getBoundingClientRect();
-
-    if (widgetRect.width <= 0 || widgetRect.height <= 0) {
-      return false;
-    }
-
-    const technologyId = getBookTechWidgetTechnologyId(widget);
-    if (technologyId) {
-      widgetsById.set(technologyId, widget);
-    }
-  }
-
-  const connections = [];
-  for (const widget of widgets) {
-    const technology = getTechnologyDefinition(getBookTechWidgetTechnologyId(widget));
-    if (!technology) {
-      continue;
-    }
-
-    for (const prerequisiteId of technology.prerequisites.tech) {
-      const prerequisiteWidget = widgetsById.get(prerequisiteId);
-      if (prerequisiteWidget) {
-        connections.push(createBookTechArrowConnectionLayout(prerequisiteWidget, widget, containerRect));
-      }
-    }
-  }
-
-  if (connections.length === 0) {
-    return false;
-  }
-
-  const overlay = createBookTechArrowSvgElement("svg");
-  const defs = createBookTechArrowSvgElement("defs");
-  const marker = createBookTechArrowSvgElement("marker");
-  const markerPath = createBookTechArrowSvgElement("path");
-  const markerId = `bookTechArrowMarker${bookTechArrowMarkerSequence += 1}`;
-  const overlayWidth = Math.max(1, pageBodyElement.clientWidth || Math.ceil(containerRect.width));
-  const overlayHeight = Math.max(1, pageBodyElement.clientHeight || Math.ceil(containerRect.height));
-
-  overlay.classList.add("book-tech-arrow-layer");
-  overlay.setAttribute("viewBox", `0 0 ${overlayWidth} ${overlayHeight}`);
-  overlay.setAttribute("preserveAspectRatio", "none");
-  overlay.setAttribute("aria-hidden", "true");
-
-  marker.setAttribute("id", markerId);
-  marker.setAttribute("viewBox", "0 0 10 8");
-  marker.setAttribute("markerWidth", "10");
-  marker.setAttribute("markerHeight", "8");
-  marker.setAttribute("refX", "1");
-  marker.setAttribute("refY", "4");
-  marker.setAttribute("orient", "auto");
-  marker.setAttribute("markerUnits", "userSpaceOnUse");
-
-  markerPath.setAttribute("d", "M 1 1 L 9 4 L 1 7 z");
-  marker.append(markerPath);
-  defs.append(marker);
-  overlay.append(defs);
-
-  assignBookTechArrowAttachmentFractions(connections);
-
-  for (const connection of connections) {
-    const start = getBookTechArrowAnchorPoint(connection.fromBounds, connection.startSide, connection.startFraction);
-    const end = getBookTechArrowAnchorPoint(connection.toBounds, connection.endSide, connection.endFraction);
-    const path = createBookTechArrowSvgElement("path");
-    path.setAttribute("d", buildBookTechArrowPath(start, end, connection.axis));
-    path.setAttribute("marker-end", `url(#${markerId})`);
-    overlay.append(path);
-  }
-
-  pageBodyElement.prepend(overlay);
-  return true;
-}
-
-function scheduleBookTechWidgetArrowRender(pageBodyElement, attempt = 0) {
-  if (!(pageBodyElement instanceof HTMLElement)) {
-    return;
-  }
-
-  requestAnimationFrame(() => {
-    if (!pageBodyElement.isConnected) {
-      return;
-    }
-
-    const rendered = renderBookTechWidgetArrows(pageBodyElement);
-
-    if (!rendered && attempt < 4) {
-      scheduleBookTechWidgetArrowRender(pageBodyElement, attempt + 1);
-    }
-  });
-}
-
-function enhanceBookPageBody(pageBodyElement) {
-  if (!(pageBodyElement instanceof HTMLElement)) {
-    return;
-  }
-
-  applyBookBindings(pageBodyElement);
-  groupBookTechWidgetsIntoRows(pageBodyElement);
-
-  const techWidgets = [...pageBodyElement.querySelectorAll('[data-book-widget="tech"]')];
-
-  for (const widget of techWidgets) {
-    enhanceBookTechWidget(widget);
-  }
-
-  scheduleBookTechWidgetArrowRender(pageBodyElement);
-
-  if (document.fonts?.ready) {
-    document.fonts.ready.then(() => {
-      if (!pageBodyElement.isConnected) {
-        return;
-      }
-
-      renderBookTechWidgetArrows(pageBodyElement);
-    });
-  }
-
-  for (const image of pageBodyElement.querySelectorAll("img")) {
-    if (image.complete) {
-      continue;
-    }
-
-    const rerenderArrows = () => {
-      if (!pageBodyElement.isConnected) {
-        return;
-      }
-
-      renderBookTechWidgetArrows(pageBodyElement);
-    };
-
-    image.addEventListener("load", rerenderArrows, { once: true });
-    image.addEventListener("error", rerenderArrows, { once: true });
-  }
-}
-
-function fillBookPageSideContent(content, pageNumber) {
-  if (!content) return;
-
-  content.replaceChildren();
-
-  if (!Number.isInteger(pageNumber)) {
-    content.classList.add(bookPageContentHiddenClass);
-    content.removeAttribute("data-book-page-id");
-    return;
-  }
-
-  const pageDefinition = getBookPageDefinition(pageNumber);
-  if (pageDefinition?.id) {
-    content.dataset.bookPageId = pageDefinition.id;
-  } else {
-    content.removeAttribute("data-book-page-id");
-  }
-
-  content.classList.remove(bookPageContentHiddenClass);
-
-  const pageBodyElement = document.createElement("div");
-  pageBodyElement.className = "book-page-body";
-  pageBodyElement.innerHTML = pageDefinition?.html || "";
-  content.append(pageBodyElement);
-
-  if (pageDefinition?.showPageNumber !== false) {
-    const pageNumberElement = document.createElement("div");
-    pageNumberElement.className = "book-page-number";
-    pageNumberElement.textContent = String(pageNumber);
-    content.append(pageNumberElement);
-  }
-
-  enhanceBookPageBody(pageBodyElement);
 }
 
 function getBookPageNumberForLayer(layerIndex, side, state = bookState) {
@@ -7773,25 +6410,7 @@ async function requestPersistentStorage() {
   }
 }
 
-function clampInteger(value, min, max, fallback = min) {
-  const number = Number.parseInt(value, 10);
-
-  if (!Number.isFinite(number)) return fallback;
-  return clamp(number, min, max);
-}
-
-function clampNumber(value, min, max, fallback = min) {
-  const number = Number.parseFloat(value);
-
-  if (!Number.isFinite(number)) return fallback;
-  return clamp(number, min, max);
-}
-
 const quantityEpsilon = 1e-6;
-
-function clampNonNegativeNumber(value, max = 999999, fallback = 0) {
-  return Math.max(0, clampNumber(value, 0, max, fallback));
-}
 
 function roundDisplayedNumber(value, fallback = 0) {
   const number = Number(value);
@@ -8186,49 +6805,6 @@ function serializeCell(cell) {
     foodType: typeof cell.foodType === "string" && cell.foodType ? cell.foodType : null,
     foodCapacity: getCellFoodMaxAmount(cell),
     foodAmount: clampNonNegativeNumber(cell.foodAmount, 999999, 0),
-  };
-}
-
-function serializeConstructibleForKind(kind, constructible, width = map.width, height = map.height) {
-  if (!constructible) {
-    return null;
-  }
-
-  const normalizedKind = normalizeConstructibleKind(kind);
-  const x = clampInteger(constructible.x, 0, width - 1, 0);
-  const y = clampInteger(constructible.y, 0, height - 1, 0);
-
-  return {
-    id: constructible.id || `${normalizedKind}_01`,
-    type: constructible.type,
-    subtype: constructible.subtype,
-    x,
-    y,
-    width: Math.max(
-      1,
-      clampInteger(
-        constructible.width,
-        1,
-        width - x,
-        getDefaultConstructibleDimensionForKind(normalizedKind, "width"),
-      ),
-    ),
-    height: Math.max(
-      1,
-      clampInteger(
-        constructible.height,
-        1,
-        height - y,
-        getDefaultConstructibleDimensionForKind(normalizedKind, "height"),
-      ),
-    ),
-    state: constructible.state || "complete",
-    walkable: Boolean(constructible.walkable),
-    completeness: getBuildingCompleteness(constructible),
-    constructionCost: getConstructibleConstructionCostForKind(normalizedKind, constructible.type),
-    ...(normalizedKind === "vehicle"
-      ? { riderUnitId: normalizeLinkedEntityId(constructible.riderUnitId) }
-      : {}),
   };
 }
 
@@ -8780,20 +7356,6 @@ function createVehicleId(items = vehicles) {
   return createConstructibleIdForKind("vehicle", items);
 }
 
-function createConstructibleIdForKind(kind, items = getConstructibleCollectionForKind(kind)) {
-  const normalizedKind = normalizeConstructibleKind(kind);
-  let maxIndex = 0;
-
-  for (const constructible of items) {
-    const match = new RegExp(`^${normalizedKind}_(\\d+)$`).exec(constructible?.id || "");
-
-    if (!match) continue;
-    maxIndex = Math.max(maxIndex, Number.parseInt(match[1], 10) || 0);
-  }
-
-  return `${normalizedKind}_${String(maxIndex + 1).padStart(2, "0")}`;
-}
-
 function canCellHostBuildingPlacement(cell, allowedTerrains = null) {
   if (!cell) {
     return false;
@@ -8838,60 +7400,6 @@ function markBuildingCellsVisited(building) {
 
 function markVehicleCellsVisited(vehicle) {
   markConstructibleCellsVisitedForKind("vehicle", vehicle);
-}
-
-function markConstructibleCellsVisitedForKind(kind, constructible) {
-  if (!constructible) {
-    return;
-  }
-
-  for (const cell of getConstructibleOccupiedCellsForKind(kind, constructible)) {
-    cell.visited = true;
-  }
-}
-
-function createConstructibleConstructionAtCellForKind(kind, cell, type, { spendResources = true } = {}) {
-  const normalizedKind = normalizeConstructibleKind(kind);
-  const canPlace = normalizedKind === "vehicle"
-    ? canPlaceNewVehicleConstructionOnCell(cell, type)
-    : canPlaceNewBuildingConstructionOnCell(cell, type);
-
-  if (!canPlace) {
-    return null;
-  }
-
-  const buildCost = getConstructibleBuildCostForKind(normalizedKind, type);
-  const buildCostStatus = getConstructibleBuildCostStatusForKind(normalizedKind, type);
-
-  if (spendResources && !buildCostStatus.affordable) {
-    return null;
-  }
-
-  if (
-    spendResources &&
-    (!spendFromStockpile("stone", buildCost.stone) || !spendFromStockpile("lumber", buildCost.lumber))
-  ) {
-    return null;
-  }
-
-  const constructible = {
-    id: createConstructibleIdForKind(normalizedKind),
-    type,
-    subtype: chooseConstructibleSubtypeForKind(normalizedKind, type) || `${type}_01`,
-    x: cell.x,
-    y: cell.y,
-    width: getConstructibleDimensionForKind(normalizedKind, type, "width"),
-    height: getConstructibleDimensionForKind(normalizedKind, type, "height"),
-    state: "construction",
-    walkable: isConstructibleWalkableForKind(normalizedKind, type),
-    completeness: 0,
-    constructionCost: getConstructibleConstructionCostForKind(normalizedKind, type),
-    ...(normalizedKind === "vehicle" ? { riderUnitId: null } : {}),
-  };
-
-  getConstructibleCollectionForKind(normalizedKind).push(constructible);
-  markConstructibleCellsVisitedForKind(normalizedKind, constructible);
-  return constructible;
 }
 
 function createBuildingConstructionAtCell(cell, type = "house", { spendResources = true } = {}) {
@@ -9412,88 +7920,12 @@ function normalizeBuildingState(state) {
     : "complete";
 }
 
-function normalizeConstructibleSubtypeForKind(kind, type, subtype) {
-  const variants = getConstructibleSubtypeVariantsForKind(kind, type);
-
-  if (variants.some((variant) => variant.id === subtype)) {
-    return subtype;
-  }
-
-  return variants[0]?.id || null;
-}
-
 function normalizeBuildingSubtype(type, subtype) {
   return normalizeConstructibleSubtypeForKind("building", type, subtype);
 }
 
 function normalizeVehicleSubtype(type, subtype) {
   return normalizeConstructibleSubtypeForKind("vehicle", type, subtype);
-}
-
-function normalizeConstructiblesStateForKind(kind, rawConstructibles, { requireArray = false } = {}) {
-  if (!Array.isArray(rawConstructibles)) {
-    if (requireArray) {
-      throw new Error(`Missing ${normalizeConstructibleKind(kind)} data.`);
-    }
-
-    return [];
-  }
-
-  const normalizedKind = normalizeConstructibleKind(kind);
-
-  return rawConstructibles.map((sourceConstructible, index) => {
-    const type = sourceConstructible?.type;
-
-    if (!getConstructibleSpecForKind(normalizedKind, type) || !getConstructibleRulesForKind(normalizedKind, type)) {
-      throw new Error(`Unsupported ${normalizedKind} type: ${type}`);
-    }
-
-    const x = clampInteger(sourceConstructible.x, 0, map.width - 1, 0);
-    const y = clampInteger(sourceConstructible.y, 0, map.height - 1, 0);
-    const width = Math.max(
-      1,
-      Math.min(
-        map.width - x,
-        clampInteger(
-          sourceConstructible.width,
-          1,
-          map.width,
-          getDefaultConstructibleDimensionForKind(normalizedKind, "width"),
-        ),
-      ),
-    );
-    const height = Math.max(
-      1,
-      Math.min(
-        map.height - y,
-        clampInteger(
-          sourceConstructible.height,
-          1,
-          map.height,
-          getDefaultConstructibleDimensionForKind(normalizedKind, "height"),
-        ),
-      ),
-    );
-
-    return {
-      id: typeof sourceConstructible.id === "string" ? sourceConstructible.id : `${normalizedKind}_${index + 1}`,
-      type,
-      subtype: normalizeConstructibleSubtypeForKind(normalizedKind, type, sourceConstructible.subtype),
-      x,
-      y,
-      width,
-      height,
-      state: normalizeBuildingState(sourceConstructible.state),
-      walkable: typeof sourceConstructible.walkable === "boolean"
-        ? sourceConstructible.walkable
-        : isConstructibleWalkableForKind(normalizedKind, type),
-      completeness: getBuildingCompleteness(sourceConstructible),
-      constructionCost: getConstructibleConstructionCostForKind(normalizedKind, type),
-      ...(normalizedKind === "vehicle"
-        ? { riderUnitId: normalizeLinkedEntityId(sourceConstructible.riderUnitId) }
-        : {}),
-    };
-  });
 }
 
 function normalizeBuildingsState(rawBuildings) {
@@ -11735,39 +10167,12 @@ function getTerrainVariant(type, variantId) {
   return variants.find((variant) => variant.id === variantId) || variants[0] || null;
 }
 
-function constructibleOccupiesCell(kind, constructible, x, y) {
-  return getConstructibleOccupiedCellsForKind(kind, constructible).some((cell) => cell.x === x && cell.y === y);
-}
-
 function buildingOccupiesCell(building, x, y) {
   return constructibleOccupiesCell("building", building, x, y);
 }
 
 function vehicleOccupiesCell(vehicle, x, y) {
   return constructibleOccupiesCell("vehicle", vehicle, x, y);
-}
-
-function doesConstructibleMatchCellQuery(kind, constructible, x, y, { excludeConstructibleId = null, predicate = null } = {}) {
-  return Boolean(
-    constructible &&
-    constructible.id !== excludeConstructibleId &&
-    constructibleOccupiesCell(kind, constructible, x, y) &&
-    (typeof predicate !== "function" || predicate(constructible)),
-  );
-}
-
-function getConstructiblesAtCellForKind(kind, x, y, options = {}) {
-  return getConstructibleCollectionForKind(kind).filter((constructible) =>
-    doesConstructibleMatchCellQuery(kind, constructible, x, y, options),
-  );
-}
-
-function findConstructibleAtCellForKind(kind, x, y, options = {}) {
-  return (
-    getConstructibleCollectionForKind(kind).find((constructible) =>
-      doesConstructibleMatchCellQuery(kind, constructible, x, y, options),
-    ) || null
-  );
 }
 
 function getBuildingAtCell(x, y) {
@@ -11794,34 +10199,12 @@ function getUnitAtCell(x, y, { excludeUnitId = null } = {}) {
   );
 }
 
-function isConstructibleInstanceWalkableForKind(_kind, constructible) {
-  return Boolean(constructible?.walkable) && constructible.state === "complete";
-}
-
 function isBuildingInstanceWalkable(building) {
   return isConstructibleInstanceWalkableForKind("building", building);
 }
 
 function isVehicleInstanceWalkable(vehicle) {
   return isConstructibleInstanceWalkableForKind("vehicle", vehicle);
-}
-
-function getBlockingConstructibleAtCellForKind(kind, x, y, { excludeConstructibleId = null } = {}) {
-  return findConstructibleAtCellForKind(kind, x, y, {
-    excludeConstructibleId,
-    predicate: (constructible) => !isConstructibleInstanceWalkableForKind(kind, constructible),
-  });
-}
-
-function getWalkableConstructibleAtCellForKind(kind, x, y, { excludeConstructibleId = null } = {}) {
-  return findConstructibleAtCellForKind(kind, x, y, {
-    excludeConstructibleId,
-    predicate: (constructible) => isConstructibleInstanceWalkableForKind(kind, constructible),
-  });
-}
-
-function hasWalkableConstructibleAtCellForKind(kind, x, y, options = {}) {
-  return Boolean(getWalkableConstructibleAtCellForKind(kind, x, y, options));
 }
 
 function getBlockingBuildingAtCell(x, y) {
@@ -12056,55 +10439,6 @@ function spawnUnitFromHouse(building, unitTypeId = getNextHouseSpawnUnitTypeId()
 
   invalidateStaticUnitsLayer();
   return spawnedUnit;
-}
-
-function getConstructibleVisualForKind(kind, constructible) {
-  const spec = getConstructibleSpecForKind(kind, constructible?.type);
-
-  if (!spec) return null;
-
-  if (constructible.state === "abandoned") {
-    return {
-      image: spec.abandonedImage,
-      alpha: clamp(0.28 + getBuildingCompleteness(constructible) * 0.72, 0.2, 1),
-    };
-  }
-
-  if (constructible.state === "construction") {
-    const completeness = getBuildingCompleteness(constructible);
-    const thresholds = getConstructibleConstructionThresholdsForKind(kind, constructible.type);
-
-    if (completeness < thresholds.initialMax) {
-      const initialStageVisual = spec.constructionStages?.initial || {};
-      return {
-        image: spec.constructionImages.initial,
-        ...(Array.isArray(initialStageVisual.tileImages) ? { tileImages: initialStageVisual.tileImages } : {}),
-        alpha: 1,
-        yOffsetFactor: Number.isFinite(initialStageVisual.yOffsetFactor) ? initialStageVisual.yOffsetFactor : 0.2,
-        renderMode: initialStageVisual.renderMode || "perTile",
-      };
-    }
-
-    if (completeness < thresholds.halfMax) {
-      const halfStageVisual = spec.constructionStages?.half || {};
-      return {
-        image: spec.constructionImages.half,
-        ...(Array.isArray(halfStageVisual.tileImages) ? { tileImages: halfStageVisual.tileImages } : {}),
-        alpha: 1,
-        ...(Number.isFinite(halfStageVisual.yOffsetFactor) ? { yOffsetFactor: halfStageVisual.yOffsetFactor } : {}),
-        renderMode: halfStageVisual.renderMode || spec.constructionRenderMode || spec.renderMode,
-      };
-    }
-  }
-
-  const subtype = spec.subtypes.find((variant) => variant.id === constructible.subtype) || spec.subtypes[0];
-
-  return subtype
-    ? {
-        image: subtype.image,
-        alpha: 1,
-      }
-    : null;
 }
 
 function getVehicleRenderMode(type) {
@@ -12601,17 +10935,6 @@ function isPlayMode() {
 
 function resetTileReadout() {
   setTextContent(hoverReadouts, strings.readouts.tileNone);
-}
-
-function clearEditHoverState() {
-  if (!hoverCell && !activeCell) {
-    updateEditInspector();
-    return;
-  }
-
-  hoverCell = null;
-  activeCell = null;
-  updateEditInspector();
 }
 
 function clearUnitSelection() {
@@ -15709,183 +14032,6 @@ function drawNativeSingleCellImageAtCell(image, cell, drawContext = ctx) {
   );
 }
 
-function getConstructibleFootprintVisualBoundsForKind(kind, constructible, visual) {
-  const occupiedCells = getConstructibleOccupiedCellsForKind(kind, constructible);
-
-  if (occupiedCells.length === 0) {
-    return null;
-  }
-
-  let minLeft = Number.POSITIVE_INFINITY;
-  let minTop = Number.POSITIVE_INFINITY;
-  let maxRight = Number.NEGATIVE_INFINITY;
-  let maxBottom = Number.NEGATIVE_INFINITY;
-
-  for (const cell of occupiedCells) {
-    const screen = isoToScreen(cell.x, cell.y);
-    const drawY =
-      screen.y - tile.edge - tile.height * 0.32 + tile.height * (visual.yOffsetFactor || 0);
-    const drawBottom = drawY + tile.height + tile.edge;
-
-    minLeft = Math.min(minLeft, screen.x - tile.width / 2);
-    minTop = Math.min(minTop, drawY);
-    maxRight = Math.max(maxRight, screen.x + tile.width / 2);
-    maxBottom = Math.max(maxBottom, drawBottom);
-  }
-
-  if (!Number.isFinite(minLeft) || !Number.isFinite(minTop) || !Number.isFinite(maxRight) || !Number.isFinite(maxBottom)) {
-    return null;
-  }
-
-  return {
-    x: minLeft,
-    y: minTop,
-    width: maxRight - minLeft,
-    height: maxBottom - minTop,
-  };
-}
-
-function getConstructibleFootprintImageNativeDrawBoxForKind(kind, constructible, image, visual) {
-  const bounds = getConstructibleFootprintVisualBoundsForKind(kind, constructible, visual);
-  const spec = getConstructibleSpecForKind(kind, constructible?.type);
-  const baseScale = Number(spec?.nativeScaleAt100Zoom);
-  const baseOffsetY = Number(spec?.nativeOffsetYAt100Zoom);
-
-  if (!bounds || !image?.naturalWidth || !image?.naturalHeight) {
-    return null;
-  }
-
-  const zoomScale = zoomLevels[zoomIndex] * (Number.isFinite(baseScale) ? baseScale : 0.5);
-  const drawWidth = image.naturalWidth * zoomScale;
-  const drawHeight = image.naturalHeight * zoomScale;
-  const centerX = bounds.x + bounds.width / 2;
-  const offsetY = zoomLevels[zoomIndex] * (Number.isFinite(baseOffsetY) ? baseOffsetY : 0);
-
-  return {
-    x: centerX - drawWidth / 2,
-    y: bounds.y + bounds.height - drawHeight + offsetY,
-    width: drawWidth,
-    height: drawHeight,
-  };
-}
-
-function drawConstructibleForKind(kind, constructible, drawContext = ctx) {
-  const visual = getConstructibleVisualForKind(kind, constructible);
-
-  if (!visual) return;
-
-  const imageRegistry = getConstructibleImageRegistryForKind(kind);
-  const renderMode = visual.renderMode || getConstructibleRenderModeForKind(kind, constructible.type);
-  const occupiedCells = renderMode === "perTile"
-    ? getConstructibleOccupiedCellsForKind(kind, constructible)
-    : null;
-
-  drawContext.save();
-  drawContext.globalAlpha = visual.alpha ?? 1;
-
-  if (renderMode === "perTile") {
-    const tileImages = Array.isArray(visual.tileImages) ? visual.tileImages : null;
-
-    if (tileImages && tileImages.length > 0) {
-      occupiedCells.forEach((cell, index) => {
-        const imagePath = index < tileImages.length ? tileImages[index] : visual.image;
-
-        if (!imagePath) {
-          return;
-        }
-
-        const tileImage = imageRegistry[imagePath];
-
-        if (!tileImage?.complete || tileImage.naturalWidth <= 0) {
-          return;
-        }
-
-        drawNativeSingleCellImageAtCell(tileImage, cell, drawContext);
-      });
-    } else {
-      if (!visual.image) {
-        drawContext.restore();
-        return;
-      }
-
-      const image = imageRegistry[visual.image];
-
-      if (!image?.complete || image.naturalWidth <= 0) {
-        drawContext.restore();
-        return;
-      }
-
-      for (const cell of occupiedCells) {
-        drawNativeSingleCellImageAtCell(image, cell, drawContext);
-      }
-    }
-  } else if (renderMode === "footprintImageNative") {
-    if (!visual.image) {
-      drawContext.restore();
-      return;
-    }
-
-    const image = imageRegistry[visual.image];
-
-    if (!image?.complete || image.naturalWidth <= 0) {
-      drawContext.restore();
-      return;
-    }
-
-    const drawBox = getConstructibleFootprintImageNativeDrawBoxForKind(kind, constructible, image, visual);
-
-    if (drawBox) {
-      drawContext.drawImage(
-        image,
-        drawBox.x,
-        drawBox.y,
-        drawBox.width,
-        drawBox.height,
-      );
-    }
-  } else if (renderMode === "footprintImage") {
-    if (!visual.image) {
-      drawContext.restore();
-      return;
-    }
-
-    const image = imageRegistry[visual.image];
-
-    if (!image?.complete || image.naturalWidth <= 0) {
-      drawContext.restore();
-      return;
-    }
-
-    const bounds = getConstructibleFootprintVisualBoundsForKind(kind, constructible, visual);
-
-    if (bounds) {
-      drawContext.drawImage(
-        image,
-        bounds.x,
-        bounds.y,
-        bounds.width,
-        bounds.height,
-      );
-    }
-  } else {
-    if (!visual.image) {
-      drawContext.restore();
-      return;
-    }
-
-    const image = imageRegistry[visual.image];
-
-    if (!image?.complete || image.naturalWidth <= 0) {
-      drawContext.restore();
-      return;
-    }
-
-    drawNativeSingleCellImageAtCell(image, getCell(constructible.x, constructible.y), drawContext);
-  }
-
-  drawContext.restore();
-}
-
 function drawBuilding(building) {
   drawConstructibleForKind("building", building);
 }
@@ -16414,10 +14560,6 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
 function invalidateStaticLayer() {
   staticLayerDirty = true;
 }
@@ -16661,239 +14803,8 @@ function changeZoom(delta) {
   layoutCanvas({ preserveCenter: true });
 }
 
-function populateTerrainMenu() {
-  for (const [type, spec] of Object.entries(terrain)) {
-    const button = document.createElement("button");
-    const swatch = document.createElement("span");
-    const label = document.createElement("span");
-
-    button.type = "button";
-    button.className = "terrain-option";
-    button.dataset.terrain = type;
-    button.setAttribute("role", "menuitem");
-    swatch.className = "terrain-swatch";
-    swatch.style.background = spec.top;
-    label.textContent = spec.label;
-    button.append(swatch, label);
-    terrainMenuOptions.append(button);
-  }
-}
-
 function getEditorLabel(key) {
   return strings.editor?.[key] || key;
-}
-
-function formatEditorDropdownLabel(key, value) {
-  return `${getEditorLabel(key)}: ${value}`;
-}
-
-function closeEditorDropdowns() {
-  if (!openEditorDropdownId) {
-    return;
-  }
-
-  openEditorDropdownId = null;
-  updateEditorDropdownMenus();
-}
-
-function positionEditorDropdownMenu(menu) {
-  if (!menu || !editInspector) {
-    return;
-  }
-
-  const group = menu.closest(".edit-dropdown-group");
-  const button = group?.querySelector(".edit-dropdown-toggle");
-
-  if (!group || !button) {
-    return;
-  }
-
-  const inspectorRect = editInspector.getBoundingClientRect();
-  const buttonRect = button.getBoundingClientRect();
-  const menuHeight = Math.max(menu.offsetHeight, menu.scrollHeight, 0);
-  const margin = 10;
-  const spaceBelow = inspectorRect.bottom - buttonRect.bottom - margin;
-  const spaceAbove = buttonRect.top - inspectorRect.top - margin;
-  const openUpward = menuHeight > spaceBelow && spaceAbove > spaceBelow;
-  const availableSpace = openUpward ? spaceAbove : spaceBelow;
-  const topOffset = `${button.offsetTop + button.offsetHeight + 6}px`;
-  const bottomOffset = `${group.offsetHeight - button.offsetTop + 6}px`;
-
-  group.classList.toggle("opens-upward", openUpward);
-  menu.style.maxHeight = `${Math.max(120, Math.floor(availableSpace))}px`;
-  menu.style.top = openUpward ? "auto" : topOffset;
-  menu.style.bottom = openUpward ? bottomOffset : "auto";
-}
-
-function updateEditorDropdownMenus() {
-  for (const button of editorDropdownToggleButtons) {
-    const dropdownId = button.dataset.editorDropdown;
-    const isOpen = dropdownId === openEditorDropdownId && !button.disabled;
-    button.setAttribute("aria-expanded", isOpen ? "true" : "false");
-  }
-
-  for (const menu of editorDropdownMenuElements) {
-    const isOpen = menu.dataset.editorDropdownMenu === openEditorDropdownId;
-    menu.hidden = !isOpen;
-
-    const group = menu.closest(".edit-dropdown-group");
-    if (!isOpen) {
-      group?.classList.remove("opens-upward");
-      menu.style.maxHeight = "";
-      menu.style.top = "";
-      menu.style.bottom = "";
-      continue;
-    }
-
-    positionEditorDropdownMenu(menu);
-  }
-}
-
-function toggleEditorDropdown(dropdownId) {
-  openEditorDropdownId = openEditorDropdownId === dropdownId ? null : dropdownId;
-  updateEditorDropdownMenus();
-}
-
-function createEditorTextOptionButton({ label, value, selected = false, disabled = false, icon = "" }) {
-  const button = document.createElement("button");
-  const swatch = document.createElement("span");
-  const text = document.createElement("span");
-
-  button.type = "button";
-  button.className = "terrain-option";
-  button.dataset.value = value;
-  button.classList.toggle("is-selected", selected);
-  button.disabled = disabled;
-  button.setAttribute("role", "menuitem");
-  button.setAttribute("aria-current", selected ? "true" : "false");
-  swatch.className = "terrain-swatch";
-  swatch.textContent = icon;
-  swatch.style.display = "grid";
-  swatch.style.placeItems = "center";
-  swatch.style.background = "rgba(245, 243, 230, 0.08)";
-  text.textContent = label;
-  button.append(swatch, text);
-  return button;
-}
-
-function getEditInspectorDisplayCell() {
-  return activeCell || hoverCell || null;
-}
-
-function setTileReadout(cell) {
-  const spec = terrain[cell.type];
-  const variant = getTerrainVariant(cell.type, ensureCellVariant(cell));
-  const variantLabel = getTerrainVariants(cell.type).length > 1 && variant ? variant.label : "";
-
-  setTextContent(hoverReadouts, strings.readouts.tile(cell.x, cell.y, spec.label, variantLabel));
-}
-
-function canEditTerrainSelection(cell) {
-  return Boolean(cell) && !hasFoodResource(cell) && !getBuildingAtCell(cell.x, cell.y) && !getVehicleAtCell(cell.x, cell.y);
-}
-
-function getEditableFoodTypesForCell(cell) {
-  if (!cell || getBuildingAtCell(cell.x, cell.y) || getVehicleAtCell(cell.x, cell.y)) {
-    return [];
-  }
-
-  return Object.entries(rules.resources?.foodTypes || {})
-    .filter(([, definition]) => definition?.terrain === cell.type && definition?.terrain !== "water")
-    .map(([foodType]) => foodType);
-}
-
-function canEditFoodSelection(cell) {
-  return getEditableFoodTypesForCell(cell).length > 0;
-}
-
-function canEditBuildingSelection(cell) {
-  if (!cell) {
-    return false;
-  }
-
-  if (getBuildingAtCell(cell.x, cell.y)) {
-    return true;
-  }
-
-  if (getVehicleAtCell(cell.x, cell.y)) {
-    return false;
-  }
-
-  if (hasFoodResource(cell)) {
-    return false;
-  }
-
-  return getDefinedBuildingTypes().some((buildingType) => canPlaceEditorBuildingAtCell(cell, buildingType));
-}
-
-function canEditVehicleSelection(cell) {
-  if (!cell) {
-    return false;
-  }
-
-  if (getVehicleAtCell(cell.x, cell.y)) {
-    return true;
-  }
-
-  if (getBuildingAtCell(cell.x, cell.y) || getUnitAtCell(cell.x, cell.y)) {
-    return false;
-  }
-
-  return getDefinedVehicleTypes().some((vehicleType) => canPlaceEditorVehicleAtCell(cell, vehicleType));
-}
-
-function getEditorResourceMode(cell) {
-  if (!cell) {
-    return null;
-  }
-
-  if (cell.type === "grass") {
-    return {
-      kind: "path",
-      title: strings.editor.path,
-      current: getCellVisitsCount(cell),
-      total: getCellPathWellKnownVisitsThreshold(cell),
-      showTotal: true,
-    };
-  }
-
-  if (cell.type === "forest") {
-    return {
-      kind: "material",
-      title: getResourceLabel("lumber"),
-      current: clampNonNegativeNumber(cell.materialAmount, 999999, 0),
-      total: null,
-      showTotal: false,
-    };
-  }
-
-  if (cell.type === "mountain") {
-    return {
-      kind: "material",
-      title: getResourceLabel("stone"),
-      current: clampNonNegativeNumber(cell.materialAmount, 999999, 0),
-      total: null,
-      showTotal: false,
-    };
-  }
-
-  return null;
-}
-
-function setEditorNumberInputValue(input, value) {
-  if (!input) {
-    return;
-  }
-
-  input.value = Number.isFinite(value) ? formatDisplayedNumber(value) : "";
-}
-
-function getEditorIntegerInputValue(input, fallback, min = 0, max = 999999) {
-  return clampInteger(input?.value, min, max, fallback);
-}
-
-function getEditorNumberInputValue(input, fallback, min = 0, max = 999999) {
-  return clampNumber(input?.value, min, max, fallback);
 }
 
 function applyEditorUnitSelection(unitTypeId) {
@@ -17193,532 +15104,6 @@ function placeEditorUnitAtCell(cell, unitTypeId) {
   invalidateStaticUnitsLayer();
   updateUnitReadout();
   return true;
-}
-
-function getEditorFoodLabel(cell) {
-  if (!cell?.foodType) {
-    return getEditorLabel("none");
-  }
-
-  return getResourceLabel(cell.foodType);
-}
-
-function getEditorBuildingLabel(cell) {
-  const building = cell ? getBuildingAtCell(cell.x, cell.y) : null;
-  return building ? getBuildingLabel(building.type) : getEditorLabel("none");
-}
-
-function getEditorVehicleLabel(cell) {
-  const vehicle = cell ? getVehicleAtCell(cell.x, cell.y) : null;
-  return vehicle ? getVehicleLabel(vehicle.type) : getEditorLabel("none");
-}
-
-function getEditorUnitLabel(cell) {
-  const currentUnit = cell ? getUnitAtCell(cell.x, cell.y) : null;
-  return currentUnit ? getDefaultUnitName(getUnitTypeId(currentUnit)) : getEditorLabel("none");
-}
-
-function getEditorUnitActionMenuLabel(currentUnit) {
-  const action = getActionForTask(currentUnit?.task);
-  return action ? getUnitActionLabel(action) : getEditorLabel("none");
-}
-
-function updateEditorTerrainMenuAvailability() {
-  setDisabledState(
-    [...terrainMenuOptions.querySelectorAll(".terrain-option")],
-    !canEditTerrainSelection(activeCell),
-  );
-}
-
-function rebuildFoodMenuOptions(displayCell) {
-  if (!foodMenuOptions) {
-    return;
-  }
-
-  foodMenuOptions.replaceChildren();
-
-  if (!displayCell) {
-    return;
-  }
-
-  const editableFoodTypes = getEditableFoodTypesForCell(displayCell);
-  const selectedFoodType = displayCell.foodType || "";
-  const controlDisabled = !activeCell || !canEditFoodSelection(activeCell);
-
-  foodMenuOptions.append(
-    createEditorTextOptionButton({
-      label: getEditorLabel("none"),
-      value: "",
-      selected: !selectedFoodType,
-      disabled: controlDisabled,
-      icon: "∅",
-    }),
-  );
-
-  for (const foodType of editableFoodTypes) {
-    foodMenuOptions.append(
-      createEditorTextOptionButton({
-        label: getResourceLabel(foodType),
-        value: foodType,
-        selected: selectedFoodType === foodType,
-        disabled: controlDisabled,
-        icon: "✿",
-      }),
-    );
-  }
-}
-
-function rebuildBuildingMenuOptions(displayCell) {
-  if (!buildingMenuOptions) {
-    return;
-  }
-
-  buildingMenuOptions.replaceChildren();
-
-  if (!displayCell) {
-    return;
-  }
-
-  const currentBuilding = getBuildingAtCell(displayCell.x, displayCell.y);
-  const controlDisabled = !activeCell || !canEditBuildingSelection(activeCell);
-  const currentBuildingType = currentBuilding?.type || "";
-
-  buildingMenuOptions.append(
-    createEditorTextOptionButton({
-      label: getEditorLabel("none"),
-      value: "",
-      selected: !currentBuildingType,
-      disabled: controlDisabled,
-      icon: "∅",
-    }),
-  );
-
-  if (currentBuilding) {
-    buildingMenuOptions.append(
-      createEditorTextOptionButton({
-        label: getBuildingLabel(currentBuilding.type),
-        value: currentBuilding.type,
-        selected: true,
-        disabled: true,
-        icon: getFoundationBuildingTypeIcon(currentBuilding.type),
-      }),
-    );
-    return;
-  }
-
-  for (const buildingType of getDefinedBuildingTypes()) {
-    buildingMenuOptions.append(
-      createEditorTextOptionButton({
-        label: getBuildingLabel(buildingType),
-        value: buildingType,
-        selected: false,
-        disabled: controlDisabled || !canPlaceEditorBuildingAtCell(displayCell, buildingType),
-        icon: getFoundationBuildingTypeIcon(buildingType),
-      }),
-    );
-  }
-}
-
-function rebuildVehicleMenuOptions(displayCell) {
-  if (!vehicleMenuOptions) {
-    return;
-  }
-
-  vehicleMenuOptions.replaceChildren();
-
-  if (!displayCell) {
-    return;
-  }
-
-  const currentVehicle = getVehicleAtCell(displayCell.x, displayCell.y);
-  const controlDisabled = !activeCell || !canEditVehicleSelection(activeCell);
-  const currentVehicleType = currentVehicle?.type || "";
-
-  vehicleMenuOptions.append(
-    createEditorTextOptionButton({
-      label: getEditorLabel("none"),
-      value: "",
-      selected: !currentVehicleType,
-      disabled: controlDisabled,
-      icon: "∅",
-    }),
-  );
-
-  if (currentVehicle) {
-    vehicleMenuOptions.append(
-      createEditorTextOptionButton({
-        label: getVehicleLabel(currentVehicle.type),
-        value: currentVehicle.type,
-        selected: true,
-        disabled: true,
-        icon: getVehicleTypeIcon(currentVehicle.type),
-      }),
-    );
-    return;
-  }
-
-  for (const vehicleType of getDefinedVehicleTypes()) {
-    vehicleMenuOptions.append(
-      createEditorTextOptionButton({
-        label: getVehicleLabel(vehicleType),
-        value: vehicleType,
-        selected: false,
-        disabled: controlDisabled || !canPlaceEditorVehicleAtCell(displayCell, vehicleType),
-        icon: getVehicleTypeIcon(vehicleType),
-      }),
-    );
-  }
-}
-
-function rebuildUnitMenuOptions(displayCell) {
-  if (!unitMenuOptions) {
-    return;
-  }
-
-  unitMenuOptions.replaceChildren();
-
-  if (!displayCell) {
-    return;
-  }
-
-  const currentUnit = getUnitAtCell(displayCell.x, displayCell.y);
-  const currentUnitType = currentUnit ? getUnitTypeId(currentUnit) : "";
-  const controlDisabled = !activeCell;
-
-  unitMenuOptions.append(
-    createEditorTextOptionButton({
-      label: getEditorLabel("none"),
-      value: "",
-      selected: !currentUnitType,
-      disabled: controlDisabled,
-      icon: "∅",
-    }),
-  );
-
-  for (const unitTypeId of getDefinedUnitTypeIds()) {
-    unitMenuOptions.append(
-      createEditorTextOptionButton({
-        label: getDefaultUnitName(unitTypeId),
-        value: unitTypeId,
-        selected: currentUnitType === unitTypeId,
-        disabled: controlDisabled || !canPlaceEditorUnitTypeAtCell(displayCell, unitTypeId, currentUnit),
-        icon: "☺",
-      }),
-    );
-  }
-}
-
-function rebuildUnitActionMenuOptions(displayCell) {
-  if (!unitActionMenuOptions) {
-    return;
-  }
-
-  unitActionMenuOptions.replaceChildren();
-
-  if (!displayCell) {
-    return;
-  }
-
-  const currentUnit = getUnitAtCell(displayCell.x, displayCell.y);
-
-  if (!currentUnit) {
-    return;
-  }
-
-  const currentAction = getActionForTask(currentUnit.task);
-  const controlDisabled = !activeCell;
-
-  if (currentAction && !editorSupportedUnitActions.includes(currentAction)) {
-    unitActionMenuOptions.append(
-      createEditorTextOptionButton({
-        label: getUnitActionLabel(currentAction),
-        value: currentAction,
-        selected: true,
-        disabled: true,
-        icon: "•",
-      }),
-    );
-  }
-
-  unitActionMenuOptions.append(
-    createEditorTextOptionButton({
-      label: getEditorLabel("none"),
-      value: "",
-      selected: !currentAction,
-      disabled: controlDisabled,
-      icon: "∅",
-    }),
-  );
-
-  for (const action of editorSupportedUnitActions) {
-    unitActionMenuOptions.append(
-      createEditorTextOptionButton({
-        label: getUnitActionLabel(action),
-        value: action,
-        selected: currentAction === action,
-        disabled:
-          controlDisabled
-          || !canUnitUseAction(currentUnit, action)
-          || (action === unitActions.research && !getSelectedResearchGoalTechnologyId()),
-        icon: action === unitActions.play ? "♪" : "✶",
-      }),
-    );
-  }
-}
-
-function updateEditInspector() {
-  const displayCell = getEditInspectorDisplayCell();
-  const resourceMode = getEditorResourceMode(displayCell);
-  const displayBuilding = displayCell ? getBuildingAtCell(displayCell.x, displayCell.y) : null;
-  const displayVehicle = displayCell ? getVehicleAtCell(displayCell.x, displayCell.y) : null;
-  const displayUnit = displayCell ? getUnitAtCell(displayCell.x, displayCell.y) : null;
-  const canEditFoodAmounts = Boolean(activeCell?.foodType);
-  const canEditBuildingState = Boolean(activeCell && getBuildingAtCell(activeCell.x, activeCell.y));
-  const canEditVehicleState = Boolean(activeCell && getVehicleAtCell(activeCell.x, activeCell.y));
-
-  if (!displayCell) {
-    tileMenuTitle.textContent = "";
-    resetTileReadout();
-    updateTerrainMenuSelection(null);
-    variantMenuOptions.replaceChildren();
-    rebuildFoodMenuOptions(null);
-    rebuildBuildingMenuOptions(null);
-    rebuildVehicleMenuOptions(null);
-    rebuildUnitMenuOptions(null);
-    rebuildUnitActionMenuOptions(null);
-    setTextContent(editorTerrainLabelElements, formatEditorDropdownLabel("terrain", getEditorLabel("none")));
-    setTextContent(editorVisualLabelElements, formatEditorDropdownLabel("visual", getEditorLabel("none")));
-    setTextContent(editorFoodLabelElements, formatEditorDropdownLabel("food", getEditorLabel("none")));
-    setTextContent(editorBuildingLabelElements, formatEditorDropdownLabel("building", getEditorLabel("none")));
-    setTextContent(editorVehicleLabelElements, formatEditorDropdownLabel("vehicle", getEditorLabel("none")));
-    setTextContent(editorUnitLabelElements, formatEditorDropdownLabel("unit", getEditorLabel("none")));
-    setTextContent(editorUnitActionLabelElements, formatEditorDropdownLabel("action", getEditorLabel("none")));
-    setTextContent(editorResourceTitleElements, "");
-    setTextContent(editorCurrentLabelElements, strings.editor.current);
-    setTextContent(editorTotalLabelElements, strings.editor.total);
-    setTextContent(editorCompletionLabelElements, strings.editor.completion);
-    setTextContent(editorAbandonedLabelElements, strings.editor.abandoned);
-    setHiddenState(editorResourcePanels, false);
-    setHiddenState(editorFoodPanels, false);
-    setHiddenState(editorBuildingPanels, false);
-    setHiddenState(editorVehiclePanels, false);
-    setHiddenState(editorResourceTotalFields, true);
-    setHiddenState(editorResourceSeparators, true);
-    setEditorNumberInputValue(editorResourceCurrentInput, Number.NaN);
-    setEditorNumberInputValue(editorResourceTotalInput, Number.NaN);
-    setEditorNumberInputValue(editorFoodCurrentInput, Number.NaN);
-    setEditorNumberInputValue(editorFoodTotalInput, Number.NaN);
-    setEditorNumberInputValue(editorBuildingCompletionInput, Number.NaN);
-    setEditorNumberInputValue(editorVehicleCompletionInput, Number.NaN);
-    if (editorBuildingAbandonedInput) {
-      editorBuildingAbandonedInput.checked = false;
-    }
-    if (editorVehicleAbandonedInput) {
-      editorVehicleAbandonedInput.checked = false;
-    }
-    setDisabledState(editorDropdownToggleButtons, true);
-    setDisabledState(
-      [
-        editorResourceCurrentInput,
-        editorResourceTotalInput,
-        editorFoodCurrentInput,
-        editorFoodTotalInput,
-        editorBuildingCompletionInput,
-        editorBuildingAbandonedInput,
-        editorVehicleCompletionInput,
-        editorVehicleAbandonedInput,
-      ].filter(Boolean),
-      true,
-    );
-    closeEditorDropdowns();
-    return;
-  }
-
-  tileMenuTitle.textContent = strings.readouts.tileMenuTitle(displayCell.x, displayCell.y);
-  setTileReadout(displayCell);
-  updateTerrainMenuSelection(displayCell.type);
-  updateVariantMenu(displayCell);
-  rebuildFoodMenuOptions(displayCell);
-  rebuildBuildingMenuOptions(displayCell);
-  rebuildVehicleMenuOptions(displayCell);
-  rebuildUnitMenuOptions(displayCell);
-  rebuildUnitActionMenuOptions(displayCell);
-  setTextContent(editorTerrainLabelElements, formatEditorDropdownLabel("terrain", terrain[displayCell.type].label));
-  setTextContent(
-    editorVisualLabelElements,
-    formatEditorDropdownLabel("visual", getTerrainVariant(displayCell.type, ensureCellVariant(displayCell))?.label || getEditorLabel("none")),
-  );
-  setTextContent(editorFoodLabelElements, formatEditorDropdownLabel("food", getEditorFoodLabel(displayCell)));
-  setTextContent(editorBuildingLabelElements, formatEditorDropdownLabel("building", getEditorBuildingLabel(displayCell)));
-  setTextContent(editorVehicleLabelElements, formatEditorDropdownLabel("vehicle", getEditorVehicleLabel(displayCell)));
-  setTextContent(editorUnitLabelElements, formatEditorDropdownLabel("unit", getEditorUnitLabel(displayCell)));
-  setTextContent(editorUnitActionLabelElements, formatEditorDropdownLabel("action", getEditorUnitActionMenuLabel(displayUnit)));
-  setTextContent(editorCurrentLabelElements, strings.editor.current);
-  setTextContent(editorTotalLabelElements, strings.editor.total);
-  setTextContent(editorCompletionLabelElements, strings.editor.completion);
-  setTextContent(editorAbandonedLabelElements, strings.editor.abandoned);
-  setHiddenState(editorResourcePanels, false);
-  setHiddenState(editorFoodPanels, false);
-  setHiddenState(editorBuildingPanels, false);
-  setHiddenState(editorVehiclePanels, false);
-  setHiddenState(editorResourceTotalFields, !resourceMode?.showTotal);
-  setHiddenState(editorResourceSeparators, !resourceMode?.showTotal);
-  setTextContent(editorResourceTitleElements, resourceMode?.title || "");
-  setEditorNumberInputValue(editorResourceCurrentInput, resourceMode?.current);
-  setEditorNumberInputValue(editorResourceTotalInput, resourceMode?.showTotal ? resourceMode?.total : Number.NaN);
-  setEditorNumberInputValue(editorFoodCurrentInput, displayCell.foodType ? displayCell.foodAmount : Number.NaN);
-  setEditorNumberInputValue(editorFoodTotalInput, displayCell.foodType ? getCellFoodMaxAmount(displayCell) : Number.NaN);
-  setEditorNumberInputValue(editorBuildingCompletionInput, displayBuilding ? Math.round(getBuildingCompleteness(displayBuilding) * 100) : 0);
-  setEditorNumberInputValue(editorVehicleCompletionInput, displayVehicle ? Math.round(getBuildingCompleteness(displayVehicle) * 100) : 0);
-  if (editorBuildingAbandonedInput) {
-    editorBuildingAbandonedInput.checked = displayBuilding?.state === "abandoned";
-  }
-  if (editorVehicleAbandonedInput) {
-    editorVehicleAbandonedInput.checked = displayVehicle?.state === "abandoned";
-  }
-
-  for (const button of editorDropdownToggleButtons) {
-    const dropdownId = button.dataset.editorDropdown;
-    let disabled = !activeCell;
-
-    if (dropdownId === "terrain") {
-      disabled = !canEditTerrainSelection(activeCell);
-    } else if (dropdownId === "visual") {
-      disabled = !activeCell;
-    } else if (dropdownId === "food") {
-      disabled = !canEditFoodSelection(activeCell);
-    } else if (dropdownId === "building") {
-      disabled = !canEditBuildingSelection(activeCell);
-    } else if (dropdownId === "vehicle") {
-      disabled = !canEditVehicleSelection(activeCell);
-    } else if (dropdownId === "unit") {
-      disabled = !activeCell;
-    } else if (dropdownId === "unitAction") {
-      disabled = !(activeCell && getUnitAtCell(activeCell.x, activeCell.y));
-    }
-
-    button.disabled = disabled;
-    if (disabled && openEditorDropdownId === dropdownId) {
-      openEditorDropdownId = null;
-    }
-  }
-
-  updateEditorTerrainMenuAvailability();
-  setDisabledState([...variantMenuOptions.querySelectorAll(".terrain-option")], !activeCell);
-  if (editorResourceCurrentInput) {
-    editorResourceCurrentInput.disabled = !activeCell || !resourceMode;
-  }
-  if (editorResourceTotalInput) {
-    editorResourceTotalInput.disabled = true;
-  }
-  if (editorFoodCurrentInput) {
-    editorFoodCurrentInput.disabled = !canEditFoodAmounts;
-  }
-  if (editorFoodTotalInput) {
-    editorFoodTotalInput.disabled = !canEditFoodAmounts;
-  }
-  if (editorBuildingCompletionInput) {
-    editorBuildingCompletionInput.disabled = !canEditBuildingState;
-  }
-  if (editorBuildingAbandonedInput) {
-    editorBuildingAbandonedInput.disabled = !canEditBuildingState;
-  }
-  if (editorVehicleCompletionInput) {
-    editorVehicleCompletionInput.disabled = !canEditVehicleState;
-  }
-  if (editorVehicleAbandonedInput) {
-    editorVehicleAbandonedInput.disabled = !canEditVehicleState;
-  }
-  updateEditorDropdownMenus();
-}
-
-function openTileMenu(cell) {
-  activeCell = cell;
-  updateEditInspector();
-  getSelectedTerrainButton()?.focus({ preventScroll: true });
-
-  draw();
-}
-
-function hideTileMenu() {
-  if (!activeCell) return;
-
-  activeCell = null;
-  closeEditorDropdowns();
-  updateEditInspector();
-  draw();
-}
-
-function updateTerrainMenuSelection(type) {
-  for (const button of terrainMenuOptions.querySelectorAll(".terrain-option")) {
-    const isSelected = Boolean(type) && button.dataset.terrain === type;
-
-    button.classList.toggle("is-selected", isSelected);
-    button.setAttribute("aria-current", isSelected ? "true" : "false");
-  }
-}
-
-function updateVariantMenu(cell) {
-  const variants = getTerrainVariants(cell.type);
-
-  variantMenuOptions.replaceChildren();
-
-  const selectedVariant = ensureCellVariant(cell);
-
-  for (const variant of variants) {
-    const button = document.createElement("button");
-    const swatch = document.createElement("span");
-    const label = document.createElement("span");
-    const isSelected = variant.id === selectedVariant;
-
-    button.type = "button";
-    button.className = "terrain-option";
-    button.classList.toggle("is-selected", isSelected);
-    button.dataset.variant = variant.id;
-    button.setAttribute("role", "menuitem");
-    button.setAttribute("aria-current", isSelected ? "true" : "false");
-    swatch.className = "terrain-swatch";
-    swatch.style.background = terrain[cell.type].top;
-    label.textContent = variant.label;
-    button.append(swatch, label);
-    variantMenuOptions.append(button);
-  }
-}
-
-function getSelectedTerrainButton() {
-  return terrainMenuOptions.querySelector(".terrain-option.is-selected");
-}
-
-function handleEditCanvasMove(event) {
-  const nextHover = pickTile(event.clientX, event.clientY);
-  const changed =
-    (!hoverCell && nextHover) ||
-    (hoverCell && !nextHover) ||
-    (hoverCell &&
-      nextHover &&
-      (hoverCell.x !== nextHover.x || hoverCell.y !== nextHover.y));
-
-  if (!changed) return;
-
-  hoverCell = nextHover;
-  updateEditInspector();
-  draw();
-}
-
-function handleEditCanvasClick(event, clickedCell) {
-  if (!clickedCell) {
-    hideTileMenu();
-    return;
-  }
-
-  hoverCell = clickedCell;
-  openTileMenu(clickedCell);
-}
-
-function handleEditCanvasLeave() {
-  hoverCell = null;
-  updateEditInspector();
-  draw();
 }
 
 function handlePlayCanvasMove(event) {
@@ -18059,112 +15444,7 @@ function applyEditorVehicleSelection(vehicleType) {
   }
 }
 
-terrainMenuOptions.addEventListener("click", (event) => {
-  const button = event.target.closest(".terrain-option");
-
-  if (!button) return;
-
-  applyTerrainSelection(button.dataset.terrain);
-});
-
-variantMenuOptions.addEventListener("click", (event) => {
-  const button = event.target.closest(".terrain-option");
-
-  if (!button || !activeCell) return;
-
-  const previousSnapshot = JSON.stringify(serializeCell(activeCell));
-  activeCell.variant = button.dataset.variant;
-  syncCellResourcesWithVariant(activeCell, { seedOnWater01: true });
-  invalidateStaticLayer();
-  if (JSON.stringify(serializeCell(activeCell)) !== previousSnapshot) {
-    setEditStateDirty(true);
-  }
-  updateEditInspector();
-  closeEditorDropdowns();
-  draw();
-});
-
-foodMenuOptions?.addEventListener("click", (event) => {
-  const button = event.target.closest(".terrain-option");
-
-  if (!button) return;
-
-  applyEditorFoodSelection(button.dataset.value || "");
-});
-
-buildingMenuOptions?.addEventListener("click", (event) => {
-  const button = event.target.closest(".terrain-option");
-
-  if (!button) return;
-
-  applyEditorBuildingSelection(button.dataset.value || "");
-});
-
-vehicleMenuOptions?.addEventListener("click", (event) => {
-  const button = event.target.closest(".terrain-option");
-
-  if (!button) return;
-
-  applyEditorVehicleSelection(button.dataset.value || "");
-});
-
-unitMenuOptions?.addEventListener("click", (event) => {
-  const button = event.target.closest(".terrain-option");
-
-  if (!button) return;
-
-  applyEditorUnitSelection(button.dataset.value || "");
-});
-
-unitActionMenuOptions?.addEventListener("click", (event) => {
-  const button = event.target.closest(".terrain-option");
-
-  if (!button) return;
-
-  applyEditorUnitActionSelection(button.dataset.value || "");
-});
-
-editorResourceCurrentInput?.addEventListener("change", () => {
-  applyEditorResourceCurrentValue();
-});
-
-editorResourceTotalInput?.addEventListener("change", () => {
-  applyEditorResourceTotalValue();
-});
-
-editorFoodCurrentInput?.addEventListener("change", () => {
-  applyEditorFoodCurrentValue();
-});
-
-editorFoodTotalInput?.addEventListener("change", () => {
-  applyEditorFoodTotalValue();
-});
-
-editorBuildingCompletionInput?.addEventListener("change", () => {
-  applyEditorBuildingCompletionValue();
-});
-
-editorBuildingAbandonedInput?.addEventListener("change", () => {
-  applyEditorBuildingAbandonedValue();
-});
-
-editorVehicleCompletionInput?.addEventListener("change", () => {
-  applyEditorVehicleCompletionValue();
-});
-
-editorVehicleAbandonedInput?.addEventListener("change", () => {
-  applyEditorVehicleAbandonedValue();
-});
-
-for (const button of editorDropdownToggleButtons) {
-  button.addEventListener("click", () => {
-    if (button.disabled) {
-      return;
-    }
-
-    toggleEditorDropdown(button.dataset.editorDropdown);
-  });
-}
+bindEditorUiEvents();
 
 document.addEventListener("pointerdown", (event) => {
   if (shouldPlayBackgroundMusic() && backgroundMusic.paused) {
@@ -18565,26 +15845,6 @@ for (const button of openMainMenuButtons) {
   });
 }
 
-for (const button of openEditorResearchButtons) {
-  button.addEventListener("click", () => {
-    void openEditorResearchPanel(button);
-  });
-}
-
-for (const button of closeEditorResearchButtons) {
-  button.addEventListener("click", () => {
-    closeEditorResearchPanel({ restoreFocus: true });
-  });
-}
-
-for (const button of clearEditorResearchGoalButtons) {
-  button.addEventListener("click", () => {
-    applyEditorResearchStateChange(() => {
-      researchState.selectedGoalTechId = null;
-    });
-  });
-}
-
 for (const button of dismissSlotPanelButtons) {
   button.addEventListener("click", () => {
     closeSaveSlotPanel({ restoreFocus: true });
@@ -18630,99 +15890,6 @@ saveSlotList?.addEventListener("click", (event) => {
   if (slotPanelState.mode === "load") {
     void commitSaveSlotPanel();
   }
-});
-
-editorResearchOverlay?.addEventListener("click", (event) => {
-  if (event.target === editorResearchOverlay) {
-    closeEditorResearchPanel({ restoreFocus: true });
-  }
-});
-
-editorResearchList?.addEventListener("click", (event) => {
-  const goalButton = event.target instanceof Element
-    ? event.target.closest('[data-action="editor-research-select-goal"]')
-    : null;
-
-  if (!goalButton || goalButton.disabled) {
-    return;
-  }
-
-  const technologyId = goalButton.dataset.technologyId || "";
-
-  applyEditorResearchStateChange(() => {
-    researchState.selectedGoalTechId = technologyId;
-  });
-});
-
-editorResearchList?.addEventListener("change", (event) => {
-  const target = event.target instanceof Element ? event.target : null;
-  const discoveredInput = target?.closest('[data-action="editor-research-discovered"]');
-
-  if (discoveredInput instanceof HTMLInputElement) {
-    const technologyId = discoveredInput.dataset.technologyId || "";
-
-    applyEditorResearchStateChange(() => {
-      const discoveredIds = new Set(
-        Array.isArray(researchState.discoveredTechIds) ? researchState.discoveredTechIds : [],
-      );
-      const nextProgressByTechId =
-        researchState.progressByTechId && typeof researchState.progressByTechId === "object"
-          ? { ...researchState.progressByTechId }
-          : {};
-
-      if (discoveredInput.checked) {
-        discoveredIds.add(technologyId);
-        delete nextProgressByTechId[technologyId];
-      } else {
-        discoveredIds.delete(technologyId);
-      }
-
-      researchState.discoveredTechIds = [...discoveredIds];
-      researchState.progressByTechId = nextProgressByTechId;
-    });
-    return;
-  }
-
-  const progressInput = target?.closest('[data-action="editor-research-progress"]');
-
-  if (!(progressInput instanceof HTMLInputElement)) {
-    return;
-  }
-
-  const technologyId = progressInput.dataset.technologyId || "";
-  const technology = getTechnologyDefinition(technologyId);
-
-  if (!technology) {
-    updateEditorResearchPanel();
-    return;
-  }
-
-  const nextProgress = clampNumber(progressInput.value, 0, 999999999, getTechnologyProgress(technologyId));
-  const technologyCost = clampNonNegativeNumber(technology.cost, 999999999, 0);
-
-  applyEditorResearchStateChange(() => {
-    const discoveredIds = new Set(
-      Array.isArray(researchState.discoveredTechIds) ? researchState.discoveredTechIds : [],
-    );
-    const nextProgressByTechId =
-      researchState.progressByTechId && typeof researchState.progressByTechId === "object"
-        ? { ...researchState.progressByTechId }
-        : {};
-
-    discoveredIds.delete(technologyId);
-
-    if (technologyCost > 0 && nextProgress >= technologyCost) {
-      discoveredIds.add(technologyId);
-      delete nextProgressByTechId[technologyId];
-    } else if (nextProgress > 0) {
-      nextProgressByTechId[technologyId] = nextProgress;
-    } else {
-      delete nextProgressByTechId[technologyId];
-    }
-
-    researchState.discoveredTechIds = [...discoveredIds];
-    researchState.progressByTechId = nextProgressByTechId;
-  });
 });
 
 for (const input of autoPassInputs) {
