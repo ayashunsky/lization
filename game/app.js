@@ -1,5 +1,6 @@
 import { createConstructiblesApi } from "./constructibles.js";
 import { createBookContentApi } from "./book-content.js";
+import { createBookRuntimeApi } from "./book-runtime.js";
 import { createEditorUiApi } from "./editor-ui.js";
 import {
   clamp,
@@ -348,6 +349,7 @@ let zoomIndex = 1;
 let interactionMode = null;
 let mainMenuOpen = true;
 let units = [];
+let unitOccupancyIndex = new Map();
 let unit = null;
 let buildings = [];
 let vehicles = [];
@@ -489,7 +491,7 @@ const julianTurnEpochJdn = getJulianDayNumber(
 
 let bookDocument = null;
 let bookContentLoadPromise = null;
-let bookState = createInitialBookState();
+let bookState = null;
 let technologyCatalog = createDefaultTechnologyCatalog();
 let technologyCatalogLoadPromise = null;
 let buildingCatalog = createDefaultBuildingCatalog();
@@ -543,9 +545,7 @@ const {
   getConstructiblesAtCellForKind,
   findConstructibleAtCellForKind,
   isConstructibleInstanceWalkableForKind,
-  getBlockingConstructibleAtCellForKind,
   getWalkableConstructibleAtCellForKind,
-  hasWalkableConstructibleAtCellForKind,
   getConstructibleVisualForKind,
   drawConstructibleForKind,
 } = createConstructiblesApi({
@@ -627,6 +627,7 @@ const {
   loadBookManifestDocument,
   fillBookPageSideContent,
   getBookTargetPageIdFromLink,
+  getBookTechWidgetTechnologyId,
 } = createBookContentApi({
   localizationApi: {
     localization,
@@ -669,6 +670,125 @@ const {
 });
 
 bookDocument = createDefaultBookDocument();
+
+const {
+  createInitialBookState,
+  ensureBookContentLoaded,
+  closeBookOverlay,
+  initializeBookPageContent,
+  updateBookPageStack,
+  jumpBookToPageId,
+  openBookOverlayAtBookmark,
+  openBookOverlayPanel,
+  playBookSequence,
+  startBookPageTurnAnimation,
+} = createBookRuntimeApi({
+  state: {
+    getBookDocument: () => bookDocument,
+    setBookDocument: (documentDefinition) => {
+      bookDocument = documentDefinition;
+    },
+    getBookContentLoadPromise: () => bookContentLoadPromise,
+    setBookContentLoadPromise: (promise) => {
+      bookContentLoadPromise = promise;
+    },
+    getBookTotalPageCount: () => bookTotalPageCount,
+    setBookTotalPageCount: (pageCount) => {
+      bookTotalPageCount = pageCount;
+    },
+    getBookState: () => bookState,
+    setBookState: (state) => {
+      bookState = state;
+    },
+    getBookOverlayTriggerButton: () => bookOverlayTriggerButton,
+    setBookOverlayTriggerButton: (button) => {
+      bookOverlayTriggerButton = button;
+    },
+    getBookOverlayRestoreState: () => bookOverlayRestoreState,
+    setBookOverlayRestoreState: (restoreState) => {
+      bookOverlayRestoreState = restoreState;
+    },
+    getBookOverlayIntroMode: () => bookOverlayIntroMode,
+    setBookOverlayIntroMode: (introMode) => {
+      bookOverlayIntroMode = introMode;
+    },
+    getBookPageTurnAnimation: () => bookPageTurnAnimation,
+    setBookPageTurnAnimation: (animation) => {
+      bookPageTurnAnimation = animation;
+    },
+    getBookPageTurnAnimationTimeoutId: () => bookPageTurnAnimationTimeoutId,
+    setBookPageTurnAnimationTimeoutId: (timeoutId) => {
+      bookPageTurnAnimationTimeoutId = timeoutId;
+    },
+    getBookSequencePlayback: () => bookSequencePlayback,
+    setBookSequencePlayback: (playback) => {
+      bookSequencePlayback = playback;
+    },
+    getBookSequencePlaybackTimeoutId: () => bookSequencePlaybackTimeoutId,
+    setBookSequencePlaybackTimeoutId: (timeoutId) => {
+      bookSequencePlaybackTimeoutId = timeoutId;
+    },
+    getMainMenuOpen: () => mainMenuOpen,
+    setMainMenuOpen: (open) => {
+      mainMenuOpen = open;
+    },
+    getInteractionMode: () => interactionMode,
+    setInteractionMode: (mode) => {
+      interactionMode = mode;
+    },
+  },
+  dom: {
+    bookOverlay,
+    bookVisual,
+    bookBookmarkBackBar,
+    bookBookmarkFrontBar,
+    bookBookmarkBars,
+    previousBookPageButtons,
+    nextBookPageButtons,
+    bookPageLayers,
+    mainMenuOverlay,
+  },
+  config: {
+    bookVisiblePageLayerCount,
+    bookEntityHiddenClass,
+    bookLayerWithSpineClass,
+    bookPagePlaceholderClass,
+    bookPageContentClass,
+    bookPageContentHiddenClass,
+    bookPageTurnOverlayClass,
+    bookPageTurnFramesPerPhase,
+    bookPageTurnFrameDurationMs,
+    bookPageTurnCollapsedScale,
+    bookIntroSequenceId,
+    bookSequenceInitialPauseMs,
+    bookSequenceTurnPauseMs,
+    interactionModes,
+  },
+  callbacks: {
+    loadBookManifestDocument,
+    updateWatchIntroButton,
+    fillBookPageSideContent,
+    closeGameActionMenu,
+    closeSaveSlotPanel,
+    hideTileMenu: (...args) => hideTileMenu(...args),
+    ensureTechnologyCatalogLoaded,
+    ensureBuildingDefinitionsLoaded,
+    ensureVehicleDefinitionsLoaded,
+    ensureUnitDefinitionsLoaded,
+    updateInteractionModeUi,
+    draw,
+    hideBookTransientHint,
+    clearPendingBookResearchAssignment,
+    startIntroMusicSegmentPlayback,
+    stopIntroMusicSegmentPlayback,
+    isPlayMode,
+    getCurrentLanguage: () => currentLanguage,
+    getBookPageDefinition,
+    getBookPageNumberById,
+  },
+});
+
+bookState = createInitialBookState();
 
 const {
   populateTerrainMenu,
@@ -2401,42 +2521,6 @@ function addResearchProgressToTechnology(technologyId, amount, { refresh = true 
   }
 
   return true;
-}
-
-function createInitialBookState(totalPageCount = bookTotalPageCount) {
-  const normalizedTotalPageCount = Math.max(2, Math.floor(totalPageCount / 2) * 2);
-  const initialSpreadIndex = Math.floor(normalizedTotalPageCount / 4);
-  return getBookStateForSpreadIndex(initialSpreadIndex, normalizedTotalPageCount);
-}
-
-async function ensureBookContentLoaded() {
-  if (bookDocument.loaded && bookDocument.requestedLanguage === currentLanguage) {
-    return bookDocument;
-  }
-
-  if (!bookContentLoadPromise) {
-    bookContentLoadPromise = loadBookManifestDocument()
-      .then((documentDefinition) => {
-        bookDocument = documentDefinition;
-        bookTotalPageCount = documentDefinition.pages.length;
-        bookState = createInitialBookState(bookTotalPageCount);
-        updateWatchIntroButton();
-
-        if (bookOverlay && !bookOverlay.hidden) {
-          cancelBookPageTurnAnimation();
-          updateBookPageStack(bookState);
-        }
-
-        return bookDocument;
-      })
-      .catch((error) => {
-        console.error(error);
-        updateWatchIntroButton();
-        return bookDocument;
-      });
-  }
-
-  return bookContentLoadPromise;
 }
 
 function getJulianDayNumber(year, month, day) {
@@ -5013,196 +5097,6 @@ function closeSaveSlotPanel({ restoreFocus = false } = {}) {
   slotPanelState = null;
 }
 
-function closeBookOverlay({ restoreFocus = false, restoreState = true } = {}) {
-  cancelBookSequencePlayback();
-  cancelBookPageTurnAnimation();
-  bookOverlayIntroMode = false;
-  hideBookTransientHint();
-  clearPendingBookResearchAssignment();
-
-  if (bookOverlay) {
-    bookOverlay.hidden = true;
-  }
-
-  if (bookOverlayRestoreState && restoreState) {
-    interactionMode = bookOverlayRestoreState.interactionMode;
-    mainMenuOpen = bookOverlayRestoreState.mainMenuOpen;
-    mainMenuOverlay.hidden = !mainMenuOpen;
-    bookOverlayRestoreState = null;
-    updateInteractionModeUi();
-    draw();
-  } else if (bookOverlayRestoreState) {
-    bookOverlayRestoreState = null;
-    updateInteractionModeUi();
-  } else {
-    updateInteractionModeUi();
-  }
-
-  if (restoreFocus && bookOverlayTriggerButton) {
-    bookOverlayTriggerButton.focus({ preventScroll: true });
-  }
-
-  bookOverlayTriggerButton = null;
-}
-
-function createBookPageContentElement(side) {
-  const content = document.createElement("div");
-  content.className = bookPageContentClass;
-  content.dataset.bookPageContentSide = side;
-  return content;
-}
-
-function initializeBookPageContent() {
-  for (const layer of bookPageLayers) {
-    for (const side of ["left", "right"]) {
-      if (layer.querySelector(`.${bookPageContentClass}[data-book-page-content-side="${side}"]`)) {
-        continue;
-      }
-
-      layer.append(createBookPageContentElement(side));
-    }
-  }
-}
-
-function updateBookTurnButtons() {
-  let previousDisabled = false;
-  let nextDisabled = false;
-
-  if (bookPageTurnAnimation || bookSequencePlayback) {
-    previousDisabled = true;
-    nextDisabled = true;
-  } else {
-    previousDisabled = !canTurnBookPage(bookState, -1);
-    nextDisabled = !canTurnBookPage(bookState, 1);
-  }
-
-  for (const button of previousBookPageButtons) {
-    button.disabled = previousDisabled;
-  }
-
-  for (const button of nextBookPageButtons) {
-    button.disabled = nextDisabled;
-  }
-}
-
-function getBookPageCountsForState(state = bookState) {
-  const actualLeftCount = Number.isInteger(state?.leftPageNumber)
-    ? Math.max(0, Math.floor((state.leftPageNumber + 1) / 2))
-    : 0;
-  const actualRightCount = Number.isInteger(state?.rightPageNumber)
-    ? Math.max(0, Math.floor((bookTotalPageCount - state.rightPageNumber + 2) / 2))
-    : 0;
-  const actualTotalCount = actualLeftCount + actualRightCount;
-
-  if (actualTotalCount <= bookVisiblePageLayerCount) {
-    return {
-      left: actualLeftCount,
-      right: actualRightCount,
-    };
-  }
-
-  const leftQuota = actualLeftCount * bookVisiblePageLayerCount / actualTotalCount;
-  const rightQuota = actualRightCount * bookVisiblePageLayerCount / actualTotalCount;
-
-  let leftCount = Math.floor(leftQuota);
-  let rightCount = Math.floor(rightQuota);
-  let remainingCount = bookVisiblePageLayerCount - leftCount - rightCount;
-
-  while (remainingCount > 0) {
-    const leftRemainder = leftQuota - leftCount;
-    const rightRemainder = rightQuota - rightCount;
-
-    if (
-      leftRemainder > rightRemainder
-      || (leftRemainder === rightRemainder && actualLeftCount > 0 && actualLeftCount <= actualRightCount)
-    ) {
-      leftCount += 1;
-    } else {
-      rightCount += 1;
-    }
-
-    remainingCount -= 1;
-  }
-
-  return {
-    left: leftCount,
-    right: rightCount,
-  };
-}
-
-function getVisibleBookStatePageNumbers(state = bookState) {
-  const counts = getBookPageCountsForState(state);
-
-  return {
-    left: Array.from({ length: counts.left }, (_, index) => state.leftPageNumber - index * 2),
-    right: Array.from({ length: counts.right }, (_, index) => state.rightPageNumber + index * 2),
-  };
-}
-
-function getTopVisibleBookLayerIndex(state = bookState) {
-  const counts = getBookPageCountsForState(state);
-  const visibleLayerCount = Math.max(counts.left, counts.right);
-  return bookVisiblePageLayerCount - visibleLayerCount + 1;
-}
-
-function isBookPageLayerVisible(layerIndex, side, state = bookState) {
-  const counts = getBookPageCountsForState(state);
-  const topVisibleLayer = getTopVisibleBookLayerIndex(state);
-  const sideCount = counts[side];
-
-  if (sideCount <= 0) {
-    return false;
-  }
-
-  return layerIndex >= topVisibleLayer && layerIndex < topVisibleLayer + sideCount;
-}
-
-function canTurnBookPage(state = bookState, direction = 1) {
-  const spreadIndex = getBookSpreadIndexForState(state);
-
-  if (!Number.isInteger(spreadIndex)) {
-    return false;
-  }
-
-  if (direction > 0) {
-    return spreadIndex < getBookMaxSpreadIndex(bookTotalPageCount);
-  }
-
-  return spreadIndex > 0;
-}
-
-function getBookStateAfterPageTurn(state = bookState, direction = 1) {
-  const spreadIndex = getBookSpreadIndexForState(state);
-
-  if (!Number.isInteger(spreadIndex) || !canTurnBookPage(state, direction)) {
-    return state;
-  }
-
-  return getBookStateForSpreadIndex(spreadIndex + (direction > 0 ? 1 : -1));
-}
-
-function getBookPageLayerByIndex(layerIndex) {
-  return bookPageLayers.find((layer) => Number(layer.dataset.bookPageLayer) === layerIndex) || null;
-}
-
-function getBookPageSideContent(layer, side) {
-  return layer?.querySelector(`.${bookPageContentClass}[data-book-page-content-side="${side}"]`) || null;
-}
-
-function getBookPageTurnOverlayElements(layer, side) {
-  if (!layer) {
-    return {
-      page: null,
-      content: null,
-    };
-  }
-
-  return {
-    page: layer.querySelector(`.book-page-entity.${bookPageTurnOverlayClass}[data-book-page-side="${side}"]`),
-    content: layer.querySelector(`.${bookPageContentClass}.${bookPageTurnOverlayClass}[data-book-page-content-side="${side}"]`),
-  };
-}
-
 function getBookPageDefinition(pageNumber) {
   if (!Number.isInteger(pageNumber) || pageNumber < 1) {
     return null;
@@ -5218,1049 +5112,6 @@ function getBookPageNumberById(pageId) {
 
   const index = bookDocument.pages.findIndex((page) => page?.id === pageId.trim());
   return index >= 0 ? index + 1 : null;
-}
-
-function getBookMaxSpreadIndex(totalPageCount = bookTotalPageCount) {
-  return Math.max(1, Math.floor(Math.max(2, Math.floor(totalPageCount / 2) * 2) / 2));
-}
-
-function getBookStateForSpreadIndex(spreadIndex, totalPageCount = bookTotalPageCount) {
-  const normalizedTotalPageCount = Math.max(2, Math.floor(totalPageCount / 2) * 2);
-  const maxSpreadIndex = getBookMaxSpreadIndex(normalizedTotalPageCount);
-  const normalizedSpreadIndex = clampInteger(spreadIndex, 0, maxSpreadIndex, 0);
-
-  if (normalizedSpreadIndex <= 0) {
-    return {
-      leftPageNumber: null,
-      rightPageNumber: 1,
-    };
-  }
-
-  if (normalizedSpreadIndex >= maxSpreadIndex) {
-    return {
-      leftPageNumber: normalizedTotalPageCount,
-      rightPageNumber: null,
-    };
-  }
-
-  const leftPageNumber = normalizedSpreadIndex * 2;
-
-  return {
-    leftPageNumber,
-    rightPageNumber: leftPageNumber + 1,
-  };
-}
-
-function getBookSpreadIndexForState(state) {
-  const leftPageNumber = Number.isInteger(state?.leftPageNumber) ? state.leftPageNumber : null;
-  const rightPageNumber = Number.isInteger(state?.rightPageNumber) ? state.rightPageNumber : null;
-  const maxSpreadIndex = getBookMaxSpreadIndex(bookTotalPageCount);
-
-  if (leftPageNumber === null && rightPageNumber === 1) {
-    return 0;
-  }
-
-  if (leftPageNumber === bookTotalPageCount && rightPageNumber === null) {
-    return maxSpreadIndex;
-  }
-
-  if (
-    Number.isInteger(leftPageNumber)
-    && Number.isInteger(rightPageNumber)
-    && leftPageNumber >= 2
-    && rightPageNumber === leftPageNumber + 1
-  ) {
-    const spreadIndex = Math.floor(leftPageNumber / 2);
-    return clampInteger(spreadIndex, 1, Math.max(1, maxSpreadIndex - 1), 1);
-  }
-
-  return null;
-}
-
-function getBookStateForPageNumber(pageNumber) {
-  if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > bookTotalPageCount) {
-    return null;
-  }
-
-  if (pageNumber === 1) {
-    return getBookStateForSpreadIndex(0);
-  }
-
-  if (pageNumber === bookTotalPageCount) {
-    return getBookStateForSpreadIndex(getBookMaxSpreadIndex(bookTotalPageCount));
-  }
-
-  return getBookStateForSpreadIndex(Math.floor(pageNumber / 2));
-}
-
-function jumpBookToPageNumber(pageNumber) {
-  const nextState = getBookStateForPageNumber(pageNumber);
-  if (!nextState) {
-    return false;
-  }
-
-  cancelBookSequencePlayback();
-  cancelBookPageTurnAnimation();
-  bookState = nextState;
-  updateBookPageStack(bookState);
-  return true;
-}
-
-function jumpBookToPageId(pageId) {
-  const pageNumber = getBookPageNumberById(pageId);
-  if (!Number.isInteger(pageNumber)) {
-    return false;
-  }
-
-  return jumpBookToPageNumber(pageNumber);
-}
-
-function isBookStateShowingPageNumber(state = bookState, pageNumber) {
-  return Number.isInteger(pageNumber) && (
-    state?.leftPageNumber === pageNumber ||
-    state?.rightPageNumber === pageNumber
-  );
-}
-
-function getRenderableBookBookmarks() {
-  return (Array.isArray(bookDocument?.bookmarks) ? bookDocument.bookmarks : [])
-    .map((bookmark) => {
-      const pageNumber = getBookPageNumberById(bookmark?.page);
-
-      if (!Number.isInteger(pageNumber)) {
-        return null;
-      }
-
-      return {
-        id: bookmark.id,
-        pageId: bookmark.page,
-        pageNumber,
-        label: bookmark.label || getBookPageDefinition(pageNumber)?.id || String(pageNumber),
-      };
-    })
-    .filter(Boolean);
-}
-
-function getBookBookmarkDefinition(bookmarkId) {
-  if (!bookmarkId || !Array.isArray(bookDocument?.bookmarks)) {
-    return null;
-  }
-
-  return bookDocument.bookmarks.find((bookmark) => bookmark?.id === bookmarkId) || null;
-}
-
-function getBookBookmarkLengthPx(index, totalCount) {
-  if (totalCount <= 1) {
-    return 84;
-  }
-
-  return 74 + index * 10;
-}
-
-function getBookSpreadIndexForPageNumber(pageNumber) {
-  const state = getBookStateForPageNumber(pageNumber);
-  return state ? getBookSpreadIndexForState(state) : null;
-}
-
-function clearBookBookmarkSlotLayers() {
-  if (!bookVisual) {
-    return;
-  }
-
-  for (const layer of bookVisual.querySelectorAll(".book-bookmark-slot-layer")) {
-    layer.remove();
-  }
-}
-
-function ensureBookBookmarkSlotLayer(layerIndex) {
-  if (!bookVisual || !Number.isInteger(layerIndex)) {
-    return null;
-  }
-
-  let layer = bookVisual.querySelector(`.book-bookmark-slot-layer[data-book-bookmark-layer="${layerIndex}"]`);
-
-  if (layer) {
-    return layer;
-  }
-
-  const beforeLayer = getBookPageLayerByIndex(layerIndex);
-  if (!beforeLayer) {
-    return null;
-  }
-
-  const beforeLayerStyles = window.getComputedStyle(beforeLayer);
-  layer = document.createElement("div");
-  layer.className = "book-bookmark-slot-layer";
-  layer.dataset.bookBookmarkLayer = String(layerIndex);
-  layer.style.top = beforeLayerStyles.top;
-  layer.style.right = beforeLayerStyles.right;
-  layer.style.bottom = beforeLayerStyles.bottom;
-  layer.style.left = beforeLayerStyles.left;
-  layer.style.zIndex = beforeLayerStyles.zIndex;
-  bookVisual.insertBefore(layer, beforeLayer);
-  return layer;
-}
-
-function getBookBookmarkInactivePlacement(bookmark, state = bookState) {
-  if (!bookmark || isBookStateShowingPageNumber(state, bookmark.pageNumber)) {
-    return null;
-  }
-
-  const topVisibleLayer = getTopVisibleBookLayerIndex(state);
-  const visibleCounts = getBookPageCountsForState(state);
-
-  if (Number.isInteger(state?.leftPageNumber) && bookmark.pageNumber < state.leftPageNumber && visibleCounts.left > 0) {
-    const actualCount = Math.max(1, Math.floor((state.leftPageNumber + 1) / 2));
-    const actualIndex = clampInteger(
-      Math.floor((state.leftPageNumber - bookmark.pageNumber) / 2),
-      0,
-      Math.max(0, actualCount - 1),
-      0,
-    );
-    const slotIndex = clampInteger(
-      Math.floor(actualIndex * visibleCounts.left / actualCount),
-      0,
-      Math.max(0, visibleCounts.left - 1),
-      0,
-    );
-
-    return {
-      side: "left",
-      layerIndex: topVisibleLayer + slotIndex,
-    };
-  }
-
-  if (Number.isInteger(state?.rightPageNumber) && bookmark.pageNumber > state.rightPageNumber && visibleCounts.right > 0) {
-    const actualCount = Math.max(1, Math.floor((bookTotalPageCount - state.rightPageNumber + 2) / 2));
-    const actualIndex = clampInteger(
-      Math.floor((bookmark.pageNumber - state.rightPageNumber) / 2),
-      0,
-      Math.max(0, actualCount - 1),
-      0,
-    );
-    const slotIndex = clampInteger(
-      Math.floor(actualIndex * visibleCounts.right / actualCount),
-      0,
-      Math.max(0, visibleCounts.right - 1),
-      0,
-    );
-
-    return {
-      side: "right",
-      layerIndex: topVisibleLayer + slotIndex,
-    };
-  }
-
-  return {
-    side: "center",
-    layerIndex: topVisibleLayer,
-  };
-}
-
-function getBookBookmarkRenderMeta(bookmarks, state = bookState) {
-  const renderMeta = new Map();
-  const inactiveLeftBookmarks = bookmarks
-    .filter((bookmark) => Number.isInteger(state?.leftPageNumber) && bookmark.pageNumber < state.leftPageNumber)
-    .sort((a, b) => b.pageNumber - a.pageNumber);
-  const inactiveRightBookmarks = bookmarks
-    .filter((bookmark) => Number.isInteger(state?.rightPageNumber) && bookmark.pageNumber > state.rightPageNumber)
-    .sort((a, b) => a.pageNumber - b.pageNumber);
-  const activeBookmarks = bookmarks
-    .filter((bookmark) => isBookStateShowingPageNumber(state, bookmark.pageNumber))
-    .sort((a, b) => a.pageNumber - b.pageNumber);
-
-  for (const [index, bookmark] of inactiveLeftBookmarks.entries()) {
-    renderMeta.set(bookmark.id, {
-      lengthIndex: index,
-      lengthCount: inactiveLeftBookmarks.length,
-      zIndex: inactiveLeftBookmarks.length - index,
-    });
-  }
-
-  for (const [index, bookmark] of inactiveRightBookmarks.entries()) {
-    renderMeta.set(bookmark.id, {
-      lengthIndex: index,
-      lengthCount: inactiveRightBookmarks.length,
-      zIndex: inactiveRightBookmarks.length - index,
-    });
-  }
-
-  for (const [index, bookmark] of activeBookmarks.entries()) {
-    renderMeta.set(bookmark.id, {
-      lengthIndex: index,
-      lengthCount: activeBookmarks.length,
-      zIndex: activeBookmarks.length - index,
-    });
-  }
-
-  return renderMeta;
-}
-
-function createBookBookmarkGroupElement(groupId, bookmarks, state = bookState, {
-  activeOnly = false,
-  renderMeta = null,
-} = {}) {
-  const groupElement = document.createElement("div");
-  groupElement.className = `book-bookmark-group book-bookmark-group-${groupId}`;
-
-  for (const [index, bookmark] of bookmarks.entries()) {
-    const isActive = isBookStateShowingPageNumber(state, bookmark.pageNumber);
-
-    if (activeOnly !== isActive) {
-      continue;
-    }
-
-    const button = document.createElement("button");
-    const fullLabel = bookmark.label || getBookPageDefinition(bookmark.pageNumber)?.id || String(bookmark.pageNumber);
-    button.type = "button";
-    button.className = "book-bookmark-button";
-    button.dataset.bookBookmarkId = bookmark.id;
-    button.dataset.bookPageId = bookmark.pageId;
-    button.textContent = fullLabel || "•";
-    button.title = fullLabel;
-    button.setAttribute("aria-label", fullLabel);
-    const bookmarkMeta = renderMeta?.get(bookmark.id) || null;
-    const lengthIndex = bookmarkMeta?.lengthIndex ?? index;
-    const lengthCount = bookmarkMeta?.lengthCount ?? bookmarks.length;
-    const zIndex = bookmarkMeta?.zIndex ?? (bookmarks.length - index);
-    button.style.setProperty("--book-bookmark-length", `${getBookBookmarkLengthPx(lengthIndex, lengthCount)}px`);
-    button.style.zIndex = String(zIndex);
-    button.classList.toggle("is-active", isActive);
-    groupElement.append(button);
-  }
-
-  return groupElement;
-}
-
-function updateBookBookmarks(state = bookState) {
-  if (!bookBookmarkBackBar || !bookBookmarkFrontBar) {
-    return;
-  }
-
-  const bookmarks = bookOverlayIntroMode ? [] : getRenderableBookBookmarks();
-  clearBookBookmarkSlotLayers();
-
-  for (const bar of bookBookmarkBars) {
-    bar.replaceChildren();
-    bar.hidden = bookmarks.length === 0;
-  }
-
-  if (bookmarks.length === 0) {
-    return;
-  }
-
-  const bookmarkRenderMeta = getBookBookmarkRenderMeta(bookmarks, state);
-  const activeBookmarks = bookmarks.filter((bookmark) => isBookStateShowingPageNumber(state, bookmark.pageNumber));
-  const inactiveBookmarkGroups = new Map();
-
-  for (const bookmark of bookmarks) {
-    if (activeBookmarks.includes(bookmark)) {
-      continue;
-    }
-
-    const placement = getBookBookmarkInactivePlacement(bookmark, state);
-
-    if (!placement) {
-      continue;
-    }
-
-    const key = `${placement.layerIndex}:${placement.side}`;
-    if (!inactiveBookmarkGroups.has(key)) {
-      inactiveBookmarkGroups.set(key, {
-        layerIndex: placement.layerIndex,
-        side: placement.side,
-        bookmarks: [],
-      });
-    }
-
-    inactiveBookmarkGroups.get(key).bookmarks.push(bookmark);
-  }
-
-  const sortedInactiveGroups = [...inactiveBookmarkGroups.values()].sort((a, b) => {
-    if (a.layerIndex !== b.layerIndex) {
-      return a.layerIndex - b.layerIndex;
-    }
-
-    return a.side.localeCompare(b.side);
-  });
-
-  for (const group of sortedInactiveGroups) {
-    if (group.side === "left") {
-      group.bookmarks.sort((a, b) => b.pageNumber - a.pageNumber);
-    } else {
-      group.bookmarks.sort((a, b) => a.pageNumber - b.pageNumber);
-    }
-
-    const slotLayer = ensureBookBookmarkSlotLayer(group.layerIndex);
-    if (!slotLayer) {
-      continue;
-    }
-
-    slotLayer.append(createBookBookmarkGroupElement(group.side, group.bookmarks, state, {
-      activeOnly: false,
-      renderMeta: bookmarkRenderMeta,
-    }));
-  }
-
-  const activeBookmarkGroups = {
-    left: [],
-    center: activeBookmarks,
-    right: [],
-  };
-
-  for (const groupId of ["left", "center", "right"]) {
-    const groupBookmarks = activeBookmarkGroups[groupId];
-    if (groupBookmarks.length === 0) {
-      continue;
-    }
-
-    bookBookmarkFrontBar.append(createBookBookmarkGroupElement(groupId, groupBookmarks, state, {
-      activeOnly: true,
-      renderMeta: bookmarkRenderMeta,
-    }));
-  }
-}
-
-function getBookSequencePageNumbers(sequenceId) {
-  const sequenceEntries = bookDocument?.sequences?.[sequenceId];
-  if (!Array.isArray(sequenceEntries)) {
-    return [];
-  }
-
-  return sequenceEntries
-    .map((pageId) => getBookPageNumberById(pageId))
-    .filter((pageNumber) => Number.isInteger(pageNumber));
-}
-
-function getBookStateKey(state) {
-  return `${state?.leftPageNumber ?? ""}/${state?.rightPageNumber ?? ""}`;
-}
-
-function getBookSequenceSpreadStates(sequenceId) {
-  const spreadStates = [];
-  let previousKey = null;
-
-  for (const pageNumber of getBookSequencePageNumbers(sequenceId)) {
-    const state = getBookStateForPageNumber(pageNumber);
-    if (!state) {
-      continue;
-    }
-
-    const stateKey = getBookStateKey(state);
-    if (stateKey === previousKey) {
-      continue;
-    }
-
-    spreadStates.push(cloneBookState(state));
-    previousKey = stateKey;
-  }
-
-  return spreadStates;
-}
-
-function clearBookSequencePlaybackTimeout() {
-  if (!bookSequencePlaybackTimeoutId) {
-    return;
-  }
-
-  clearTimeout(bookSequencePlaybackTimeoutId);
-  bookSequencePlaybackTimeoutId = 0;
-}
-
-function cancelBookSequencePlayback() {
-  clearBookSequencePlaybackTimeout();
-  stopIntroMusicSegmentPlayback();
-
-  if (!bookSequencePlayback) {
-    return;
-  }
-
-  bookSequencePlayback = null;
-  updateBookTurnButtons();
-}
-
-function scheduleBookSequencePlaybackStep(delayMs = bookSequenceTurnPauseMs) {
-  if (!bookSequencePlayback) {
-    return;
-  }
-
-  clearBookSequencePlaybackTimeout();
-  bookSequencePlaybackTimeoutId = setTimeout(() => {
-    bookSequencePlaybackTimeoutId = 0;
-    playNextBookSequenceTurn();
-  }, delayMs);
-}
-
-function scheduleBookSequencePlaybackClose(delayMs = bookSequenceTurnPauseMs) {
-  if (!bookSequencePlayback) {
-    return;
-  }
-
-  clearBookSequencePlaybackTimeout();
-  bookSequencePlaybackTimeoutId = setTimeout(() => {
-    bookSequencePlaybackTimeoutId = 0;
-
-    if (!bookSequencePlayback) {
-      return;
-    }
-
-    if (bookSequencePlayback.awaitingAudioCompletion) {
-      bookSequencePlayback.pendingCloseAfterAudio = true;
-      return;
-    }
-
-    closeBookOverlay();
-  }, delayMs);
-}
-
-function finalizeBookSequencePlaybackStep() {
-  if (!bookSequencePlayback) {
-    return;
-  }
-
-  if (Number.isInteger(bookSequencePlayback.pendingSpreadIndex)) {
-    bookSequencePlayback.currentSpreadIndex = bookSequencePlayback.pendingSpreadIndex;
-    bookSequencePlayback.pendingSpreadIndex = null;
-  }
-
-  if (bookSequencePlayback.currentSpreadIndex >= bookSequencePlayback.spreadStates.length - 1) {
-    scheduleBookSequencePlaybackClose();
-    return;
-  }
-
-  scheduleBookSequencePlaybackStep();
-}
-
-function playNextBookSequenceTurn() {
-  if (!bookSequencePlayback || bookPageTurnAnimation) {
-    return;
-  }
-
-  const nextSpreadIndex = bookSequencePlayback.currentSpreadIndex + 1;
-  const nextState = bookSequencePlayback.spreadStates[nextSpreadIndex];
-  const currentState = bookSequencePlayback.spreadStates[bookSequencePlayback.currentSpreadIndex];
-
-  if (!nextState || !currentState) {
-    cancelBookSequencePlayback();
-    return;
-  }
-
-  const direction = (nextState.leftPageNumber ?? 0) >= (currentState.leftPageNumber ?? 0) ? 1 : -1;
-  bookSequencePlayback.pendingSpreadIndex = nextSpreadIndex;
-  startBookPageTurnAnimation(direction);
-
-  if (!bookPageTurnAnimation) {
-    bookState = cloneBookState(nextState);
-    updateBookPageStack(bookState);
-    finalizeBookSequencePlaybackStep();
-  }
-}
-
-function startBookSequencePlayback(sequenceId = bookIntroSequenceId) {
-  const spreadStates = getBookSequenceSpreadStates(sequenceId);
-  if (!spreadStates.length) {
-    return false;
-  }
-
-  cancelBookSequencePlayback();
-  cancelBookPageTurnAnimation();
-  bookState = cloneBookState(spreadStates[0]);
-  updateBookPageStack(bookState);
-
-  bookSequencePlayback = {
-    sequenceId,
-    spreadStates,
-    currentSpreadIndex: 0,
-    pendingSpreadIndex: null,
-    awaitingAudioCompletion: false,
-    pendingCloseAfterAudio: false,
-  };
-
-  updateBookTurnButtons();
-
-  if (sequenceId === bookIntroSequenceId) {
-    bookSequencePlayback.awaitingAudioCompletion = true;
-    void startIntroMusicSegmentPlayback().then((didStart) => {
-      if (!bookSequencePlayback || bookSequencePlayback.sequenceId !== sequenceId) {
-        stopIntroMusicSegmentPlayback();
-        return;
-      }
-
-      if (didStart) {
-        return;
-      }
-
-      bookSequencePlayback.awaitingAudioCompletion = false;
-
-      if (bookSequencePlayback.pendingCloseAfterAudio) {
-        closeBookOverlay();
-      }
-    });
-  }
-
-  if (spreadStates.length > 1) {
-    scheduleBookSequencePlaybackStep(bookSequenceInitialPauseMs);
-  } else {
-    scheduleBookSequencePlaybackClose();
-  }
-
-  return true;
-}
-
-function getBookPageNumberForLayer(layerIndex, side, state = bookState) {
-  const topVisibleLayer = getTopVisibleBookLayerIndex(state);
-  const slotIndex = layerIndex - topVisibleLayer;
-
-  if (slotIndex < 0) {
-    return null;
-  }
-
-  const pageNumbers = getVisibleBookStatePageNumbers(state);
-  return pageNumbers[side][slotIndex] ?? null;
-}
-
-function updateBookPageLayerContent(layer, layerIndex, leftVisible, rightVisible, state = bookState) {
-  const leftContent = getBookPageSideContent(layer, "left");
-  const rightContent = getBookPageSideContent(layer, "right");
-
-  fillBookPageSideContent(leftContent, leftVisible ? getBookPageNumberForLayer(layerIndex, "left", state) : null);
-  fillBookPageSideContent(rightContent, rightVisible ? getBookPageNumberForLayer(layerIndex, "right", state) : null);
-}
-
-function applyBookPageLayerSideTransform(layer, side, scale, skewDegrees) {
-  if (!layer) return;
-
-  layer.style.setProperty(`--book-page-${side}-scale`, String(scale));
-  layer.style.setProperty(`--book-page-${side}-skew`, `${skewDegrees}deg`);
-}
-
-function clearBookPageTurnOverlayTransforms(layer, side) {
-  const { page, content } = getBookPageTurnOverlayElements(layer, side);
-
-  if (page) {
-    page.style.removeProperty("transform");
-    page.style.removeProperty("transform-origin");
-  }
-
-  if (content) {
-    content.style.removeProperty("transform");
-    content.style.removeProperty("transform-origin");
-  }
-}
-
-function removeBookPageTurnOverlay(layer, side) {
-  const { page, content } = getBookPageTurnOverlayElements(layer, side);
-  page?.remove();
-  content?.remove();
-}
-
-function ensureBookPageTurnOverlay(layer, side) {
-  if (!layer) {
-    return {
-      page: null,
-      content: null,
-    };
-  }
-
-  const existing = getBookPageTurnOverlayElements(layer, side);
-  if (existing.page || existing.content) {
-    return existing;
-  }
-
-  const sourcePage = layer.querySelector(`.book-page-entity:not(.${bookPageTurnOverlayClass})[data-book-page-side="${side}"]`);
-  const sourceContent = layer.querySelector(`.${bookPageContentClass}:not(.${bookPageTurnOverlayClass})[data-book-page-content-side="${side}"]`);
-
-  const overlay = {
-    page: null,
-    content: null,
-  };
-
-  if (sourcePage) {
-    overlay.page = sourcePage.cloneNode(true);
-    overlay.page.classList.remove(bookEntityHiddenClass);
-    overlay.page.classList.add(bookPageTurnOverlayClass);
-    layer.append(overlay.page);
-  }
-
-  if (sourceContent) {
-    overlay.content = sourceContent.cloneNode(true);
-    overlay.content.classList.remove(bookPageContentHiddenClass);
-    overlay.content.classList.add(bookPageTurnOverlayClass);
-    layer.append(overlay.content);
-  }
-
-  return overlay;
-}
-
-function getBookAnimationBackgroundState(startState, nextState, direction) {
-  if (direction > 0) {
-    return {
-      leftPageNumber: startState.leftPageNumber,
-      rightPageNumber: nextState.rightPageNumber,
-    };
-  }
-
-  return {
-    leftPageNumber: nextState.leftPageNumber,
-    rightPageNumber: startState.rightPageNumber,
-  };
-}
-
-function cloneBookState(state) {
-  return {
-    leftPageNumber: state?.leftPageNumber ?? null,
-    rightPageNumber: state?.rightPageNumber ?? null,
-  };
-}
-
-function getBookAnimationLayerIndex(backgroundState) {
-  return getTopVisibleBookLayerIndex(backgroundState);
-}
-
-function getBookAnimatedPageNumber(animation, side = animation?.activeSide) {
-  if (!animation || !side) {
-    return null;
-  }
-
-  if (animation.direction > 0) {
-    return side === "right" ? animation.startState.rightPageNumber : animation.nextState.leftPageNumber;
-  }
-
-  return side === "left" ? animation.startState.leftPageNumber : animation.nextState.rightPageNumber;
-}
-
-function updateBookTurnOverlayContent(layer, side, pageNumber) {
-  const { content } = ensureBookPageTurnOverlay(layer, side);
-  fillBookPageSideContent(content, pageNumber);
-}
-
-function applyBookPageTurnOverlayTransform(layer, side, scale, skewDegrees, pageNumber = getBookAnimatedPageNumber(bookPageTurnAnimation, side)) {
-  const { page, content } = ensureBookPageTurnOverlay(layer, side);
-  const transform = `scaleX(${scale}) skewY(${skewDegrees}deg)`;
-
-  if (page) {
-    page.style.transformOrigin = "50% center";
-    page.style.transform = transform;
-  }
-
-  if (content) {
-    fillBookPageSideContent(content, pageNumber);
-    content.style.transformOrigin = side === "left" ? "right center" : "left center";
-    content.style.transform = transform;
-  }
-}
-
-function getBookPageTurnSkewDegrees(side) {
-  return side === "right" ? -12 : 12;
-}
-
-function clearBookPageTurnAnimationState() {
-  if (bookPageTurnAnimation?.layerIndex) {
-    const animationLayer = getBookPageLayerByIndex(bookPageTurnAnimation.layerIndex);
-    clearBookPageTurnOverlayTransforms(animationLayer, "left");
-    clearBookPageTurnOverlayTransforms(animationLayer, "right");
-    removeBookPageTurnOverlay(animationLayer, "left");
-    removeBookPageTurnOverlay(animationLayer, "right");
-  }
-
-  if (bookPageTurnAnimationTimeoutId) {
-    clearTimeout(bookPageTurnAnimationTimeoutId);
-    bookPageTurnAnimationTimeoutId = 0;
-  }
-
-  bookPageTurnAnimation = null;
-}
-
-function cancelBookPageTurnAnimation() {
-  if (!bookPageTurnAnimation) {
-    return;
-  }
-
-  clearBookPageTurnAnimationState();
-  updateBookPageStack(bookState);
-}
-
-function updateBookPageStack(state = bookState, { spineLayerIndex = null } = {}) {
-  const showBlankCompanionLeft = !Number.isInteger(state?.leftPageNumber) && Number.isInteger(state?.rightPageNumber);
-  const showBlankCompanionRight = Number.isInteger(state?.leftPageNumber) && !Number.isInteger(state?.rightPageNumber);
-  const shouldShowSpine = !(showBlankCompanionLeft || showBlankCompanionRight);
-  const effectiveSpineLayerIndex = shouldShowSpine
-    ? (Number.isInteger(spineLayerIndex) ? spineLayerIndex : getTopVisibleBookLayerIndex(state))
-    : null;
-
-  for (const layer of bookPageLayers) {
-    const layerIndex = Number(layer.dataset.bookPageLayer);
-    if (!Number.isInteger(layerIndex)) continue;
-
-    const leftPage = layer.querySelector('[data-book-page-side="left"]');
-    const rightPage = layer.querySelector('[data-book-page-side="right"]');
-    const leftPlaceholder = showBlankCompanionLeft && layerIndex === effectiveSpineLayerIndex;
-    const rightPlaceholder = showBlankCompanionRight && layerIndex === effectiveSpineLayerIndex;
-    const leftVisible = isBookPageLayerVisible(layerIndex, "left", state) || leftPlaceholder;
-    const rightVisible = isBookPageLayerVisible(layerIndex, "right", state) || rightPlaceholder;
-
-    if (leftPage) {
-      leftPage.classList.toggle(bookEntityHiddenClass, !leftVisible);
-      leftPage.classList.toggle(bookPagePlaceholderClass, leftPlaceholder);
-    }
-
-    if (rightPage) {
-      rightPage.classList.toggle(bookEntityHiddenClass, !rightVisible);
-      rightPage.classList.toggle(bookPagePlaceholderClass, rightPlaceholder);
-    }
-
-    updateBookPageLayerContent(layer, layerIndex, leftVisible, rightVisible, state);
-    layer.classList.toggle(bookLayerWithSpineClass, Number.isInteger(effectiveSpineLayerIndex) && layerIndex === effectiveSpineLayerIndex);
-  }
-
-  updateBookTurnButtons();
-  updateBookBookmarks(bookPageTurnAnimation?.startState || state);
-}
-
-function finishBookPageTurnAnimation() {
-  if (bookPageTurnAnimation?.nextState) {
-    bookState = cloneBookState(bookPageTurnAnimation.nextState);
-  }
-
-  clearBookPageTurnAnimationState();
-  updateBookPageStack(bookState);
-  finalizeBookSequencePlaybackStep();
-}
-
-function renderBookPageTurnAnimationFrame() {
-  if (!bookPageTurnAnimation) {
-    return;
-  }
-
-  const animation = bookPageTurnAnimation;
-  const activeLayer = getBookPageLayerByIndex(animation.layerIndex);
-  const skew = getBookPageTurnSkewDegrees(animation.activeSide);
-  const progress = animation.frame / bookPageTurnFramesPerPhase;
-
-  clearBookPageTurnOverlayTransforms(activeLayer, "left");
-  clearBookPageTurnOverlayTransforms(activeLayer, "right");
-
-  if (animation.phase === "out") {
-    const scale = 1 - (1 - bookPageTurnCollapsedScale) * progress;
-    applyBookPageTurnOverlayTransform(
-      activeLayer,
-      animation.activeSide,
-      scale,
-      skew * progress,
-      getBookAnimatedPageNumber(animation, animation.activeSide),
-    );
-    return;
-  }
-
-  const scale = bookPageTurnCollapsedScale + (1 - bookPageTurnCollapsedScale) * progress;
-  applyBookPageTurnOverlayTransform(
-    activeLayer,
-    animation.activeSide,
-    scale,
-    skew * (1 - progress),
-    getBookAnimatedPageNumber(animation, animation.activeSide),
-  );
-}
-
-function stepBookPageTurnAnimation() {
-  const animation = bookPageTurnAnimation;
-  if (!animation) {
-    return;
-  }
-
-  if (animation.phase === "out") {
-    if (animation.frame < bookPageTurnFramesPerPhase) {
-      animation.frame += 1;
-      renderBookPageTurnAnimationFrame();
-      updateBookTurnButtons();
-      return;
-    }
-
-    const animationLayer = getBookPageLayerByIndex(animation.layerIndex);
-    clearBookPageTurnOverlayTransforms(animationLayer, animation.outgoingSide);
-    removeBookPageTurnOverlay(animationLayer, animation.outgoingSide);
-
-    if (!animationLayer) {
-      finishBookPageTurnAnimation();
-      return;
-    }
-
-    animation.phase = "in";
-    animation.frame = 0;
-    animation.activeSide = animation.incomingSide;
-    ensureBookPageTurnOverlay(animationLayer, animation.incomingSide);
-    updateBookTurnOverlayContent(
-      animationLayer,
-      animation.incomingSide,
-      getBookAnimatedPageNumber(animation, animation.incomingSide),
-    );
-    renderBookPageTurnAnimationFrame();
-    updateBookTurnButtons();
-    return;
-  }
-
-  if (animation.frame < bookPageTurnFramesPerPhase) {
-    animation.frame += 1;
-    renderBookPageTurnAnimationFrame();
-
-    if (animation.frame >= bookPageTurnFramesPerPhase) {
-      finishBookPageTurnAnimation();
-      return;
-    }
-
-    updateBookTurnButtons();
-    return;
-  }
-
-  finishBookPageTurnAnimation();
-}
-
-function scheduleBookPageTurnAnimationStep() {
-  if (!bookPageTurnAnimation) {
-    return;
-  }
-
-  if (bookPageTurnAnimationTimeoutId) {
-    clearTimeout(bookPageTurnAnimationTimeoutId);
-  }
-
-  bookPageTurnAnimationTimeoutId = setTimeout(() => {
-    bookPageTurnAnimationTimeoutId = 0;
-
-    if (!bookPageTurnAnimation) {
-      return;
-    }
-
-    stepBookPageTurnAnimation();
-
-    if (bookPageTurnAnimation) {
-      scheduleBookPageTurnAnimationStep();
-    }
-  }, bookPageTurnFrameDurationMs);
-}
-
-function startBookPageTurnAnimation(direction) {
-  if (bookPageTurnAnimation) {
-    return;
-  }
-
-  const nextState = getBookStateAfterPageTurn(bookState, direction);
-  if (nextState === bookState) {
-    return;
-  }
-
-  const outgoingSide = direction > 0 ? "right" : "left";
-  const incomingSide = direction > 0 ? "left" : "right";
-  const startState = cloneBookState(bookState);
-  const backgroundState = getBookAnimationBackgroundState(startState, nextState, direction);
-  const layerIndex = getBookAnimationLayerIndex(backgroundState);
-  const animationLayer = getBookPageLayerByIndex(layerIndex);
-
-  if (!animationLayer) {
-    bookState = cloneBookState(nextState);
-    updateBookPageStack(bookState);
-    return;
-  }
-
-  bookPageTurnAnimation = {
-    direction,
-    startState,
-    phase: "out",
-    frame: 0,
-    nextState: cloneBookState(nextState),
-    backgroundState,
-    layerIndex,
-    outgoingSide,
-    incomingSide,
-    activeSide: outgoingSide,
-  };
-
-  updateBookPageStack(backgroundState, { spineLayerIndex: layerIndex });
-  ensureBookPageTurnOverlay(animationLayer, outgoingSide);
-  updateBookTurnOverlayContent(
-    animationLayer,
-    outgoingSide,
-    getBookAnimatedPageNumber(bookPageTurnAnimation, outgoingSide),
-  );
-  updateBookTurnButtons();
-  stepBookPageTurnAnimation();
-
-  if (bookPageTurnAnimation) {
-    scheduleBookPageTurnAnimationStep();
-  }
-}
-
-async function openBookOverlayPanel(triggerButton = null, { allowNonPlayMode = false, allowMainMenuOpen = false } = {}) {
-  if (!bookOverlay || ((!allowNonPlayMode && !isPlayMode()) || (!allowMainMenuOpen && mainMenuOpen))) {
-    return;
-  }
-
-  closeGameActionMenu();
-  closeSaveSlotPanel();
-  hideTileMenu();
-  bookOverlayTriggerButton = triggerButton;
-  initializeBookPageContent();
-  updateBookPageStack(bookState);
-  bookOverlay.hidden = false;
-  bookOverlay.querySelector('[data-action="close-book-overlay"]')?.focus({ preventScroll: true });
-  await Promise.all([
-    ensureBookContentLoaded(),
-    ensureTechnologyCatalogLoaded(),
-    ensureBuildingDefinitionsLoaded(),
-    ensureVehicleDefinitionsLoaded(),
-    ensureUnitDefinitionsLoaded(),
-  ]);
-  updateBookPageStack(bookState);
-}
-
-async function openBookOverlayAtBookmark(bookmarkId, triggerButton = null, options = {}) {
-  await openBookOverlayPanel(triggerButton, options);
-
-  if (!bookOverlay || bookOverlay.hidden) {
-    return false;
-  }
-
-  const bookmark = getBookBookmarkDefinition(bookmarkId);
-  const pageId = typeof bookmark?.page === "string" ? bookmark.page.trim() : "";
-
-  if (!pageId) {
-    return false;
-  }
-
-  return jumpBookToPageId(pageId);
-}
-
-async function playBookSequence(sequenceId = bookIntroSequenceId, triggerButton = null) {
-  const shouldSuspendMainMenu = mainMenuOpen && !mainMenuOverlay.hidden;
-  bookOverlayIntroMode = true;
-  if (shouldSuspendMainMenu) {
-    bookOverlayRestoreState = {
-      interactionMode,
-      mainMenuOpen,
-    };
-    interactionMode = interactionModes.play;
-    mainMenuOpen = false;
-    mainMenuOverlay.hidden = true;
-    updateInteractionModeUi();
-    draw();
-  }
-
-  await openBookOverlayPanel(triggerButton, { allowNonPlayMode: true, allowMainMenuOpen: true });
-
-  if (!bookOverlay || bookOverlay.hidden) {
-    if (shouldSuspendMainMenu) {
-      interactionMode = bookOverlayRestoreState?.interactionMode ?? interactionMode;
-      mainMenuOpen = bookOverlayRestoreState?.mainMenuOpen ?? true;
-      mainMenuOverlay.hidden = !mainMenuOpen;
-      bookOverlayRestoreState = null;
-    }
-    bookOverlayIntroMode = false;
-    updateInteractionModeUi();
-    draw();
-    return false;
-  }
-
-  return startBookSequencePlayback(sequenceId);
 }
 
 function renderSaveSlotList() {
@@ -7302,10 +6153,6 @@ function getNeighborCellInCells(cells, width, height, cell, direction) {
   return null;
 }
 
-function canEnterUnoccupiedCell(cell) {
-  return isCellPassableByTerrainOrBuilding(cell);
-}
-
 function markCellsVisitedByUnits(cells, units) {
   if (!Array.isArray(cells) || !Array.isArray(units)) return;
 
@@ -7515,7 +6362,7 @@ function createDefaultBuildingsState(cells, width, height, units) {
   for (const direction of placementDirections) {
     const neighbor = getNeighborCellInCells(cells, width, height, spawnCell, direction);
 
-    if (!canEnterUnoccupiedCell(neighbor)) continue;
+    if (!getUnitCellPassabilityState(neighbor).terrainOrStructurePassable) continue;
     const key = `${neighbor.x},${neighbor.y}`;
 
     if (occupied.has(key)) continue;
@@ -7703,7 +6550,7 @@ function findNearestPassableCellInCells(cells, width, height, startX, startY) {
     for (let x = 0; x < width; x += 1) {
       const cell = cells[y]?.[x];
 
-      if (!canEnterUnoccupiedCell(cell)) continue;
+      if (!getUnitCellPassabilityState(cell).terrainOrStructurePassable) continue;
 
       const cellDistance = distance(x, y, startX, startY);
 
@@ -7764,7 +6611,13 @@ function normalizeTask(task, currentX, currentY, currentUnit = null) {
     if (!areCellsAdjacent(currentX, currentY, toX, toY)) {
       return null;
     }
-    if (!currentUnit?.mountedVehicleId || !canUnitDismountToCell(destinationCell, currentUnit)) {
+    if (
+      !currentUnit?.mountedVehicleId ||
+      !getUnitCellPassabilityState(destinationCell, currentUnit, {
+        requireUnmounted: true,
+        forbidVehicles: true,
+      }).canOccupy
+    ) {
       return null;
     }
   } else if (type === "gatherFood") {
@@ -8138,6 +6991,7 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   buildings = normalizeBuildingsState(nextState.buildings);
   vehicles = normalizeVehiclesState(nextState.vehicles);
   units = normalizeUnitsState(nextState.units, mode);
+  rebuildUnitOccupancyIndex();
   reconcileMountedVehicleStateLinks(vehicles, units);
   stockpile = normalizeStockpileState(nextState.stockpile);
   situationMessages = normalizeSituationMessagesState(nextState.situationMessages);
@@ -8250,6 +7104,53 @@ function autosavePlayState() {
 
 function getUnits() {
   return units;
+}
+
+function rebuildUnitOccupancyIndex() {
+  const nextIndex = new Map();
+
+  for (const currentUnit of getUnits()) {
+    if (!currentUnit || !Number.isInteger(currentUnit.x) || !Number.isInteger(currentUnit.y)) {
+      continue;
+    }
+
+    nextIndex.set(createCellKey(currentUnit.x, currentUnit.y), currentUnit);
+  }
+
+  unitOccupancyIndex = nextIndex;
+  return unitOccupancyIndex;
+}
+
+function getUnitOccupancyIndex() {
+  return unitOccupancyIndex;
+}
+
+function updateUnitOccupancyEntry(currentUnit, previousX = null, previousY = null) {
+  if (currentUnit && Number.isInteger(previousX) && Number.isInteger(previousY)) {
+    const previousKey = createCellKey(previousX, previousY);
+
+    if (unitOccupancyIndex.get(previousKey) === currentUnit) {
+      unitOccupancyIndex.delete(previousKey);
+    }
+  }
+
+  if (!currentUnit || !Number.isInteger(currentUnit.x) || !Number.isInteger(currentUnit.y)) {
+    return;
+  }
+
+  unitOccupancyIndex.set(createCellKey(currentUnit.x, currentUnit.y), currentUnit);
+}
+
+function removeUnitOccupancyEntry(currentUnit) {
+  if (!currentUnit || !Number.isInteger(currentUnit.x) || !Number.isInteger(currentUnit.y)) {
+    return;
+  }
+
+  const occupancyKey = createCellKey(currentUnit.x, currentUnit.y);
+
+  if (unitOccupancyIndex.get(occupancyKey) === currentUnit) {
+    unitOccupancyIndex.delete(occupancyKey);
+  }
 }
 
 function getVehicles() {
@@ -8657,7 +7558,11 @@ function canAssignUnitMoveTarget(destinationCell, currentUnit = getSelectedUnit(
     return true;
   }
 
-  return Boolean(currentUnit.mountedVehicleId) && canUnitEnterUnmountedCell(destinationCell, currentUnit);
+  return Boolean(currentUnit.mountedVehicleId) && getUnitCellPassabilityState(
+    destinationCell,
+    currentUnit,
+    { requireUnmounted: true },
+  ).canOccupy;
 }
 
 function queueUnitMoveTask(destinationCell, currentUnit = getSelectedUnit()) {
@@ -9068,7 +7973,10 @@ function resolveDismountTask(currentUnit) {
     !originCell ||
     !currentUnit?.mountedVehicleId ||
     !areCellsAdjacent(currentUnit.x, currentUnit.y, targetCell.x, targetCell.y) ||
-    !canUnitDismountToCell(targetCell, currentUnit)
+    !getUnitCellPassabilityState(targetCell, currentUnit, {
+      requireUnmounted: true,
+      forbidVehicles: true,
+    }).canOccupy
   ) {
     clearCompletedTask(currentUnit);
     return;
@@ -9196,7 +8104,13 @@ function resolveMoveTaskForTurn(currentUnit) {
     if (
       nextMove &&
       (
-        (nextMove.type === "dismount" && !canUnitDismountToCell(nextMove.cell, currentUnit)) ||
+        (
+          nextMove.type === "dismount" &&
+          !getUnitCellPassabilityState(nextMove.cell, currentUnit, {
+            requireUnmounted: true,
+            forbidVehicles: true,
+          }).canOccupy
+        ) ||
         (nextMove.type !== "dismount" && !canUnitEnter(nextMove.cell, currentUnit))
       )
     ) {
@@ -9243,6 +8157,7 @@ function resolveMoveTaskForTurn(currentUnit) {
     currentUnit.stamina = Math.max(0, getUnitStamina(currentUnit) - moveCost);
     currentUnit.x = nextMove.cell.x;
     currentUnit.y = nextMove.cell.y;
+    updateUnitOccupancyEntry(currentUnit, fromX, fromY);
     currentUnit.facing = nextMove.direction || currentUnit.facing;
     currentUnit.lastStepFromX = fromX;
     currentUnit.lastStepFromY = fromY;
@@ -9351,6 +8266,7 @@ function removeRandomUnitForFoodShortage() {
   }
 
   units = currentUnits.filter((candidate) => candidate !== removedUnit);
+  removeUnitOccupancyEntry(removedUnit);
 
   if (removedUnit.selected) {
     clearUnitSelection();
@@ -9472,8 +8388,11 @@ function applyReplayUnitStates(states) {
       continue;
     }
 
+    const previousX = currentUnit.x;
+    const previousY = currentUnit.y;
     currentUnit.x = state.x;
     currentUnit.y = state.y;
+    updateUnitOccupancyEntry(currentUnit, previousX, previousY);
     currentUnit.facing = state.facing;
     currentUnit.lastStepFromX = state.lastStepFromX;
     currentUnit.lastStepFromY = state.lastStepFromY;
@@ -10188,41 +9107,17 @@ function getVehicleAtCell(x, y) {
 }
 
 function getUnitAtCell(x, y, { excludeUnitId = null } = {}) {
-  return (
-    getUnits().find(
-      (currentUnit) =>
-        currentUnit &&
-        currentUnit.id !== excludeUnitId &&
-        currentUnit.x === x &&
-        currentUnit.y === y,
-    ) || null
-  );
-}
+  const currentUnit = getUnitOccupancyIndex().get(createCellKey(x, y)) || null;
 
-function isBuildingInstanceWalkable(building) {
-  return isConstructibleInstanceWalkableForKind("building", building);
+  if (!currentUnit || currentUnit.id === excludeUnitId) {
+    return null;
+  }
+
+  return currentUnit;
 }
 
 function isVehicleInstanceWalkable(vehicle) {
   return isConstructibleInstanceWalkableForKind("vehicle", vehicle);
-}
-
-function getBlockingBuildingAtCell(x, y) {
-  return getBlockingConstructibleAtCellForKind("building", x, y);
-}
-
-function getWalkableBuildingAtCell(x, y) {
-  return getWalkableConstructibleAtCellForKind("building", x, y);
-}
-
-function hasWalkableBuildingAtCell(x, y) {
-  return hasWalkableConstructibleAtCellForKind("building", x, y);
-}
-
-function getBlockingVehicleAtCell(x, y, { excludeVehicleId = null } = {}) {
-  return getBlockingConstructibleAtCellForKind("vehicle", x, y, {
-    excludeConstructibleId: excludeVehicleId,
-  });
 }
 
 function getWalkableVehicleAtCell(x, y, { excludeVehicleId = null } = {}) {
@@ -10231,8 +9126,37 @@ function getWalkableVehicleAtCell(x, y, { excludeVehicleId = null } = {}) {
   });
 }
 
-function hasWalkableVehicleAtCell(x, y, options = {}) {
-  return hasWalkableConstructibleAtCellForKind("vehicle", x, y, options);
+function getCellConstructibleState(cell, { excludeVehicleId = null } = {}) {
+  if (!cell) {
+    return {
+      building: null,
+      walkableBuilding: null,
+      blockingBuilding: null,
+      vehicles: [],
+      walkableVehicle: null,
+      blockingVehicle: null,
+      anyVehicle: null,
+    };
+  }
+
+  const building = getBuildingAtCell(cell.x, cell.y);
+  const vehicles = getVehiclesAtCell(cell.x, cell.y).filter((vehicle) =>
+    vehicle && vehicle.id !== excludeVehicleId,
+  );
+  const walkableBuilding = building && isConstructibleInstanceWalkableForKind("building", building) ? building : null;
+  const blockingBuilding = building && !walkableBuilding ? building : null;
+  const walkableVehicle = vehicles.find((vehicle) => isVehicleInstanceWalkable(vehicle)) || null;
+  const blockingVehicle = vehicles.find((vehicle) => !isVehicleInstanceWalkable(vehicle)) || null;
+
+  return {
+    building,
+    walkableBuilding,
+    blockingBuilding,
+    vehicles,
+    walkableVehicle,
+    blockingVehicle,
+    anyVehicle: vehicles[0] || null,
+  };
 }
 
 function getBuildingUnitRenderOffsetAtCell(building, x, y) {
@@ -10261,7 +9185,7 @@ function getCellUnitRenderOffset(cell) {
     return { x: 0, y: 0 };
   }
 
-  const building = getWalkableBuildingAtCell(cell.x, cell.y);
+  const building = getCellConstructibleState(cell).walkableBuilding;
 
   if (!building) {
     return { x: 0, y: 0 };
@@ -10300,48 +9224,81 @@ function canMountedUnitTraverseTerrain(currentUnit, cell) {
   return Array.isArray(movementTerrains) && movementTerrains.includes(cell.type);
 }
 
-function isCellPassableByTerrainOrBuilding(cell, currentUnit = null) {
+function getUnitCellPassabilityState(
+  cell,
+  currentUnit = null,
+  {
+    occupiedKeys = null,
+    mountedVehicleId = currentUnit?.mountedVehicleId,
+    requireUnmounted = false,
+    forbidVehicles = false,
+  } = {},
+) {
   if (!cell) {
-    return false;
+    return {
+      cell: null,
+      terrainOrStructurePassable: false,
+      occupiedByOtherUnit: false,
+      blockedByVehiclePresence: false,
+      canOccupy: false,
+      building: null,
+      walkableBuilding: null,
+      blockingBuilding: null,
+      vehicles: [],
+      walkableVehicle: null,
+      blockingVehicle: null,
+      anyVehicle: null,
+    };
   }
 
-  if (getBlockingBuildingAtCell(cell.x, cell.y)) {
-    return false;
-  }
+  const effectiveMountedVehicleId = requireUnmounted
+    ? null
+    : normalizeLinkedEntityId(mountedVehicleId);
+  const effectiveUnit = requireUnmounted && currentUnit
+    ? { ...currentUnit, mountedVehicleId: null }
+    : currentUnit;
+  const constructibleState = getCellConstructibleState(cell, {
+    excludeVehicleId: effectiveMountedVehicleId,
+  });
 
-  const mountedVehicleId = normalizeLinkedEntityId(currentUnit?.mountedVehicleId);
+  let terrainOrStructurePassable = false;
 
-  if (getBlockingVehicleAtCell(cell.x, cell.y, { excludeVehicleId: mountedVehicleId })) {
-    return false;
-  }
-
-  if (hasWalkableBuildingAtCell(cell.x, cell.y)) {
-    return true;
-  }
-
-  const walkableVehicle = getWalkableVehicleAtCell(cell.x, cell.y, { excludeVehicleId: mountedVehicleId });
-
-  if (walkableVehicle) {
-    if (mountedVehicleId && walkableVehicle.id !== mountedVehicleId) {
-      return false;
+  if (constructibleState.blockingBuilding || constructibleState.blockingVehicle) {
+    terrainOrStructurePassable = false;
+  } else if (constructibleState.walkableBuilding) {
+    terrainOrStructurePassable = true;
+  } else if (constructibleState.walkableVehicle) {
+    if (effectiveMountedVehicleId && constructibleState.walkableVehicle.id !== effectiveMountedVehicleId) {
+      terrainOrStructurePassable = false;
+    } else if (
+      constructibleState.walkableVehicle.riderUnitId &&
+      constructibleState.walkableVehicle.riderUnitId !== effectiveUnit?.id
+    ) {
+      terrainOrStructurePassable = false;
+    } else {
+      terrainOrStructurePassable = true;
     }
-
-    if (walkableVehicle.riderUnitId && walkableVehicle.riderUnitId !== currentUnit?.id) {
-      return false;
-    }
-
-    return true;
+  } else if (canMountedUnitTraverseTerrain(effectiveUnit, cell)) {
+    terrainOrStructurePassable = true;
+  } else if (effectiveMountedVehicleId) {
+    terrainOrStructurePassable = false;
+  } else {
+    terrainOrStructurePassable = cell.type !== "water";
   }
 
-  if (canMountedUnitTraverseTerrain(currentUnit, cell)) {
-    return true;
-  }
+  const occupiedByOtherUnit = occupiedKeys instanceof Set
+    ? occupiedKeys.has(createCellKey(cell.x, cell.y))
+    : Boolean(getUnitAtCell(cell.x, cell.y, { excludeUnitId: effectiveUnit?.id || null }));
+  const blockedByVehiclePresence = forbidVehicles && Boolean(constructibleState.anyVehicle);
 
-  if (mountedVehicleId) {
-    return false;
-  }
-
-  return cell.type !== "water";
+  return {
+    cell,
+    terrainOrStructurePassable,
+    occupiedByOtherUnit,
+    blockedByVehiclePresence,
+    canOccupy: terrainOrStructurePassable && !occupiedByOtherUnit && !blockedByVehiclePresence,
+    ...constructibleState,
+  };
 }
 
 function isBuildingTargetedByDemolishTask(building) {
@@ -10371,7 +9328,7 @@ function findAdjacentSpawnCell(x, y) {
   ]) {
     const neighbor = getNeighborByDirection(originCell, direction);
 
-    if (canUnitEnter(neighbor)) {
+    if (getUnitCellPassabilityState(neighbor).terrainOrStructurePassable) {
       return neighbor;
     }
   }
@@ -10431,6 +9388,7 @@ function spawnUnitFromHouse(building, unitTypeId = getNextHouseSpawnUnitTypeId()
   };
 
   units.push(spawnedUnit);
+  updateUnitOccupancyEntry(spawnedUnit);
   syncActiveUnit();
 
   const spawnTile = getCell(spawnCell.x, spawnCell.y);
@@ -10461,6 +9419,7 @@ function initializeUnit() {
   units = spawn
     ? [{ ...spawn, selected: false, move: null, turnRoute: null, lastStepFromX: null, lastStepFromY: null }]
     : [];
+  rebuildUnitOccupancyIndex();
   syncActiveUnit();
 
   invalidateStaticUnitsLayer();
@@ -10490,37 +9449,7 @@ function findNearestPassableCell(startX, startY, currentUnit = null, occupiedKey
 }
 
 function canUnitEnter(cell, currentUnit = null, occupiedKeys = null) {
-  return (
-    isCellPassableByTerrainOrBuilding(cell, currentUnit) &&
-    !(
-      occupiedKeys instanceof Set
-        ? occupiedKeys.has(createCellKey(cell.x, cell.y))
-        : Boolean(getUnitAtCell(cell.x, cell.y, { excludeUnitId: currentUnit?.id || null }))
-    )
-  );
-}
-
-function canUnitEnterUnmountedCell(cell, currentUnit = null, occupiedKeys = null) {
-  if (!currentUnit) {
-    return canUnitEnter(cell, null, occupiedKeys);
-  }
-
-  return canUnitEnter(
-    cell,
-    {
-      ...currentUnit,
-      mountedVehicleId: null,
-    },
-    occupiedKeys,
-  );
-}
-
-function canUnitDismountToCell(cell, currentUnit = null, occupiedKeys = null) {
-  if (!cell || getVehicleAtCell(cell.x, cell.y)) {
-    return false;
-  }
-
-  return canUnitEnterUnmountedCell(cell, currentUnit, occupiedKeys);
+  return getUnitCellPassabilityState(cell, currentUnit, { occupiedKeys }).canOccupy;
 }
 
 function getUnitDismountTargetCells(currentUnit, originCellOverride = null) {
@@ -10531,7 +9460,12 @@ function getUnitDismountTargetCells(currentUnit, originCellOverride = null) {
     return [];
   }
 
-  return getAdjacentCells(originCell).filter((cell) => canUnitDismountToCell(cell, currentUnit));
+  return getAdjacentCells(originCell).filter((cell) =>
+    getUnitCellPassabilityState(cell, currentUnit, {
+      requireUnmounted: true,
+      forbidVehicles: true,
+    }).canOccupy,
+  );
 }
 
 function isValidUnitDismountTargetCell(currentUnit, destinationCell, originCellOverride = null) {
@@ -10621,6 +9555,7 @@ function applyUnitDismount(
   currentUnit.mountedVehicleId = null;
   currentUnit.x = destinationCell.x;
   currentUnit.y = destinationCell.y;
+  updateUnitOccupancyEntry(currentUnit, originX, originY);
   currentUnit.facing = nextFacing;
   currentUnit.lastStepFromX = setLastStepFromOrigin ? originX : null;
   currentUnit.lastStepFromY = setLastStepFromOrigin ? originY : null;
@@ -11849,6 +10784,7 @@ function stepAnimations(now) {
       } else {
         movingUnit.x = completedMove.toX;
         movingUnit.y = completedMove.toY;
+        updateUnitOccupancyEntry(movingUnit, moveFromX, moveFromY);
         movingUnit.facing = completedMove.direction || movingUnit.facing;
         movingUnit.lastStepFromX = moveFromX;
         movingUnit.lastStepFromY = moveFromY;
@@ -14929,10 +13865,12 @@ function canPlaceEditorUnitTypeAtCell(cell, unitTypeId, currentUnit = null) {
     return true;
   }
 
-  return canUnitEnterUnmountedCell(cell, {
+  return getUnitCellPassabilityState(cell, {
     id: `editor_${unitTypeId}`,
     mountedVehicleId: null,
-  });
+  }, {
+    requireUnmounted: true,
+  }).canOccupy;
 }
 
 function canCellHostVehiclePlacement(cell, allowedTerrains = null) {
@@ -14992,6 +13930,7 @@ function removeEditorUnit(currentUnit) {
   }
 
   units = units.filter((candidate) => candidate !== currentUnit);
+  removeUnitOccupancyEntry(currentUnit);
 
   if (currentUnit.selected) {
     clearUnitSelection();
@@ -15099,6 +14038,7 @@ function placeEditorUnitAtCell(cell, unitTypeId) {
   };
 
   units.push(newUnit);
+  updateUnitOccupancyEntry(newUnit);
   maybeMountUnitAtCurrentCell(newUnit);
   syncActiveUnit();
   invalidateStaticUnitsLayer();

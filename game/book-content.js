@@ -1115,5 +1115,6 @@ export function createBookContentApi({
     loadBookManifestDocument,
     fillBookPageSideContent,
     getBookTargetPageIdFromLink,
+    getBookTechWidgetTechnologyId,
   };
 }
