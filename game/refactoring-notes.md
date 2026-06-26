@@ -51,3 +51,56 @@
 - Genericizing manifest normalizers further
 - Another immediate book split
 - Purely cosmetic helper deduplication
+
+## 2026-06-26
+
+### Completed since the previous note
+
+1. Simplified the spatial/passability layer.
+   - Consolidated occupancy/passability queries enough to support cleaner movement checks.
+
+2. Added the unit occupancy cache.
+   - The cache is now maintained incrementally instead of relying on full recomputation after every change.
+
+3. Unified the unit action/task model.
+   - Action normalization, task creation, task serialization, task-to-action mapping, and task resolution now go through a registry/descriptor table.
+
+4. Collapsed repetitive presentation refresh sequences further.
+   - Added shared refresh helpers for unit/task presentation, mode/state transitions, and editor mutations.
+   - Editor `removeEditor*` / `placeEditor*` helpers are now mutation-only and no longer perform hidden refresh work.
+
+5. Reduced another building/vehicle duplication slice in `app.js`.
+   - Shared kind-based helpers now cover constructible availability, labels/icons, construction lookup, editor constructible mutations, and visible constructible draw ordering.
+   - Several now-dead building/vehicle wrappers were removed.
+
+6. Reduced the remaining constructible gameplay/serialization duplication further.
+   - Generic constructible helpers now cover build costs, affordability, normalization, serialization, and book binding views.
+   - The remaining building/vehicle wrappers are mostly convenience/public API shims rather than duplicated internal logic.
+
+### Practical remaining agenda
+
+1. Consider simplifying the sprite override model next.
+   - Current override resolution is still structurally complex and is a maintenance risk, but it is not the next target.
+
+2. Consider eventual rule-evaluation unification.
+   - Availability, limits, and conditional modifiers still run through separate evaluation paths.
+
+3. Optionally trim the remaining constructible convenience wrappers later.
+   - What remains is mostly public/API-facing building/vehicle naming, lookup, and label helpers rather than duplicated internal behavior.
+
+### Immediate next step
+
+1. Consider simplifying the sprite override model.
+
+### Additional progress
+
+1. Mounted sprite rendering no longer falls back to constructible visuals.
+   - Ridden vehicles now render only through mounted sprite layers.
+
+2. Mounted unit and mounted vehicle layers now share the same internal sprite-config resolution path.
+   - The unit layer inherits from the unit sprite config.
+   - The vehicle layer remains layer-defined only.
+
+3. Sprite source selection is now candidate-based for movement, stationary rendering, and task rendering.
+   - Task specs provide source candidates instead of each action owning separate frame/source selector helpers.
+   - The current manifest field names stay unchanged; the cleanup is internal only.

@@ -29,12 +29,9 @@ export function createBookContentApi({
     getTechnologyProgressPercent,
     getSelectedResearchGoalTechnologyId,
     canSelectResearchGoal,
-    getBuildingRules,
-    getBuildingSpec,
-    getBuildingLabel,
-    getVehicleRules,
-    getVehicleSpec,
-    getVehicleLabel,
+    getConstructibleRules,
+    getConstructibleSpec,
+    getConstructibleLabel,
     getFoodDefinition,
     getResourceLabel,
   } = bindingApi;
@@ -234,46 +231,27 @@ export function createBookContentApi({
     };
   }
 
-  function createBookBindingBuildingView(typeId) {
-    const resolvedTypeId = getResolvedBookBindingBuildingTypeId(typeId);
-    const rulesEntry = resolvedTypeId ? getBuildingRules(resolvedTypeId) : null;
-    const spec = resolvedTypeId ? getBuildingSpec(resolvedTypeId) : null;
+  function createBookBindingConstructibleView(kind, typeId) {
+    const normalizedKind = kind === "vehicle" ? "vehicle" : "building";
+    const resolvedTypeId = normalizedKind === "vehicle"
+      ? getResolvedBookBindingVehicleTypeId(typeId)
+      : getResolvedBookBindingBuildingTypeId(typeId);
+    const rulesEntry = resolvedTypeId ? getConstructibleRules(normalizedKind, resolvedTypeId) : null;
+    const spec = resolvedTypeId ? getConstructibleSpec(normalizedKind, resolvedTypeId) : null;
 
     if (!resolvedTypeId || (!rulesEntry && !spec)) {
       return null;
     }
 
     const image = spec?.subtypes?.[0]?.image || null;
+    const label = getConstructibleLabel(normalizedKind, resolvedTypeId);
 
     return {
       ...(rulesEntry && typeof rulesEntry === "object" ? rulesEntry : {}),
       ...(spec && typeof spec === "object" ? spec : {}),
       id: resolvedTypeId,
-      name: getBuildingLabel(resolvedTypeId),
-      label: getBuildingLabel(resolvedTypeId),
-      icon: image,
-      iconText: typeof spec?.icon === "string" ? spec.icon : "",
-      image,
-    };
-  }
-
-  function createBookBindingVehicleView(typeId) {
-    const resolvedTypeId = getResolvedBookBindingVehicleTypeId(typeId);
-    const rulesEntry = resolvedTypeId ? getVehicleRules(resolvedTypeId) : null;
-    const spec = resolvedTypeId ? getVehicleSpec(resolvedTypeId) : null;
-
-    if (!resolvedTypeId || (!rulesEntry && !spec)) {
-      return null;
-    }
-
-    const image = spec?.subtypes?.[0]?.image || null;
-
-    return {
-      ...(rulesEntry && typeof rulesEntry === "object" ? rulesEntry : {}),
-      ...(spec && typeof spec === "object" ? spec : {}),
-      id: resolvedTypeId,
-      name: getVehicleLabel(resolvedTypeId),
-      label: getVehicleLabel(resolvedTypeId),
+      name: label,
+      label,
       icon: image,
       iconText: typeof spec?.icon === "string" ? spec.icon : "",
       image,
@@ -351,12 +329,12 @@ export function createBookContentApi({
 
     if (namespace === "building" || namespace === "buildings") {
       const [buildingType, ...pathSegments] = rest;
-      return getBookBindingValueAtPath(createBookBindingBuildingView(buildingType), pathSegments);
+      return getBookBindingValueAtPath(createBookBindingConstructibleView("building", buildingType), pathSegments);
     }
 
     if (namespace === "vehicle" || namespace === "vehicles") {
       const [vehicleType, ...pathSegments] = rest;
-      return getBookBindingValueAtPath(createBookBindingVehicleView(vehicleType), pathSegments);
+      return getBookBindingValueAtPath(createBookBindingConstructibleView("vehicle", vehicleType), pathSegments);
     }
 
     if (namespace === "unit" || namespace === "units") {

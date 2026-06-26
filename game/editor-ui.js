@@ -85,7 +85,7 @@ export function createEditorUiApi({
     getFoundationBuildingTypeIcon,
     getVehicleTypeIcon,
     canUnitUseAction,
-    getActionForTask,
+    getTaskActionId,
     serializeCell,
     pickTile,
   } = world;
@@ -315,7 +315,7 @@ export function createEditorUiApi({
   }
 
   function getEditorUnitActionMenuLabel(currentUnit) {
-    const action = getActionForTask(currentUnit?.task);
+    const action = getTaskActionId(currentUnit?.task);
     return action ? getUnitActionLabel(action) : getEditorLabel("none");
   }
 
@@ -596,7 +596,7 @@ export function createEditorUiApi({
       return;
     }
 
-    const currentAction = getActionForTask(currentUnit.task);
+    const currentAction = getTaskActionId(currentUnit.task);
     const controlDisabled = !getActiveCell();
 
     if (currentAction && !editorSupportedUnitActions.includes(currentAction)) {

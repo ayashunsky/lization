@@ -143,11 +143,15 @@ Supported fields inside each layer are the same as `spriteTypes.<spriteTypeId>` 
 
 `offsetX` and `offsetY` are screen-space offsets expressed at 100% zoom and scaled with zoom at runtime.
 
+Mounted `unit` and mounted `vehicle` layers now run through the same sprite resolution path. The only difference is fallback: the mounted `unit` layer inherits from the unit's normal sprite config, while the mounted `vehicle` layer only uses what is defined in its own layer config.
+
 Mounted sprite layers also accept `directionRenderOverrides`, using the same direction keys as unit sprite configs. This is the intended way to give east/west or north/south mounted renders different placement offsets.
 
 For the mounted `unit` layer, missing fields fall back to the unit's normal sprite config. This makes it possible to override only the mounted move frames or only the placement offsets.
 
-For the mounted `vehicle` layer, any sprite-style move animation is optional. If no mounted `vehicle` layer is defined, the runtime falls back to the vehicle's normal static visual.
+For the mounted `vehicle` layer, any sprite-style move animation is optional.
+
+If a mounted vehicle should remain visible while ridden, define a mounted `vehicle` layer for it. The mounted rendering path no longer falls back to the vehicle's normal constructible visual.
 
 ## Minimal Example
 

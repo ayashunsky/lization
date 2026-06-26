@@ -222,6 +222,159 @@ const editorSupportedUnitActions = Object.freeze([
   unitActions.research,
 ]);
 const orderedUnitActions = Object.freeze(Object.values(unitActions));
+const unitActionSpecs = Object.freeze({
+  [unitActions.walk]: Object.freeze({
+    id: unitActions.walk,
+    taskType: "move",
+    inspectorPreview: "move",
+    createTask: ({ destinationCell } = {}) => destinationCell ? {
+      type: "move",
+      toX: destinationCell.x,
+      toY: destinationCell.y,
+    } : null,
+    serializeTask: (task) => serializeTargetedUnitTask(task, "move"),
+    preserveTask: (task) => serializeTargetedUnitTask(task, "move"),
+    normalizeTask: (task, options) => normalizeMoveUnitTask(task, options),
+    resolveTask: (currentUnit) => resolveMoveTaskForTurn(currentUnit),
+    queueTask: (options) => queueWalkUnitAction(options),
+  }),
+  [unitActions.dismount]: Object.freeze({
+    id: unitActions.dismount,
+    taskType: "dismount",
+    inspectorPreview: "move",
+    createTask: ({ destinationCell } = {}) => destinationCell ? {
+      type: "dismount",
+      toX: destinationCell.x,
+      toY: destinationCell.y,
+    } : null,
+    serializeTask: (task) => serializeTargetedUnitTask(task, "dismount"),
+    preserveTask: (task) => serializeTargetedUnitTask(task, "dismount"),
+    normalizeTask: (task, options) => normalizeDismountUnitTask(task, options),
+    resolveTask: (currentUnit) => resolveDismountTask(currentUnit),
+    queueTask: (options) => queueDismountUnitAction(options),
+  }),
+  [unitActions.layFoundation]: Object.freeze({
+    id: unitActions.layFoundation,
+    taskType: "layFoundation",
+    createTask: ({ destinationCell, constructible } = {}) => (
+      destinationCell && constructible ? {
+        type: "layFoundation",
+        toX: destinationCell.x,
+        toY: destinationCell.y,
+        subjectKind: constructible.kind === "vehicle" ? "vehicle" : "building",
+        subjectType: constructible.type || "house",
+      } : null
+    ),
+    serializeTask: (task) => serializeLayFoundationUnitTask(task, "layFoundation"),
+    preserveTask: (task) => serializeLayFoundationUnitTask(task, "layFoundation"),
+    normalizeTask: (task, options) => normalizeLayFoundationUnitTask(task, options),
+    resolveTask: (currentUnit) => resolveLayFoundationTask(currentUnit),
+    queueTask: (options) => queueLayFoundationUnitAction(options),
+  }),
+  [unitActions.play]: Object.freeze({
+    id: unitActions.play,
+    taskType: "perform",
+    countsAsWork: true,
+    createTask: () => ({ type: "perform" }),
+    serializeTask: () => serializeSimpleUnitTask("perform"),
+    preserveTask: () => serializeSimpleUnitTask("perform"),
+    normalizeTask: () => serializeSimpleUnitTask("perform"),
+    resolveTask: (currentUnit) => resolvePerformTask(currentUnit),
+    queueTask: (options) => queuePlayUnitAction(options),
+    getTaskSpriteSourceCandidates: () => spriteTaskSourceCandidateSets.play,
+  }),
+  [unitActions.research]: Object.freeze({
+    id: unitActions.research,
+    taskType: "research",
+    countsAsWork: true,
+    createTask: () => ({ type: "research" }),
+    serializeTask: () => serializeSimpleUnitTask("research"),
+    preserveTask: () => serializeSimpleUnitTask("research"),
+    normalizeTask: () => serializeSimpleUnitTask("research"),
+    resolveTask: (currentUnit) => resolveResearchTask(currentUnit),
+    queueTask: (options) => queueResearchUnitAction(options),
+    getTaskSpriteSourceCandidates: () => spriteTaskSourceCandidateSets.research,
+  }),
+  [unitActions.gatherFood]: Object.freeze({
+    id: unitActions.gatherFood,
+    taskType: "gatherFood",
+    countsAsWork: true,
+    usesTargetTaskDirection: true,
+    usesTargetGroundPoint: true,
+    createTask: ({ destinationCell } = {}) => destinationCell ? {
+      type: "gatherFood",
+      toX: destinationCell.x,
+      toY: destinationCell.y,
+      turnsRemaining: getGatherTaskDurationTurns(),
+    } : null,
+    serializeTask: (task) => serializeGatherUnitTask(task, "gatherFood"),
+    preserveTask: (task) => serializeGatherUnitTask(task, "gatherFood"),
+    normalizeTask: (task, options) => normalizeGatherFoodUnitTask(task, options),
+    resolveTask: (currentUnit) => resolveGatherFoodTask(currentUnit),
+    queueTask: (options) => queueGatherFoodUnitAction(options),
+    getInspectorProgressText: (currentUnit) => getGatherTaskProgressText(currentUnit?.task),
+    getTaskSpriteSourceCandidates: (currentUnit, spriteConfig) => getGatherFoodTaskSourceCandidates(currentUnit, spriteConfig),
+  }),
+  [unitActions.gatherMaterials]: Object.freeze({
+    id: unitActions.gatherMaterials,
+    taskType: "gatherMaterials",
+    countsAsWork: true,
+    usesTargetTaskDirection: true,
+    usesTargetGroundPoint: true,
+    createTask: ({ destinationCell } = {}) => destinationCell ? {
+      type: "gatherMaterials",
+      toX: destinationCell.x,
+      toY: destinationCell.y,
+      turnsRemaining: getGatherTaskDurationTurns(),
+    } : null,
+    serializeTask: (task) => serializeGatherUnitTask(task, "gatherMaterials"),
+    preserveTask: (task) => serializeGatherUnitTask(task, "gatherMaterials"),
+    normalizeTask: (task, options) => normalizeGatherMaterialsUnitTask(task, options),
+    resolveTask: (currentUnit) => resolveGatherMaterialsTask(currentUnit),
+    queueTask: (options) => queueGatherMaterialsUnitAction(options),
+    getInspectorProgressText: (currentUnit) => getGatherTaskProgressText(currentUnit?.task),
+    getTaskSpriteSourceCandidates: (currentUnit) => getGatherMaterialsTaskSourceCandidates(currentUnit),
+  }),
+  [unitActions.buildHouse]: Object.freeze({
+    id: unitActions.buildHouse,
+    taskType: "buildHouse",
+    countsAsWork: true,
+    usesTargetTaskDirection: true,
+    usesTargetGroundPoint: true,
+    createTask: ({ destinationCell } = {}) => destinationCell ? {
+      type: "buildHouse",
+      toX: destinationCell.x,
+      toY: destinationCell.y,
+    } : null,
+    serializeTask: (task) => serializeTargetedUnitTask(task, "buildHouse"),
+    preserveTask: (task) => serializeTargetedUnitTask(task, "buildHouse"),
+    normalizeTask: (task, options) => normalizeBuildHouseUnitTask(task, options),
+    resolveTask: (currentUnit) => resolveBuildHouseTask(currentUnit),
+    queueTask: (options) => queueBuildHouseUnitAction(options),
+  }),
+  [unitActions.demolish]: Object.freeze({
+    id: unitActions.demolish,
+    taskType: "demolish",
+    countsAsWork: true,
+    usesTargetTaskDirection: true,
+    usesTargetGroundPoint: true,
+    createTask: ({ destinationCell } = {}) => destinationCell ? {
+      type: "demolish",
+      toX: destinationCell.x,
+      toY: destinationCell.y,
+    } : null,
+    serializeTask: (task) => serializeTargetedUnitTask(task, "demolish"),
+    preserveTask: (task) => serializeTargetedUnitTask(task, "demolish"),
+    normalizeTask: (task, options) => normalizeDemolishUnitTask(task, options),
+    resolveTask: (currentUnit) => resolveDemolishTask(currentUnit),
+    queueTask: (options) => queueDemolishUnitAction(options),
+  }),
+});
+const unitActionIdsByTaskType = Object.freeze(
+  Object.fromEntries(
+    Object.values(unitActionSpecs).map((spec) => [spec.taskType, spec.id]),
+  ),
+);
 let unitSpriteConfigs = createDefaultUnitSpriteConfigs();
 
 const map = {
@@ -521,8 +674,6 @@ const {
   getDefaultConstructibleDimensionForKind,
   getConstructibleBottomRowForKind,
   getConstructibleDimensionForKind,
-  getConstructibleFootprintPathsForKind,
-  getConstructiblePlacementTerrainRulesForKind,
   getConstructiblePlacementEntriesForKind,
   getConstructiblePlacementCellsForKind,
   getConstructibleOccupiedCellsForKind,
@@ -536,7 +687,6 @@ const {
   isConstructibleWalkableForKind,
   getConstructibleConstructionThresholdsForKind,
   serializeConstructibleForKind,
-  createConstructibleIdForKind,
   markConstructibleCellsVisitedForKind,
   createConstructibleConstructionAtCellForKind,
   normalizeConstructibleSubtypeForKind,
@@ -653,12 +803,9 @@ const {
     getTechnologyProgressPercent,
     getSelectedResearchGoalTechnologyId,
     canSelectResearchGoal,
-    getBuildingRules,
-    getBuildingSpec,
-    getBuildingLabel,
-    getVehicleRules,
-    getVehicleSpec,
-    getVehicleLabel,
+    getConstructibleRules,
+    getConstructibleSpec,
+    getConstructibleLabel,
     getFoodDefinition,
     getResourceLabel,
   },
@@ -946,7 +1093,7 @@ const {
     getFoundationBuildingTypeIcon,
     getVehicleTypeIcon,
     canUnitUseAction,
-    getActionForTask,
+    getTaskActionId,
     serializeCell,
     pickTile,
   },
@@ -1249,6 +1396,27 @@ const spriteAnimationNumericFields = Object.freeze([
   "groundOffset",
   "moveDuration",
 ]);
+const spriteDirectionalSourceCandidateSets = Object.freeze({
+  stationary: Object.freeze({
+    north: Object.freeze(["northImage", "idleImage"]),
+    south: Object.freeze(["southImage", "idleImage"]),
+    side: Object.freeze(["idleImage"]),
+  }),
+  move: Object.freeze({
+    north: Object.freeze(["northMoveFrames", "northImage", "idleImage"]),
+    south: Object.freeze(["southMoveFrames", "southImage", "idleImage"]),
+    side: Object.freeze(["moveFrames", "idleImage"]),
+  }),
+});
+const spriteTaskSourceCandidateSets = Object.freeze({
+  idle: Object.freeze(["idleImage"]),
+  work: Object.freeze(["workFrames", "idleImage"]),
+  play: Object.freeze(["playFrames", "workFrames", "idleImage"]),
+  research: Object.freeze(["researchFrames", "workFrames", "idleImage"]),
+  landFood: Object.freeze(["landFoodFrames", "workFrames", "idleImage"]),
+  lumber: Object.freeze(["lumberFrames", "workFrames", "idleImage"]),
+  stone: Object.freeze(["stoneFrames", "workFrames", "idleImage"]),
+});
 
 function normalizeSpriteFramePaths(value, imageResolver, manifestPath) {
   return Array.isArray(value)
@@ -2993,12 +3161,84 @@ function isReplayPhase() {
   return playPhase === playPhases.replaying;
 }
 
+function isKnownUnitAction(action) {
+  return orderedUnitActions.includes(action);
+}
+
+function getTaskActionId(task) {
+  const taskType = typeof task?.type === "string" ? task.type : "";
+
+  return unitActionIdsByTaskType[taskType] || null;
+}
+
+function getUnitActionSpec(actionOrTask) {
+  if (typeof actionOrTask === "string") {
+    return isKnownUnitAction(actionOrTask) ? unitActionSpecs[actionOrTask] || null : null;
+  }
+
+  const actionId = getTaskActionId(actionOrTask);
+
+  return actionId ? unitActionSpecs[actionId] || null : null;
+}
+
+function getUnitTaskSpec(currentUnit) {
+  return getUnitActionSpec(currentUnit?.task);
+}
+
+function isTaskAction(task, action) {
+  return getTaskActionId(task) === action;
+}
+
+function createUnitTaskForAction(action, options = {}) {
+  const spec = getUnitActionSpec(action);
+
+  return spec?.createTask ? spec.createTask(options) : null;
+}
+
+function queueUnitAction(action, options = {}) {
+  const spec = getUnitActionSpec(action);
+
+  return spec?.queueTask ? spec.queueTask(options) : false;
+}
+
+function getUnitTaskInspectorPreviewMode(currentUnit) {
+  const spec = getUnitTaskSpec(currentUnit);
+
+  if (spec?.inspectorPreview === "move") {
+    return "move";
+  }
+
+  if (spec?.countsAsWork) {
+    return "animated";
+  }
+
+  return "stationary";
+}
+
+function getUnitTaskInspectorProgressText(currentUnit) {
+  const spec = getUnitTaskSpec(currentUnit);
+
+  return spec?.getInspectorProgressText ? spec.getInspectorProgressText(currentUnit) : "";
+}
+
+function isWorkingTask(task) {
+  return Boolean(getUnitActionSpec(task)?.countsAsWork);
+}
+
+function doesTaskUseTargetDirection(task) {
+  return Boolean(getUnitActionSpec(task)?.usesTargetTaskDirection);
+}
+
+function doesTaskUseTargetGroundPoint(task) {
+  return Boolean(getUnitActionSpec(task)?.usesTargetGroundPoint);
+}
+
 function normalizeUnitAction(action) {
-  return Object.values(unitActions).includes(action) ? action : unitActions.walk;
+  return isKnownUnitAction(action) ? action : unitActions.walk;
 }
 
 function normalizePendingUnitAction(action) {
-  return Object.values(unitActions).includes(action) ? action : null;
+  return isKnownUnitAction(action) ? action : null;
 }
 
 function normalizeSelectableUnitAction(action) {
@@ -4261,7 +4501,7 @@ function getBuildingResourceStorageCapacity(type, resourceType, context = getRul
 
   return Math.max(
     0,
-    clampNumber(getEffectiveBuildingRules(type, context)?.resourceStorageCapacities?.[resourceType], 0, 999999, 0),
+    clampNumber(getEffectiveConstructibleRules("building", type, context)?.resourceStorageCapacities?.[resourceType], 0, 999999, 0),
   );
 }
 
@@ -4297,28 +4537,12 @@ function getFoodShortageResetTurns() {
   );
 }
 
-function getBuildingBuildCost(type = "house", context = getRuleContext()) {
-  return getConstructibleBuildCostForKind("building", type, context);
+function getConstructibleBuildCost(kind, type, context = getRuleContext()) {
+  return getConstructibleBuildCostForKind(kind, type, context);
 }
 
-function getHouseBuildCost(type = "house") {
-  return getBuildingBuildCost(type);
-}
-
-function getVehicleBuildCost(type, context = getRuleContext()) {
-  return getConstructibleBuildCostForKind("vehicle", type, context);
-}
-
-function getBuildingBuildCostStatus(type = "house", context = getRuleContext()) {
-  return getConstructibleBuildCostStatusForKind("building", type, context);
-}
-
-function getHouseBuildCostStatus(type = "house") {
-  return getBuildingBuildCostStatus(type);
-}
-
-function getVehicleBuildCostStatus(type, context = getRuleContext()) {
-  return getConstructibleBuildCostStatusForKind("vehicle", type, context);
+function getConstructibleBuildCostStatus(kind, type, context = getRuleContext()) {
+  return getConstructibleBuildCostStatusForKind(kind, type, context);
 }
 
 function getFoodDefinition(foodType) {
@@ -4427,21 +4651,8 @@ function spendFromStockpile(resourceType, amount) {
   return true;
 }
 
-function canAffordBuildingConstruction(type = "house") {
-  const buildCost = getBuildingBuildCost(type);
-
-  return (
-    hasSufficientQuantity(getCurrentStockpileAmount("stone"), buildCost.stone) &&
-    hasSufficientQuantity(getCurrentStockpileAmount("lumber"), buildCost.lumber)
-  );
-}
-
-function canAffordHouseConstruction(type = "house") {
-  return canAffordBuildingConstruction(type);
-}
-
-function canAffordVehicleConstruction(type) {
-  const buildCost = getVehicleBuildCost(type);
+function canAffordConstructibleType(kind, type, context = getRuleContext()) {
+  const buildCost = getConstructibleBuildCost(kind, type, context);
 
   return (
     hasSufficientQuantity(getCurrentStockpileAmount("stone"), buildCost.stone) &&
@@ -4500,40 +4711,24 @@ function createUnitId(items = units) {
   return `unit_${String(maxIndex + 1).padStart(2, "0")}`;
 }
 
-function getBuildingRules(type) {
-  return getConstructibleRulesForKind("building", type);
+function getConstructibleRules(kind, type) {
+  return getConstructibleRulesForKind(kind, type);
 }
 
-function getVehicleRules(type) {
-  return getConstructibleRulesForKind("vehicle", type);
-}
-
-function getEffectiveBuildingRules(type, context = getRuleContext()) {
-  return getEffectiveConstructibleRulesForKind("building", type, context);
-}
-
-function getEffectiveVehicleRules(type, context = getRuleContext()) {
-  return getEffectiveConstructibleRulesForKind("vehicle", type, context);
+function getEffectiveConstructibleRules(kind, type, context = getRuleContext()) {
+  return getEffectiveConstructibleRulesForKind(kind, type, context);
 }
 
 function getMountedVehicleRules(currentUnit = unit, context = getRuleContext()) {
-  return getEffectiveVehicleRules(getMountedVehicle(currentUnit)?.type, context)?.mounted || null;
+  return getEffectiveConstructibleRules("vehicle", getMountedVehicle(currentUnit)?.type, context)?.mounted || null;
 }
 
-function getBuildingSpec(type) {
-  return getConstructibleSpecForKind("building", type);
+function getConstructibleSpec(kind, type) {
+  return getConstructibleSpecForKind(kind, type);
 }
 
-function getVehicleSpec(type) {
-  return getConstructibleSpecForKind("vehicle", type);
-}
-
-function getDefinedBuildingTypes() {
-  return getDefinedConstructibleTypesForKind("building");
-}
-
-function getDefinedVehicleTypes() {
-  return getDefinedConstructibleTypesForKind("vehicle");
+function getDefinedConstructibleTypes(kind) {
+  return getDefinedConstructibleTypesForKind(kind);
 }
 
 function getUnitAvailability(unitOrTypeId = getDefaultUnitTypeId()) {
@@ -4582,12 +4777,8 @@ function getLivingUnitCountsByType() {
   return counts;
 }
 
-function getBuildingCountsByType({ includeConstruction = true } = {}) {
-  return getConstructibleCountsByTypeForKind("building", { includeConstruction });
-}
-
-function getVehicleCountsByType({ includeConstruction = true } = {}) {
-  return getConstructibleCountsByTypeForKind("vehicle", { includeConstruction });
+function getConstructibleCountsByType(kind, { includeConstruction = true } = {}) {
+  return getConstructibleCountsByTypeForKind(kind, { includeConstruction });
 }
 
 function getRuleContext() {
@@ -4600,10 +4791,10 @@ function getRuleContext() {
     eventFlags: researchState?.eventFlags && typeof researchState.eventFlags === "object"
       ? researchState.eventFlags
       : {},
-    completeBuildingCountsByType: getBuildingCountsByType({ includeConstruction: false }),
-    anyBuildingCountsByType: getBuildingCountsByType({ includeConstruction: true }),
-    completeVehicleCountsByType: getVehicleCountsByType({ includeConstruction: false }),
-    anyVehicleCountsByType: getVehicleCountsByType({ includeConstruction: true }),
+    completeBuildingCountsByType: getConstructibleCountsByType("building", { includeConstruction: false }),
+    anyBuildingCountsByType: getConstructibleCountsByType("building", { includeConstruction: true }),
+    completeVehicleCountsByType: getConstructibleCountsByType("vehicle", { includeConstruction: false }),
+    anyVehicleCountsByType: getConstructibleCountsByType("vehicle", { includeConstruction: true }),
     livingUnitCountsByType: getLivingUnitCountsByType(),
     nextUnitNumber: getUnits().length + 1,
   };
@@ -4679,100 +4870,88 @@ function evaluateCountLimits(limits, subjectType, context = getRuleContext(), { 
   return true;
 }
 
-function getBuildingAvailability(type) {
-  return getBuildingRules(type)?.availability || {};
+function getConstructibleAvailability(kind, type) {
+  return getConstructibleRulesForKind(kind, type)?.availability || {};
 }
 
-function getBuildingLimits(type) {
-  return getBuildingRules(type)?.limits || {};
+function getConstructibleLimits(kind, type) {
+  return getConstructibleRulesForKind(kind, type)?.limits || {};
 }
 
-function getVehicleAvailability(type) {
-  return getVehicleRules(type)?.availability || {};
-}
+function isConstructibleTypeAvailable(kind, type, context = getRuleContext(), { ignoreRequirements = false, ignoreLimits = false } = {}) {
+  const normalizedKind = normalizeConstructibleKind(kind);
 
-function getVehicleLimits(type) {
-  return getVehicleRules(type)?.limits || {};
-}
-
-function isBuildingTypeAvailable(type, context = getRuleContext(), { ignoreRequirements = false, ignoreLimits = false } = {}) {
-  if (!getBuildingRules(type) || !getBuildingSpec(type)) {
+  if (!getConstructibleRulesForKind(normalizedKind, type) || !getConstructibleSpecForKind(normalizedKind, type)) {
     return false;
   }
 
-  if (!ignoreRequirements && !matchesRequirements(getBuildingAvailability(type), context)) {
+  if (!ignoreRequirements && !matchesRequirements(getConstructibleAvailability(normalizedKind, type), context)) {
     return false;
   }
 
-  if (!ignoreLimits && !evaluateCountLimits(getBuildingLimits(type), type, context)) {
-    return false;
-  }
+  const subjectCountsByType = normalizedKind === "vehicle"
+    ? context.anyVehicleCountsByType
+    : context.anyBuildingCountsByType;
 
-  return true;
-}
-
-function getAvailableBuildingTypes(context = getRuleContext()) {
-  return getDefinedBuildingTypes().filter((type) => isBuildingTypeAvailable(type, context));
-}
-
-function isVehicleTypeAvailable(type, context = getRuleContext(), { ignoreRequirements = false, ignoreLimits = false } = {}) {
-  if (!getVehicleRules(type) || !getVehicleSpec(type)) {
-    return false;
-  }
-
-  if (!ignoreRequirements && !matchesRequirements(getVehicleAvailability(type), context)) {
-    return false;
-  }
-
-  if (!ignoreLimits && !evaluateCountLimits(getVehicleLimits(type), type, context, { subjectCountsByType: context.anyVehicleCountsByType })) {
+  if (!ignoreLimits && !evaluateCountLimits(getConstructibleLimits(normalizedKind, type), type, context, { subjectCountsByType })) {
     return false;
   }
 
   return true;
 }
 
-function getAvailableVehicleTypes(context = getRuleContext()) {
-  return getDefinedVehicleTypes().filter((type) => isVehicleTypeAvailable(type, context));
+function isBuildingTypeAvailable(type, context = getRuleContext(), options = {}) {
+  return isConstructibleTypeAvailable("building", type, context, options);
+}
+
+function isVehicleTypeAvailable(type, context = getRuleContext(), options = {}) {
+  return isConstructibleTypeAvailable("vehicle", type, context, options);
+}
+
+function getAvailableConstructibleTypes(kind, context = getRuleContext()) {
+  return getDefinedConstructibleTypesForKind(kind).filter((type) => isConstructibleTypeAvailable(kind, type, context));
 }
 
 function getBuildingLabel(type) {
-  return resolveLocalizedLabel(getBuildingSpec(type)?.labels, strings.buildings?.[type] || type) || type;
+  return getConstructibleLabel("building", type);
 }
 
 function getVehicleLabel(type) {
-  return resolveLocalizedLabel(getVehicleSpec(type)?.labels, type) || type;
+  return getConstructibleLabel("vehicle", type);
 }
 
-function getBuildingSubtypeVariants(type) {
-  return getConstructibleSubtypeVariantsForKind("building", type);
+function getDefinedBuildingTypes() {
+  return getDefinedConstructibleTypes("building");
 }
 
-function getVehicleSubtypeVariants(type) {
-  return getConstructibleSubtypeVariantsForKind("vehicle", type);
+function getDefinedVehicleTypes() {
+  return getDefinedConstructibleTypes("vehicle");
 }
 
-function chooseBuildingSubtype(type) {
-  return chooseConstructibleSubtypeForKind("building", type);
+function getConstructibleLabel(kind, type) {
+  const normalizedKind = normalizeConstructibleKind(kind);
+  const fallback = normalizedKind === "building"
+    ? (strings.buildings?.[type] || type)
+    : type;
+
+  return resolveLocalizedLabel(getConstructibleSpecForKind(normalizedKind, type)?.labels, fallback) || type;
 }
 
-function chooseVehicleSubtype(type) {
-  return chooseConstructibleSubtypeForKind("vehicle", type);
+function getConstructibleTypeIcon(kind, type) {
+  return getConstructibleSpecForKind(kind, type)?.icon || "•";
 }
 
-function getDefaultBuildingWidth() {
-  return getDefaultConstructibleDimensionForKind("building", "width");
+function getConstructibleFoundationActionTypes(kind, context = getRuleContext()) {
+  return getAvailableConstructibleTypes(kind, context)
+    .filter((type) => Boolean(getEffectiveConstructibleRulesForKind(kind, type, context)?.foundationActionAvailable));
 }
 
-function getDefaultBuildingHeight() {
-  return getDefaultConstructibleDimensionForKind("building", "height");
+function getFoundationBuildingTypeIcon(type) {
+  return getConstructibleTypeIcon("building", type);
 }
 
-function getDefaultVehicleWidth() {
-  return getDefaultConstructibleDimensionForKind("vehicle", "width");
-}
-
-function getDefaultVehicleHeight() {
-  return getDefaultConstructibleDimensionForKind("vehicle", "height");
+function getVehicleTypeIcon(type) {
+  return getConstructibleTypeIcon("vehicle", type);
 }
 
 function getBuildingFootprintRowStep() {
@@ -4782,14 +4961,6 @@ function getBuildingFootprintRowStep() {
 function getMaxBuildingHeightAtY(y, mapHeight = map.height) {
   const normalizedY = clampInteger(y, 0, Math.max(0, mapHeight - 1), 0);
   return Math.max(1, Math.floor((mapHeight - 1 - normalizedY) / getBuildingFootprintRowStep()) + 1);
-}
-
-function getBuildingBottomRow(building) {
-  return getConstructibleBottomRowForKind("building", building);
-}
-
-function getVehicleBottomRow(vehicle) {
-  return getConstructibleBottomRowForKind("vehicle", vehicle);
 }
 
 function getBuildingWidth(type) {
@@ -4808,83 +4979,13 @@ function getVehicleHeight(type) {
   return getConstructibleDimensionForKind("vehicle", type, "height");
 }
 
-function getBuildingFootprintPaths(type) {
-  return getConstructibleFootprintPathsForKind("building", type);
-}
-
-function getBuildingPlacementTerrainRules(type) {
-  return getConstructiblePlacementTerrainRulesForKind("building", type);
-}
-
-function getVehicleFootprintPaths(type) {
-  return getConstructibleFootprintPathsForKind("vehicle", type);
-}
-
-function getVehiclePlacementTerrainRules(type) {
-  return getConstructiblePlacementTerrainRulesForKind("vehicle", type);
-}
-
-function isMultiTileBuildingType(type) {
-  return getBuildingWidth(type) > 1 || getBuildingHeight(type) > 1;
-}
-
-function getBuildingPlacementEntries(originCell, type) {
-  return getConstructiblePlacementEntriesForKind("building", originCell, type);
-}
-
-function getVehiclePlacementEntries(originCell, type) {
-  return getConstructiblePlacementEntriesForKind("vehicle", originCell, type);
-}
-
-function getBuildingCellsFromOrigin(originCell, type) {
-  return getConstructiblePlacementCellsForKind("building", originCell, type);
-}
-
-function getBuildingPlacementCells(originCell, type) {
-  return getConstructiblePlacementCellsForKind("building", originCell, type);
-}
-
-function getVehiclePlacementCells(originCell, type) {
-  return getConstructiblePlacementCellsForKind("vehicle", originCell, type);
-}
-
-function getBuildingOccupiedCells(building) {
-  return getConstructibleOccupiedCellsForKind("building", building);
-}
-
-function getVehicleOccupiedCells(vehicle) {
-  return getConstructibleOccupiedCellsForKind("vehicle", vehicle);
-}
-
-function getBuildingPlacementIndexAtCell(building, x, y) {
-  return getConstructiblePlacementIndexAtCellForKind("building", building, x, y);
-}
-
-function getVehiclePlacementIndexAtCell(vehicle, x, y) {
-  return getConstructiblePlacementIndexAtCellForKind("vehicle", vehicle, x, y);
-}
-
-function getBuildingFoundationActionTypes(context = getRuleContext()) {
-  return getAvailableBuildingTypes(context).filter((type) => Boolean(getEffectiveBuildingRules(type, context)?.foundationActionAvailable));
-}
-
-function getVehicleFoundationActionTypes(context = getRuleContext()) {
-  return getAvailableVehicleTypes(context).filter((type) => Boolean(getEffectiveVehicleRules(type, context)?.foundationActionAvailable));
-}
-
 function getFoundationConstructibleOptions(context = getRuleContext()) {
   return [
-    ...getBuildingFoundationActionTypes(context).map((type) => createFoundationConstructibleDescriptor("building", type)),
-    ...getVehicleFoundationActionTypes(context).map((type) => createFoundationConstructibleDescriptor("vehicle", type)),
+    ...getConstructibleFoundationActionTypes("building", context)
+      .map((type) => createFoundationConstructibleDescriptor("building", type)),
+    ...getConstructibleFoundationActionTypes("vehicle", context)
+      .map((type) => createFoundationConstructibleDescriptor("vehicle", type)),
   ].filter(Boolean);
-}
-
-function getFoundationBuildingTypeIcon(type) {
-  return getBuildingSpec(type)?.icon || "•";
-}
-
-function getVehicleTypeIcon(type) {
-  return getVehicleSpec(type)?.icon || "•";
 }
 
 function getFoundationConstructibleIcon(constructible) {
@@ -4934,24 +5035,16 @@ function setSelectedFoundationConstructible(id) {
   return true;
 }
 
-function getBuildingConstructionCost(type, context = getRuleContext()) {
-  return getConstructibleConstructionCostForKind("building", type, context);
+function getConstructibleConstructionCost(kind, type, context = getRuleContext()) {
+  return getConstructibleConstructionCostForKind(kind, type, context);
 }
 
-function getVehicleConstructionCost(type, context = getRuleContext()) {
-  return getConstructibleConstructionCostForKind("vehicle", type, context);
-}
-
-function isBuildingWalkable(type, context = getRuleContext()) {
-  return isConstructibleWalkableForKind("building", type, context);
-}
-
-function isVehicleWalkable(type, context = getRuleContext()) {
-  return isConstructibleWalkableForKind("vehicle", type, context);
+function isConstructibleTypeWalkable(kind, type, context = getRuleContext()) {
+  return isConstructibleWalkableForKind(kind, type, context);
 }
 
 function getBuildingAbandonedDecay(type, context = getRuleContext()) {
-  const decay = Number(getEffectiveBuildingRules(type, context)?.abandonedDecayPerTurn);
+  const decay = Number(getEffectiveConstructibleRules("building", type, context)?.abandonedDecayPerTurn);
 
   if (!Number.isFinite(decay)) {
     return 0;
@@ -4962,7 +5055,7 @@ function getBuildingAbandonedDecay(type, context = getRuleContext()) {
 
 function getBuildingWorkCompletenessDelta(taskType, buildingType) {
   const workPoints = getUnitWorkPointsPerTurn(taskType);
-  const cost = getBuildingConstructionCost(buildingType);
+  const cost = getConstructibleConstructionCost("building", buildingType);
 
   if (workPoints <= 0 || cost <= 0) {
     return 0;
@@ -4977,9 +5070,7 @@ function getConstructionWorkCompletenessDelta(taskType, structure) {
   }
 
   const workPoints = getUnitWorkPointsPerTurn(taskType);
-  const cost = structure.riderUnitId !== undefined
-    ? getVehicleConstructionCost(structure.type)
-    : getBuildingConstructionCost(structure.type);
+  const cost = getConstructibleConstructionCost(structure.riderUnitId !== undefined ? "vehicle" : "building", structure.type);
 
   if (workPoints <= 0 || cost <= 0) {
     return 0;
@@ -5597,7 +5688,7 @@ function getUnitSpriteConfig(unitOrTypeId = unit) {
 
 function getMountedRenderConfig(currentUnit = unit) {
   const mountedVehicle = getMountedVehicle(currentUnit);
-  const mountedRenders = getVehicleSpec(mountedVehicle?.type)?.mountedRenders;
+  const mountedRenders = getConstructibleSpec("vehicle", mountedVehicle?.type)?.mountedRenders;
 
   if (!mountedVehicle || !mountedRenders) {
     return null;
@@ -5624,26 +5715,48 @@ function getMountedRenderConfig(currentUnit = unit) {
   };
 }
 
-function getMountedUnitSpriteConfig(currentUnit = unit) {
-  const mountedUnitConfig = getMountedRenderConfig(currentUnit)?.unit;
-
-  if (!mountedUnitConfig) {
-    return null;
-  }
-
-  return mergeSpriteConfigs(getUnitSpriteConfig(currentUnit) || {}, mountedUnitConfig);
+function getMountedSpriteLayerConfig(currentUnit = unit, layerKey = "unit") {
+  const mountedRenderConfig = getMountedRenderConfig(currentUnit);
+  return mountedRenderConfig?.[layerKey] || null;
 }
 
 function getMountedVehicleSpriteConfig(currentUnit = unit) {
-  return getMountedRenderConfig(currentUnit)?.vehicle || null;
+  return getRenderedSpriteConfig(currentUnit, { layerKey: "vehicle" });
+}
+
+function getRenderedSpriteConfig(
+  currentUnit = unit,
+  {
+    layerKey = "unit",
+    baseConfig = null,
+    suppressMountedLayer = false,
+  } = {},
+) {
+  const resolvedBaseConfig =
+    typeof baseConfig === "function"
+      ? (baseConfig(currentUnit) || null)
+      : (baseConfig || null);
+
+  if (suppressMountedLayer) {
+    return resolvedBaseConfig;
+  }
+
+  const mountedLayerConfig = getMountedSpriteLayerConfig(currentUnit, layerKey);
+  if (!mountedLayerConfig) {
+    return resolvedBaseConfig;
+  }
+
+  return resolvedBaseConfig
+    ? mergeSpriteConfigs(resolvedBaseConfig, mountedLayerConfig)
+    : mountedLayerConfig;
 }
 
 function getRenderedUnitSpriteConfig(currentUnit = unit) {
-  if (currentUnit?.move?.mode === "dismount") {
-    return getUnitSpriteConfig(currentUnit);
-  }
-
-  return getMountedUnitSpriteConfig(currentUnit) || getUnitSpriteConfig(currentUnit);
+  return getRenderedSpriteConfig(currentUnit, {
+    layerKey: "unit",
+    baseConfig: getUnitSpriteConfig,
+    suppressMountedLayer: currentUnit?.move?.mode === "dismount",
+  });
 }
 
 function serializeCell(cell) {
@@ -5659,54 +5772,51 @@ function serializeCell(cell) {
   };
 }
 
-function serializeBuilding(building, width = map.width, height = map.height) {
-  return serializeConstructibleForKind("building", building, width, height);
+function serializeSimpleUnitTask(taskType) {
+  return { type: taskType };
 }
 
-function serializeVehicle(vehicle, width = map.width, height = map.height) {
-  return serializeConstructibleForKind("vehicle", vehicle, width, height);
+function serializeTargetedUnitTask(task, taskType) {
+  return {
+    type: taskType,
+    toX: clampInteger(task?.toX, 0, map.width - 1, 0),
+    toY: clampInteger(task?.toY, 0, map.height - 1, 0),
+  };
+}
+
+function serializeGatherUnitTask(task, taskType) {
+  return {
+    type: taskType,
+    toX: clampInteger(task?.toX, 0, map.width - 1, 0),
+    toY: clampInteger(task?.toY, 0, map.height - 1, 0),
+    turnsRemaining: clampInteger(task?.turnsRemaining, 1, getGatherTaskDurationTurns(), getGatherTaskDurationTurns()),
+  };
+}
+
+function normalizeLayFoundationTaskSubject(task) {
+  return {
+    subjectKind: task?.subjectKind === "vehicle" ? "vehicle" : "building",
+    subjectType:
+      typeof task?.subjectType === "string" && task.subjectType.trim()
+        ? task.subjectType.trim()
+        : (typeof task?.buildingType === "string" ? task.buildingType : "house"),
+  };
+}
+
+function serializeLayFoundationUnitTask(task, taskType) {
+  const { subjectKind, subjectType } = normalizeLayFoundationTaskSubject(task);
+
+  return {
+    ...serializeTargetedUnitTask(task, taskType),
+    subjectKind,
+    subjectType,
+  };
 }
 
 function serializeTask(task) {
-  if (!task) return null;
+  const spec = getUnitActionSpec(task);
 
-  if (![ "move", "dismount", "perform", "research", "gatherFood", "gatherMaterials", "buildHouse", "layFoundation", "demolish" ].includes(task.type)) {
-    return null;
-  }
-
-  if (task.type === "perform" || task.type === "research") {
-    return { type: task.type };
-  }
-
-  if (task.type === "gatherFood" || task.type === "gatherMaterials") {
-    return {
-      type: task.type,
-      toX: clampInteger(task.toX, 0, map.width - 1, 0),
-      toY: clampInteger(task.toY, 0, map.height - 1, 0),
-      turnsRemaining: clampInteger(task.turnsRemaining, 1, getGatherTaskDurationTurns(), getGatherTaskDurationTurns()),
-    };
-  }
-
-  if (task.type === "layFoundation") {
-    const normalizedSubjectKind = task.subjectKind === "vehicle" ? "vehicle" : "building";
-    const normalizedSubjectType =
-      typeof task.subjectType === "string" && task.subjectType.trim()
-        ? task.subjectType.trim()
-        : (typeof task.buildingType === "string" ? task.buildingType : "house");
-    return {
-      type: task.type,
-      toX: clampInteger(task.toX, 0, map.width - 1, 0),
-      toY: clampInteger(task.toY, 0, map.height - 1, 0),
-      subjectKind: normalizedSubjectKind,
-      subjectType: normalizedSubjectType,
-    };
-  }
-
-  return {
-    type: task.type,
-    toX: clampInteger(task.toX, 0, map.width - 1, 0),
-    toY: clampInteger(task.toY, 0, map.height - 1, 0),
-  };
+  return spec?.serializeTask ? spec.serializeTask(task) : null;
 }
 
 function serializeStockpileState() {
@@ -5755,7 +5865,7 @@ function serializeUnit(currentUnit) {
 
   if (currentUnit.move) {
     const didReachDestination =
-      currentUnit.task?.type === "move" &&
+      isTaskAction(currentUnit.task, unitActions.walk) &&
       currentUnit.task.toX === currentUnit.move.toX &&
       currentUnit.task.toY === currentUnit.move.toY;
 
@@ -5793,12 +5903,8 @@ function serializeCells(cells = map.cells) {
   return cells.map((row) => row.map((cell) => serializeCell(cell)));
 }
 
-function serializeBuildings(items = buildings, width = map.width, height = map.height) {
-  return items.map((building) => serializeBuilding(building, width, height)).filter(Boolean);
-}
-
-function serializeVehicles(items = vehicles, width = map.width, height = map.height) {
-  return items.map((vehicle) => serializeVehicle(vehicle, width, height)).filter(Boolean);
+function serializeConstructibles(kind, items = getConstructibleCollectionForKind(kind), width = map.width, height = map.height) {
+  return items.map((constructible) => serializeConstructibleForKind(kind, constructible, width, height)).filter(Boolean);
 }
 
 function serializeCurrentState() {
@@ -5809,8 +5915,8 @@ function serializeCurrentState() {
       height: map.height,
       cells: serializeCells(),
     },
-    buildings: serializeBuildings(),
-    vehicles: serializeVehicles(),
+    buildings: serializeConstructibles("building"),
+    vehicles: serializeConstructibles("vehicle"),
     units: getUnits().map((currentUnit) => serializeUnit(currentUnit)).filter(Boolean),
     stockpile: serializeStockpileState(),
     research: serializeResearchState(),
@@ -6195,15 +6301,7 @@ function createDefaultUnitState(cells, width, height, unitTypeId = getDefaultUni
     : null;
 }
 
-function createBuildingId() {
-  return createConstructibleIdForKind("building");
-}
-
-function createVehicleId(items = vehicles) {
-  return createConstructibleIdForKind("vehicle", items);
-}
-
-function canCellHostBuildingPlacement(cell, allowedTerrains = null) {
+function canCellHostConstructiblePlacement(kind, cell, allowedTerrains = null) {
   if (!cell) {
     return false;
   }
@@ -6214,31 +6312,29 @@ function canCellHostBuildingPlacement(cell, allowedTerrains = null) {
 
   return (
     normalizedAllowedTerrains.includes(cell.type) &&
-    !hasFoodResource(cell) &&
+    (normalizeConstructibleKind(kind) === "vehicle" || !hasFoodResource(cell)) &&
     !getBuildingAtCell(cell.x, cell.y) &&
     !getVehicleAtCell(cell.x, cell.y) &&
     !getUnitAtCell(cell.x, cell.y)
   );
 }
 
-function canPlaceNewBuildingConstructionOnCell(originCell, type, currentUnit = null) {
-  const placementEntries = getBuildingPlacementEntries(originCell, type);
+function canPlaceNewConstructibleConstructionOnCellForKind(kind, originCell, type) {
+  const placementEntries = getConstructiblePlacementEntriesForKind(kind, originCell, type);
 
   if (placementEntries.length === 0) {
     return false;
   }
 
-  return placementEntries.every(({ cell, allowedTerrains }) => canCellHostBuildingPlacement(cell, allowedTerrains));
+  return placementEntries.every(({ cell, allowedTerrains }) => canCellHostConstructiblePlacement(kind, cell, allowedTerrains));
+}
+
+function canPlaceNewBuildingConstructionOnCell(originCell, type, currentUnit = null) {
+  return canPlaceNewConstructibleConstructionOnCellForKind("building", originCell, type, currentUnit);
 }
 
 function canPlaceNewVehicleConstructionOnCell(originCell, type, currentUnit = null) {
-  const placementEntries = getVehiclePlacementEntries(originCell, type);
-
-  if (placementEntries.length === 0) {
-    return false;
-  }
-
-  return placementEntries.every(({ cell, allowedTerrains }) => canCellHostVehiclePlacement(cell, allowedTerrains));
+  return canPlaceNewConstructibleConstructionOnCellForKind("vehicle", originCell, type, currentUnit);
 }
 
 function markBuildingCellsVisited(building) {
@@ -6266,9 +6362,7 @@ function canAffordConstructibleConstruction(constructible, context = getRuleCont
     return false;
   }
 
-  return constructible.kind === "vehicle"
-    ? canAffordVehicleConstruction(constructible.type, context)
-    : canAffordBuildingConstruction(constructible.type, context);
+  return canAffordConstructibleType(constructible.kind, constructible.type, context);
 }
 
 function canPlaceNewConstructibleConstructionOnCell(originCell, constructible, currentUnit = null) {
@@ -6376,7 +6470,7 @@ function createDefaultBuildingsState(cells, width, height, units) {
   const previewBuildings = [
     {
       state: "complete",
-      subtype: chooseBuildingSubtype("house") || "house_01",
+      subtype: chooseConstructibleSubtypeForKind("building", "house") || "house_01",
       completeness: 1,
     },
   ];
@@ -6392,12 +6486,12 @@ function createDefaultBuildingsState(cells, width, height, units) {
         subtype: preview.subtype,
         x: cell.x,
         y: cell.y,
-        width: getDefaultBuildingWidth(),
-        height: getDefaultBuildingHeight(),
+        width: getDefaultConstructibleDimensionForKind("building", "width"),
+        height: getDefaultConstructibleDimensionForKind("building", "height"),
         state: preview.state,
-        walkable: isBuildingWalkable("house"),
+        walkable: isConstructibleTypeWalkable("building", "house"),
         completeness: preview.completeness,
-        constructionCost: getBuildingConstructionCost("house"),
+        constructionCost: getConstructibleConstructionCost("building", "house"),
       };
     });
 }
@@ -6406,7 +6500,7 @@ function markCellsVisitedByBuildings(cells, buildingsState) {
   if (!Array.isArray(cells) || !Array.isArray(buildingsState)) return;
 
   for (const building of buildingsState) {
-    for (const occupiedCell of getBuildingOccupiedCells(building)) {
+    for (const occupiedCell of getConstructibleOccupiedCellsForKind("building", building)) {
       const cell = cells[occupiedCell.y]?.[occupiedCell.x];
 
       if (cell) {
@@ -6438,7 +6532,7 @@ function createGeneratedState(mode, buildCells = buildGeneratedMapCells) {
       height,
       cells: serializeCells(cells),
     },
-    buildings: serializeBuildings(defaultBuildings, width, height),
+    buildings: serializeConstructibles("building", defaultBuildings, width, height),
     vehicles: [],
     units,
     stockpile: createEmptyStockpile(),
@@ -6579,155 +6673,186 @@ function normalizeDirection(direction) {
     : "west";
 }
 
-function normalizeTask(task, currentX, currentY, currentUnit = null) {
-  if (!task) return null;
-
-  const type = task.type;
-
-  if (![ "move", "dismount", "perform", "research", "gatherFood", "gatherMaterials", "buildHouse", "layFoundation", "demolish" ].includes(type)) {
-    return null;
-  }
-
-  if (type === "perform" || type === "research") {
-    return { type };
-  }
-
-  const toX = clampInteger(task.toX, 0, map.width - 1, currentX);
-  const toY = clampInteger(task.toY, 0, map.height - 1, currentY);
+function getNormalizedUnitTaskDestination(task, currentX, currentY) {
+  const toX = clampInteger(task?.toX, 0, map.width - 1, currentX);
+  const toY = clampInteger(task?.toY, 0, map.height - 1, currentY);
   const destinationCell = getCell(toX, toY);
-  const gatherTurnsRemaining = clampInteger(
-    task.turnsRemaining,
-    1,
-    getGatherTaskDurationTurns(),
-    getGatherTaskDurationTurns(),
-  );
 
-  if (!destinationCell) return null;
-
-  if (type === "move") {
-    if (!canAssignUnitMoveTarget(destinationCell, currentUnit)) return null;
-    if (toX === currentX && toY === currentY) return null;
-  } else if (type === "dismount") {
-    if (!areCellsAdjacent(currentX, currentY, toX, toY)) {
-      return null;
-    }
-    if (
-      !currentUnit?.mountedVehicleId ||
-      !getUnitCellPassabilityState(destinationCell, currentUnit, {
-        requireUnmounted: true,
-        forbidVehicles: true,
-      }).canOccupy
-    ) {
-      return null;
-    }
-  } else if (type === "gatherFood") {
-    if (!areCellsAdjacent(currentX, currentY, toX, toY)) {
-      return null;
-    }
-    if (!hasGatherableFoodResource(destinationCell)) {
-      return null;
-    }
-  } else if (type === "gatherMaterials") {
-    if (!areCellsAdjacent(currentX, currentY, toX, toY)) {
-      return null;
-    }
-    if (!hasMaterialResource(destinationCell)) {
-      return null;
-    }
-  } else if (!areCellsAdjacent(currentX, currentY, toX, toY)) {
+  if (!destinationCell) {
     return null;
-  } else if (type === "buildHouse") {
-    const structure = getConstructionEntityAtCell(destinationCell);
-
-    if (!structure || structure.state !== "construction") {
-      return null;
-    }
-  } else if (type === "layFoundation") {
-    if (!getConstructionEntityAtCell(destinationCell)) {
-      return null;
-    }
-  } else {
-    const building = getBuildingAtCell(toX, toY);
-
-    if (!building || building.state !== "abandoned") {
-      return null;
-    }
   }
 
-  if (type === "gatherFood" || type === "gatherMaterials") {
-    return { type, toX, toY, turnsRemaining: gatherTurnsRemaining };
+  return { toX, toY, destinationCell };
+}
+
+function normalizeMoveUnitTask(task, { currentX, currentY, currentUnit } = {}) {
+  const destination = getNormalizedUnitTaskDestination(task, currentX, currentY);
+
+  if (!destination) {
+    return null;
   }
 
-  if (type === "layFoundation") {
-    const normalizedSubjectKind = task.subjectKind === "vehicle"
-      ? "vehicle"
-      : "building";
-    const normalizedSubjectType =
-      typeof task.subjectType === "string" && task.subjectType.trim()
-        ? task.subjectType.trim()
-        : (typeof task.buildingType === "string" ? task.buildingType : "house");
-    const hasValidSubject = normalizedSubjectKind === "vehicle"
-      ? Boolean(getVehicleRules(normalizedSubjectType))
-      : Boolean(getBuildingRules(normalizedSubjectType));
-    const validatedSubjectKind = hasValidSubject ? normalizedSubjectKind : "building";
-    const validatedSubjectType = hasValidSubject ? normalizedSubjectType : "house";
-    const structure = getConstructionEntityAtCell(destinationCell, {
-      kind: validatedSubjectKind,
-      type: validatedSubjectType,
-    });
+  const { toX, toY, destinationCell } = destination;
 
-    if (!structure || structure.state !== "construction") {
-      return null;
-    }
-
-    return {
-      type,
-      toX,
-      toY,
-      subjectKind: validatedSubjectKind,
-      subjectType: validatedSubjectType,
-    };
+  if (!canAssignUnitMoveTarget(destinationCell, currentUnit)) {
+    return null;
   }
 
-  return { type, toX, toY };
+  if (toX === currentX && toY === currentY) {
+    return null;
+  }
+
+  return serializeTargetedUnitTask({ toX, toY }, "move");
+}
+
+function normalizeDismountUnitTask(task, { currentX, currentY, currentUnit } = {}) {
+  const destination = getNormalizedUnitTaskDestination(task, currentX, currentY);
+
+  if (!destination) {
+    return null;
+  }
+
+  const { toX, toY, destinationCell } = destination;
+
+  if (!areCellsAdjacent(currentX, currentY, toX, toY)) {
+    return null;
+  }
+
+  if (
+    !currentUnit?.mountedVehicleId ||
+    !getUnitCellPassabilityState(destinationCell, currentUnit, {
+      requireUnmounted: true,
+      forbidVehicles: true,
+    }).canOccupy
+  ) {
+    return null;
+  }
+
+  return serializeTargetedUnitTask({ toX, toY }, "dismount");
+}
+
+function normalizeGatherFoodUnitTask(task, { currentX, currentY } = {}) {
+  const destination = getNormalizedUnitTaskDestination(task, currentX, currentY);
+
+  if (!destination) {
+    return null;
+  }
+
+  const { toX, toY, destinationCell } = destination;
+
+  if (!areCellsAdjacent(currentX, currentY, toX, toY) || !hasGatherableFoodResource(destinationCell)) {
+    return null;
+  }
+
+  return serializeGatherUnitTask({ ...task, toX, toY }, "gatherFood");
+}
+
+function normalizeGatherMaterialsUnitTask(task, { currentX, currentY } = {}) {
+  const destination = getNormalizedUnitTaskDestination(task, currentX, currentY);
+
+  if (!destination) {
+    return null;
+  }
+
+  const { toX, toY, destinationCell } = destination;
+
+  if (!areCellsAdjacent(currentX, currentY, toX, toY) || !hasMaterialResource(destinationCell)) {
+    return null;
+  }
+
+  return serializeGatherUnitTask({ ...task, toX, toY }, "gatherMaterials");
+}
+
+function normalizeBuildHouseUnitTask(task, { currentX, currentY } = {}) {
+  const destination = getNormalizedUnitTaskDestination(task, currentX, currentY);
+
+  if (!destination) {
+    return null;
+  }
+
+  const { toX, toY, destinationCell } = destination;
+
+  if (!areCellsAdjacent(currentX, currentY, toX, toY)) {
+    return null;
+  }
+
+  const structure = getConstructionEntityAtCell(destinationCell);
+
+  if (!structure || structure.state !== "construction") {
+    return null;
+  }
+
+  return serializeTargetedUnitTask({ toX, toY }, "buildHouse");
+}
+
+function normalizeLayFoundationUnitTask(task, { currentX, currentY } = {}) {
+  const destination = getNormalizedUnitTaskDestination(task, currentX, currentY);
+
+  if (!destination) {
+    return null;
+  }
+
+  const { toX, toY, destinationCell } = destination;
+
+  if (!areCellsAdjacent(currentX, currentY, toX, toY)) {
+    return null;
+  }
+
+  const { subjectKind, subjectType } = normalizeLayFoundationTaskSubject(task);
+  const hasValidSubject = Boolean(getConstructibleRules(subjectKind, subjectType));
+  const validatedSubjectKind = hasValidSubject ? subjectKind : "building";
+  const validatedSubjectType = hasValidSubject ? subjectType : "house";
+  const structure = getConstructionEntityAtCell(destinationCell, {
+    kind: validatedSubjectKind,
+    type: validatedSubjectType,
+  });
+
+  if (!structure || structure.state !== "construction") {
+    return null;
+  }
+
+  return serializeLayFoundationUnitTask({
+    toX,
+    toY,
+    subjectKind: validatedSubjectKind,
+    subjectType: validatedSubjectType,
+  }, "layFoundation");
+}
+
+function normalizeDemolishUnitTask(task, { currentX, currentY } = {}) {
+  const destination = getNormalizedUnitTaskDestination(task, currentX, currentY);
+
+  if (!destination) {
+    return null;
+  }
+
+  const { toX, toY } = destination;
+
+  if (!areCellsAdjacent(currentX, currentY, toX, toY)) {
+    return null;
+  }
+
+  const building = getBuildingAtCell(toX, toY);
+
+  if (!building || building.state !== "abandoned") {
+    return null;
+  }
+
+  return serializeTargetedUnitTask({ toX, toY }, "demolish");
+}
+
+function normalizeTask(task, currentX, currentY, currentUnit = null) {
+  const spec = getUnitActionSpec(task);
+
+  return spec?.normalizeTask
+    ? spec.normalizeTask(task, { currentX, currentY, currentUnit })
+    : null;
 }
 
 function preserveTask(task) {
-  if (!task || !["move", "dismount", "perform", "research", "gatherFood", "gatherMaterials", "buildHouse", "layFoundation", "demolish"].includes(task.type)) return null;
+  const spec = getUnitActionSpec(task);
 
-  if (task.type === "perform" || task.type === "research") {
-    return { type: task.type };
-  }
-
-  if (task.type === "gatherFood" || task.type === "gatherMaterials") {
-    return {
-      type: task.type,
-      toX: clampInteger(task.toX, 0, map.width - 1, 0),
-      toY: clampInteger(task.toY, 0, map.height - 1, 0),
-      turnsRemaining: clampInteger(task.turnsRemaining, 1, getGatherTaskDurationTurns(), getGatherTaskDurationTurns()),
-    };
-  }
-
-  if (task.type === "layFoundation") {
-    const normalizedSubjectKind = task.subjectKind === "vehicle" ? "vehicle" : "building";
-    const normalizedSubjectType =
-      typeof task.subjectType === "string" && task.subjectType.trim()
-        ? task.subjectType.trim()
-        : (typeof task.buildingType === "string" ? task.buildingType : "house");
-    return {
-      type: task.type,
-      toX: clampInteger(task.toX, 0, map.width - 1, 0),
-      toY: clampInteger(task.toY, 0, map.height - 1, 0),
-      subjectKind: normalizedSubjectKind,
-      subjectType: normalizedSubjectType,
-    };
-  }
-
-  return {
-    type: task.type,
-    toX: clampInteger(task.toX, 0, map.width - 1, 0),
-    toY: clampInteger(task.toY, 0, map.height - 1, 0),
-  };
+  return spec?.preserveTask ? spec.preserveTask(task) : null;
 }
 
 function normalizeSituationMessage(entry, index = 0) {
@@ -6773,20 +6898,8 @@ function normalizeBuildingState(state) {
     : "complete";
 }
 
-function normalizeBuildingSubtype(type, subtype) {
-  return normalizeConstructibleSubtypeForKind("building", type, subtype);
-}
-
-function normalizeVehicleSubtype(type, subtype) {
-  return normalizeConstructibleSubtypeForKind("vehicle", type, subtype);
-}
-
-function normalizeBuildingsState(rawBuildings) {
-  return normalizeConstructiblesStateForKind("building", rawBuildings, { requireArray: true });
-}
-
-function normalizeVehiclesState(rawVehicles) {
-  return normalizeConstructiblesStateForKind("vehicle", rawVehicles);
+function normalizeConstructiblesState(kind, rawConstructibles, options = {}) {
+  return normalizeConstructiblesStateForKind(kind, rawConstructibles, options);
 }
 
 function normalizeLinkedEntityId(value) {
@@ -6873,11 +6986,11 @@ function normalizeUnitsState(rawUnits, mode) {
       lastStepFromY: null,
     };
 
-    if (normalizedUnit.task?.type === "research" && !getSelectedResearchGoalTechnologyId()) {
+    if (isTaskAction(normalizedUnit.task, unitActions.research) && !getSelectedResearchGoalTechnologyId()) {
       normalizedUnit.task = null;
     }
 
-    if (normalizedUnit.task && !canUnitUseAction(normalizedUnit, getActionForTask(normalizedUnit.task))) {
+    if (normalizedUnit.task && !canUnitUseAction(normalizedUnit, getTaskActionId(normalizedUnit.task))) {
       normalizedUnit.task = null;
     }
 
@@ -6988,8 +7101,8 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   map.width = nextMap.width;
   map.height = nextMap.height;
   map.cells = nextMap.cells;
-  buildings = normalizeBuildingsState(nextState.buildings);
-  vehicles = normalizeVehiclesState(nextState.vehicles);
+  buildings = normalizeConstructiblesState("building", nextState.buildings, { requireArray: true });
+  vehicles = normalizeConstructiblesState("vehicle", nextState.vehicles);
   units = normalizeUnitsState(nextState.units, mode);
   rebuildUnitOccupancyIndex();
   reconcileMountedVehicleStateLinks(vehicles, units);
@@ -7014,24 +7127,12 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   if (mode === interactionModes.edit) {
     setEditStateDirty(false);
   }
-  resetTileReadout();
-  invalidateStaticLayer();
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
-  updateSituationMessagePanel({ restartTyping: true });
-  updateTurnControls();
-  updateInteractionModeUi();
-  layoutCanvas();
-
-  if (recenter) {
-    requestAnimationFrame(() => restoreViewportCenter({ x: 0.5, y: 0.5 }));
-  }
-
-  draw();
-  if (shouldAnimateWorkingUnits()) {
-    scheduleAnimation();
-  }
-  maybeAutoAdvanceTurn();
+  refreshAfterModeStateTransition({
+    resetTileHoverReadout: true,
+    restartSituationTyping: true,
+    relayout: true,
+    recenter,
+  });
 }
 
 function loadFileIntoMode(fileName, mode, options) {
@@ -7161,42 +7262,6 @@ function hasAssignedTask(currentUnit) {
   return Boolean(currentUnit?.task);
 }
 
-function getActionForTask(task) {
-  if (task?.type === "dismount") {
-    return unitActions.dismount;
-  }
-
-  if (task?.type === "perform") {
-    return unitActions.play;
-  }
-
-  if (task?.type === "research") {
-    return unitActions.research;
-  }
-
-  if (task?.type === "gatherFood") {
-    return unitActions.gatherFood;
-  }
-
-  if (task?.type === "gatherMaterials") {
-    return unitActions.gatherMaterials;
-  }
-
-  if (task?.type === "buildHouse") {
-    return unitActions.buildHouse;
-  }
-
-  if (task?.type === "layFoundation") {
-    return unitActions.layFoundation;
-  }
-
-  if (task?.type === "demolish") {
-    return unitActions.demolish;
-  }
-
-  return unitActions.walk;
-}
-
 function getDefaultActionForCompletedTask(currentUnit = getSelectedUnit()) {
   return getPreferredUnitAction(currentUnit, unitActions.walk);
 }
@@ -7217,15 +7282,6 @@ function getCurrentSelectedUnitAction(currentUnit = getSelectedUnit()) {
   }
 
   return getPreferredUnitAction(currentUnit, selectedUnitAction);
-}
-
-function isWorkingTask(task) {
-  return task?.type === "buildHouse" ||
-    task?.type === "demolish" ||
-    task?.type === "perform" ||
-    task?.type === "research" ||
-    task?.type === "gatherFood" ||
-    task?.type === "gatherMaterials";
 }
 
 function isUnitWorking(currentUnit) {
@@ -7319,7 +7375,7 @@ function getRawUnitTaskDirection(currentUnit) {
     return currentUnit?.facing || "west";
   }
 
-  if (currentUnit.task?.type === "perform" || currentUnit.task?.type === "research") {
+  if (!doesTaskUseTargetDirection(currentUnit?.task)) {
     return currentUnit?.facing || "west";
   }
 
@@ -7445,76 +7501,93 @@ function updateTurnControls() {
   updatePersistenceControls();
 }
 
-function createMoveTask(destinationCell) {
-  return {
-    type: "move",
-    toX: destinationCell.x,
-    toY: destinationCell.y,
-  };
+function refreshUnitAndTurnPresentation() {
+  updateUnitReadout();
+  updateTurnControls();
 }
 
-function createDismountTask(destinationCell) {
-  return {
-    type: "dismount",
-    toX: destinationCell.x,
-    toY: destinationCell.y,
-  };
+function refreshUnitAndTurnPresentationAndDraw({
+  scheduleAnimationPlayback = false,
+  autoAdvance = false,
+  drawNow = true,
+} = {}) {
+  refreshUnitAndTurnPresentation();
+
+  if (scheduleAnimationPlayback) {
+    scheduleAnimation();
+  }
+
+  if (drawNow) {
+    draw();
+  }
+
+  if (autoAdvance) {
+    maybeAutoAdvanceTurn();
+  }
 }
 
-function createGatherFoodTask(destinationCell) {
-  return {
-    type: "gatherFood",
-    toX: destinationCell.x,
-    toY: destinationCell.y,
-    turnsRemaining: getGatherTaskDurationTurns(),
-  };
+function refreshAfterUnitSelectionChange({ scheduleAnimationPlayback = false, drawNow = true } = {}) {
+  invalidateStaticUnitsLayer();
+  updateUnitReadout();
+
+  if (scheduleAnimationPlayback) {
+    scheduleAnimation();
+  }
+
+  if (drawNow) {
+    draw();
+  }
 }
 
-function createGatherMaterialsTask(destinationCell) {
-  return {
-    type: "gatherMaterials",
-    toX: destinationCell.x,
-    toY: destinationCell.y,
-    turnsRemaining: getGatherTaskDurationTurns(),
-  };
+function refreshAfterUnitTaskChange(options = {}) {
+  invalidateStaticUnitsLayer();
+  refreshUnitAndTurnPresentationAndDraw(options);
 }
 
-function createPerformTask() {
-  return {
-    type: "perform",
-  };
+function refreshAfterWorldAndUnitTaskChange(options = {}) {
+  invalidateStaticLayer();
+  refreshAfterUnitTaskChange(options);
 }
 
-function createResearchTask() {
-  return {
-    type: "research",
-  };
-}
+function refreshAfterModeStateTransition({
+  resetTileHoverReadout = false,
+  restartSituationTyping = false,
+  relayout = false,
+  layoutOptions = undefined,
+  recenter = false,
+  drawNow = true,
+} = {}) {
+  if (resetTileHoverReadout) {
+    resetTileReadout();
+  }
 
-function createBuildHouseTask(destinationCell) {
-  return {
-    type: "buildHouse",
-    toX: destinationCell.x,
-    toY: destinationCell.y,
-  };
-}
+  invalidateStaticLayer();
+  invalidateStaticUnitsLayer();
+  updateUnitReadout();
 
-function createLayFoundationTask(destinationCell, constructible) {
-  return {
-    type: "layFoundation",
-    toX: destinationCell.x,
-    toY: destinationCell.y,
-    subjectKind: constructible?.kind === "vehicle" ? "vehicle" : "building",
-    subjectType: constructible?.type || "house",
-  };
-}
+  if (restartSituationTyping) {
+    updateSituationMessagePanel({ restartTyping: true });
+  }
 
-function createDemolishTask(destinationCell) {
-  return {
-    type: "demolish",
-    toX: destinationCell.x,
-    toY: destinationCell.y,
-  };
+  updateInteractionModeUi();
+
+  if (relayout) {
+    layoutCanvas(layoutOptions);
+  }
+
+  if (recenter) {
+    requestAnimationFrame(() => restoreViewportCenter({ x: 0.5, y: 0.5 }));
+  }
+
+  if (drawNow) {
+    draw();
+  }
+
+  if (shouldAnimateWorkingUnits()) {
+    scheduleAnimation();
+  }
+
+  maybeAutoAdvanceTurn();
 }
 
 function assignUnitTask(task, currentUnit = getSelectedUnit()) {
@@ -7527,83 +7600,43 @@ function assignUnitTask(task, currentUnit = getSelectedUnit()) {
   currentUnit.lastStepFromX = null;
   currentUnit.lastStepFromY = null;
   unit = currentUnit;
-  const taskAction = getActionForTask(task);
+  const taskAction = getTaskActionId(task) || unitActions.walk;
   selectedUnitAction =
     selectedUnitAction === unitUiActions.work && isUnitWorkRepresentedAction(taskAction)
       ? unitUiActions.work
       : taskAction;
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
-  updateTurnControls();
-  if (shouldAnimateWorkingUnits()) {
-    scheduleAnimation();
-  }
-  draw();
-
-  maybeAutoAdvanceTurn();
+  refreshAfterUnitTaskChange({
+    scheduleAnimationPlayback: shouldAnimateWorkingUnits(),
+    autoAdvance: true,
+  });
 
   return true;
 }
 
-function canAssignUnitMoveTarget(destinationCell, currentUnit = getSelectedUnit()) {
-  if (!currentUnit || !destinationCell) {
-    return false;
-  }
-
-  if (destinationCell.x === currentUnit.x && destinationCell.y === currentUnit.y) {
-    return false;
-  }
-
-  if (canUnitEnter(destinationCell, currentUnit)) {
-    return true;
-  }
-
-  return Boolean(currentUnit.mountedVehicleId) && getUnitCellPassabilityState(
-    destinationCell,
-    currentUnit,
-    { requireUnmounted: true },
-  ).canOccupy;
-}
-
-function queueUnitMoveTask(destinationCell, currentUnit = getSelectedUnit()) {
+function queueWalkUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
   if (!currentUnit || currentUnit.move) return false;
   if (!canUnitUseAction(currentUnit, unitActions.walk)) return false;
   if (!canAssignUnitMoveTarget(destinationCell, currentUnit)) return false;
 
-  return assignUnitTask(createMoveTask(destinationCell), currentUnit);
+  return assignUnitTask(createUnitTaskForAction(unitActions.walk, { destinationCell }), currentUnit);
 }
 
-function queueUnitDismountTask(destinationCell, currentUnit = getSelectedUnit()) {
+function queueDismountUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
   if (!currentUnit || currentUnit.move) return false;
   if (!canUnitUseAction(currentUnit, unitActions.dismount)) return false;
   if (!destinationCell || !isValidUnitDismountTargetCell(currentUnit, destinationCell)) return false;
 
-  return assignUnitTask(createDismountTask(destinationCell), currentUnit);
+  return assignUnitTask(createUnitTaskForAction(unitActions.dismount, { destinationCell }), currentUnit);
 }
 
-function queueUnitPlayTask(currentUnit = getSelectedUnit()) {
+function queuePlayUnitAction({ currentUnit = getSelectedUnit() } = {}) {
   if (!currentUnit || currentUnit.move) return false;
   if (!canUnitUseAction(currentUnit, unitActions.play)) return false;
 
-  return assignUnitTask(createPerformTask(), currentUnit);
+  return assignUnitTask(createUnitTaskForAction(unitActions.play), currentUnit);
 }
 
-function clearPendingBookResearchAssignment() {
-  pendingBookResearchAssignmentUnitId = null;
-}
-
-function queuePendingBookResearchAssignment() {
-  const pendingUnit = getUnitById(pendingBookResearchAssignmentUnitId);
-  clearPendingBookResearchAssignment();
-
-  if (!pendingUnit) {
-    return false;
-  }
-
-  return queueUnitResearchTask(pendingUnit);
-}
-
-function queueUnitResearchTask(currentUnit = getSelectedUnit()) {
+function queueResearchUnitAction({ currentUnit = getSelectedUnit() } = {}) {
   if (!currentUnit || currentUnit.move) return false;
   if (!canUnitUseAction(currentUnit, unitActions.research)) return false;
   if (!getSelectedResearchGoalTechnologyId()) {
@@ -7624,37 +7657,24 @@ function queueUnitResearchTask(currentUnit = getSelectedUnit()) {
     return false;
   }
 
-  return assignUnitTask(createResearchTask(), currentUnit);
+  return assignUnitTask(createUnitTaskForAction(unitActions.research), currentUnit);
 }
 
-function queueUnitGatherFoodTask(destinationCell, currentUnit = getSelectedUnit()) {
+function queueGatherFoodUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
   if (!currentUnit || currentUnit.move || !canGatherFoodFromCell(destinationCell, currentUnit)) return false;
   if (!canUnitUseAction(currentUnit, unitActions.gatherFood)) return false;
 
-  return assignUnitTask(createGatherFoodTask(destinationCell), currentUnit);
+  return assignUnitTask(createUnitTaskForAction(unitActions.gatherFood, { destinationCell }), currentUnit);
 }
 
-function queueUnitGatherMaterialsTask(destinationCell, currentUnit = getSelectedUnit()) {
+function queueGatherMaterialsUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
   if (!currentUnit || currentUnit.move || !canGatherMaterialsFromCell(destinationCell, currentUnit)) return false;
   if (!canUnitUseAction(currentUnit, unitActions.gatherMaterials)) return false;
 
-  return assignUnitTask(createGatherMaterialsTask(destinationCell), currentUnit);
+  return assignUnitTask(createUnitTaskForAction(unitActions.gatherMaterials, { destinationCell }), currentUnit);
 }
 
-function queueUnitWorkTask(destinationCell, currentUnit = getSelectedUnit()) {
-  if (!currentUnit || currentUnit.move) {
-    return false;
-  }
-
-  if (!canUnitUseWorkUiAction(currentUnit)) {
-    return false;
-  }
-
-  return queueUnitBuildHouseTask(destinationCell, currentUnit)
-    || queueUnitGatherMaterialsTask(destinationCell, currentUnit);
-}
-
-function queueUnitBuildHouseTask(destinationCell, currentUnit = getSelectedUnit()) {
+function queueBuildHouseUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
   if (!currentUnit || currentUnit.move) return false;
   if (!canUnitUseAction(currentUnit, unitActions.buildHouse)) return false;
 
@@ -7682,12 +7702,14 @@ function queueUnitBuildHouseTask(destinationCell, currentUnit = getSelectedUnit(
   }
 
   invalidateStaticLayer();
-  return assignUnitTask(createBuildHouseTask(destinationCell), currentUnit);
+  return assignUnitTask(createUnitTaskForAction(unitActions.buildHouse, { destinationCell }), currentUnit);
 }
 
-function queueUnitLayFoundationTask(destinationCell, currentUnit = getSelectedUnit()) {
-  const constructible = getSelectedFoundationConstructible();
-
+function queueLayFoundationUnitAction({
+  currentUnit = getSelectedUnit(),
+  destinationCell,
+  constructible = getSelectedFoundationConstructible(),
+} = {}) {
   if (!currentUnit || currentUnit.move || !constructible) return false;
   if (!canUnitUseAction(currentUnit, unitActions.layFoundation)) return false;
   if (constructible.kind === "building" && !isBuildingTypeAvailable(constructible.type)) return false;
@@ -7703,10 +7725,13 @@ function queueUnitLayFoundationTask(destinationCell, currentUnit = getSelectedUn
   }
 
   invalidateStaticLayer();
-  return assignUnitTask(createLayFoundationTask(destinationCell, constructible), currentUnit);
+  return assignUnitTask(
+    createUnitTaskForAction(unitActions.layFoundation, { destinationCell, constructible }),
+    currentUnit,
+  );
 }
 
-function queueUnitDemolishTask(destinationCell, currentUnit = getSelectedUnit()) {
+function queueDemolishUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
   if (
     !currentUnit ||
     currentUnit.move ||
@@ -7720,7 +7745,91 @@ function queueUnitDemolishTask(destinationCell, currentUnit = getSelectedUnit())
 
   if (!building || building.state !== "abandoned") return false;
 
-  return assignUnitTask(createDemolishTask(destinationCell), currentUnit);
+  return assignUnitTask(createUnitTaskForAction(unitActions.demolish, { destinationCell }), currentUnit);
+}
+
+function canAssignUnitMoveTarget(destinationCell, currentUnit = getSelectedUnit()) {
+  if (!currentUnit || !destinationCell) {
+    return false;
+  }
+
+  if (destinationCell.x === currentUnit.x && destinationCell.y === currentUnit.y) {
+    return false;
+  }
+
+  if (canUnitEnter(destinationCell, currentUnit)) {
+    return true;
+  }
+
+  return Boolean(currentUnit.mountedVehicleId) && getUnitCellPassabilityState(
+    destinationCell,
+    currentUnit,
+    { requireUnmounted: true },
+  ).canOccupy;
+}
+
+function queueUnitMoveTask(destinationCell, currentUnit = getSelectedUnit()) {
+  return queueUnitAction(unitActions.walk, { currentUnit, destinationCell });
+}
+
+function queueUnitDismountTask(destinationCell, currentUnit = getSelectedUnit()) {
+  return queueUnitAction(unitActions.dismount, { currentUnit, destinationCell });
+}
+
+function queueUnitPlayTask(currentUnit = getSelectedUnit()) {
+  return queueUnitAction(unitActions.play, { currentUnit });
+}
+
+function clearPendingBookResearchAssignment() {
+  pendingBookResearchAssignmentUnitId = null;
+}
+
+function queuePendingBookResearchAssignment() {
+  const pendingUnit = getUnitById(pendingBookResearchAssignmentUnitId);
+  clearPendingBookResearchAssignment();
+
+  if (!pendingUnit) {
+    return false;
+  }
+
+  return queueUnitAction(unitActions.research, { currentUnit: pendingUnit });
+}
+
+function queueUnitResearchTask(currentUnit = getSelectedUnit()) {
+  return queueUnitAction(unitActions.research, { currentUnit });
+}
+
+function queueUnitGatherFoodTask(destinationCell, currentUnit = getSelectedUnit()) {
+  return queueUnitAction(unitActions.gatherFood, { currentUnit, destinationCell });
+}
+
+function queueUnitGatherMaterialsTask(destinationCell, currentUnit = getSelectedUnit()) {
+  return queueUnitAction(unitActions.gatherMaterials, { currentUnit, destinationCell });
+}
+
+function queueUnitWorkTask(destinationCell, currentUnit = getSelectedUnit()) {
+  if (!currentUnit || currentUnit.move) {
+    return false;
+  }
+
+  if (!canUnitUseWorkUiAction(currentUnit)) {
+    return false;
+  }
+
+  return queueUnitBuildHouseTask(destinationCell, currentUnit)
+    || queueUnitGatherMaterialsTask(destinationCell, currentUnit);
+}
+
+function queueUnitBuildHouseTask(destinationCell, currentUnit = getSelectedUnit()) {
+  return queueUnitAction(unitActions.buildHouse, { currentUnit, destinationCell });
+}
+
+function queueUnitLayFoundationTask(destinationCell, currentUnit = getSelectedUnit()) {
+  return queueUnitAction(unitActions.layFoundation, { currentUnit, destinationCell });
+}
+
+function queueUnitDemolishTask(destinationCell, currentUnit = getSelectedUnit()) {
+  return queueUnitAction(unitActions.demolish, { currentUnit, destinationCell });
 }
 
 function clearCompletedTask(currentUnit) {
@@ -7744,11 +7853,7 @@ function cancelUnitTask(currentUnit = getSelectedUnit() || unit) {
     selectedUnitAction = unitActions.walk;
   }
 
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
-  updateTurnControls();
-  maybeAutoAdvanceTurn();
-  draw();
+  refreshAfterUnitTaskChange({ autoAdvance: true });
   return true;
 }
 
@@ -8040,60 +8145,24 @@ function resolveResearchTask(currentUnit) {
 }
 
 function resolveUnitTask(currentUnit) {
-  if (!currentUnit?.task) return;
-
-  if (currentUnit.task.type === "perform") {
-    resolvePerformTask(currentUnit);
+  if (!currentUnit?.task) {
     return;
   }
 
-  if (currentUnit.task.type === "dismount") {
-    resolveDismountTask(currentUnit);
-    return;
-  }
+  const spec = getUnitActionSpec(currentUnit.task);
 
-  if (currentUnit.task.type === "research") {
-    resolveResearchTask(currentUnit);
-    return;
-  }
-
-  if (currentUnit.task.type === "gatherFood") {
-    resolveGatherFoodTask(currentUnit);
-    return;
-  }
-
-  if (currentUnit.task.type === "gatherMaterials") {
-    resolveGatherMaterialsTask(currentUnit);
-    return;
-  }
-
-  if (currentUnit.task.type === "buildHouse") {
-    resolveBuildHouseTask(currentUnit);
-    return;
-  }
-
-  if (currentUnit.task.type === "layFoundation") {
-    resolveLayFoundationTask(currentUnit);
-    return;
-  }
-
-  if (currentUnit.task.type === "demolish") {
-    resolveDemolishTask(currentUnit);
-    return;
-  }
-
-  if (currentUnit.task.type !== "move") {
+  if (!spec?.resolveTask) {
     clearCompletedTask(currentUnit);
     return;
   }
 
-  resolveMoveTaskForTurn(currentUnit);
+  spec.resolveTask(currentUnit);
 }
 
 function resolveMoveTaskForTurn(currentUnit) {
   const context = getRuleContext();
 
-  while (currentUnit?.task?.type === "move" && getUnitStamina(currentUnit) > 0) {
+  while (isTaskAction(currentUnit?.task, unitActions.walk) && getUnitStamina(currentUnit) > 0) {
     if (currentUnit.x === currentUnit.task.toX && currentUnit.y === currentUnit.task.toY) {
       clearCompletedTask(currentUnit);
       return;
@@ -8458,10 +8527,7 @@ function finishReplay() {
 
   commitReplayFinalState();
   resetTurnReplayState();
-  updateUnitReadout();
-  updateTurnControls();
-  maybeAutoAdvanceTurn();
-  draw();
+  refreshUnitAndTurnPresentationAndDraw({ autoAdvance: true });
 }
 
 function startReplayPause() {
@@ -9160,13 +9226,13 @@ function getCellConstructibleState(cell, { excludeVehicleId = null } = {}) {
 }
 
 function getBuildingUnitRenderOffsetAtCell(building, x, y) {
-  const unitRenderOffsets = getBuildingSpec(building?.type)?.unitRenderOffsets;
+  const unitRenderOffsets = getConstructibleSpec("building", building?.type)?.unitRenderOffsets;
 
   if (!building || !Array.isArray(unitRenderOffsets) || unitRenderOffsets.length === 0) {
     return { x: 0, y: 0 };
   }
 
-  const placementIndex = getBuildingPlacementIndexAtCell(building, x, y);
+  const placementIndex = getConstructiblePlacementIndexAtCellForKind("building", building, x, y);
 
   if (placementIndex < 0) {
     return { x: 0, y: 0 };
@@ -9306,7 +9372,7 @@ function isBuildingTargetedByDemolishTask(building) {
 
   return getUnits().some(
     (currentUnit) =>
-      currentUnit?.task?.type === "demolish" &&
+      isTaskAction(currentUnit?.task, unitActions.demolish) &&
       buildingOccupiesCell(building, currentUnit.task.toX, currentUnit.task.toY),
   );
 }
@@ -9399,14 +9465,6 @@ function spawnUnitFromHouse(building, unitTypeId = getNextHouseSpawnUnitTypeId()
   return spawnedUnit;
 }
 
-function getVehicleRenderMode(type) {
-  return getConstructibleRenderModeForKind("vehicle", type);
-}
-
-function getVehicleVisual(vehicle) {
-  return getConstructibleVisualForKind("vehicle", vehicle);
-}
-
 function makeMap() {
   map.cells = buildGeneratedMapCells(map.width, map.height);
   setTextContent(mapSizeReadouts, strings.readouts.mapSize(map.width, map.height));
@@ -9494,7 +9552,7 @@ function canMountVehicle(currentUnit, vehicle) {
   return vehicleOccupiesCell(vehicle, currentUnit.x, currentUnit.y);
 }
 
-function mountUnitOnVehicle(currentUnit, vehicle) {
+function mountUnitOnVehicle(currentUnit, vehicle, { refreshPresentation = true } = {}) {
   if (!canMountVehicle(currentUnit, vehicle)) {
     return false;
   }
@@ -9508,12 +9566,16 @@ function mountUnitOnVehicle(currentUnit, vehicle) {
   vehicle.riderUnitId = currentUnit.id;
   vehicle.x = currentUnit.x;
   vehicle.y = currentUnit.y;
-  invalidateStaticLayer();
-  invalidateStaticUnitsLayer();
+
+  if (refreshPresentation) {
+    invalidateStaticLayer();
+    invalidateStaticUnitsLayer();
+  }
+
   return true;
 }
 
-function maybeMountUnitAtCurrentCell(currentUnit) {
+function maybeMountUnitAtCurrentCell(currentUnit, options = {}) {
   if (!currentUnit || currentUnit.mountedVehicleId) {
     return false;
   }
@@ -9524,7 +9586,7 @@ function maybeMountUnitAtCurrentCell(currentUnit) {
     return false;
   }
 
-  return mountUnitOnVehicle(currentUnit, vehicle);
+  return mountUnitOnVehicle(currentUnit, vehicle, options);
 }
 
 function findUnitDismountCell(currentUnit) {
@@ -9569,10 +9631,7 @@ function applyUnitDismount(
   invalidateStaticUnitsLayer();
 
   if (refreshPresentation) {
-    updateUnitReadout();
-    updateTurnControls();
-    draw();
-    maybeAutoAdvanceTurn();
+    refreshUnitAndTurnPresentationAndDraw({ autoAdvance: true });
   }
 
   return true;
@@ -9650,18 +9709,6 @@ function updateUnitReadout() {
   }
 
   const unitName = normalizeUnitName(displayedUnit.name);
-  const gatherDurationTurns = getGatherTaskDurationTurns();
-  const getGatherProgressText = (task) => {
-    const completedTurns = clampInteger(
-      gatherDurationTurns - clampInteger(task?.turnsRemaining, 0, gatherDurationTurns, gatherDurationTurns),
-      0,
-      gatherDurationTurns,
-      0,
-    );
-
-    return `${completedTurns}/${gatherDurationTurns}`;
-  };
-
   setUnitTitle(unitName);
 
   if (displayedUnit.move) {
@@ -9669,48 +9716,12 @@ function updateUnitReadout() {
     return;
   }
 
-  if (displayedUnit.task?.type === "move") {
-    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
-    return;
-  }
-
-  if (displayedUnit.task?.type === "dismount") {
-    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
-    return;
-  }
-
-  if (displayedUnit.task?.type === "perform") {
-    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
-    return;
-  }
-
-  if (displayedUnit.task?.type === "research") {
-    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
-    return;
-  }
-
-  if (displayedUnit.task?.type === "gatherFood") {
-    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), getGatherProgressText(displayedUnit.task), { cancelVisible: true });
-    return;
-  }
-
-  if (displayedUnit.task?.type === "gatherMaterials") {
-    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), getGatherProgressText(displayedUnit.task), { cancelVisible: true });
-    return;
-  }
-
-  if (displayedUnit.task?.type === "buildHouse") {
-    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
-    return;
-  }
-
-  if (displayedUnit.task?.type === "layFoundation") {
-    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
-    return;
-  }
-
-  if (displayedUnit.task?.type === "demolish") {
-    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", { cancelVisible: true });
+  if (displayedUnit.task) {
+    setTaskAndRefresh(
+      getUnitInspectorSpriteImage(displayedUnit),
+      getUnitTaskInspectorProgressText(displayedUnit),
+      { cancelVisible: true },
+    );
     return;
   }
 
@@ -9780,12 +9791,9 @@ function selectUnit(currentUnit, { scrollIntoView = false, defaultAction = null 
     requestAnimationFrame(() => centerViewportOnUnit(currentUnit));
   }
 
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
-  if (shouldAnimateSelectionMarker()) {
-    scheduleAnimation();
-  }
-  draw();
+  refreshAfterUnitSelectionChange({
+    scheduleAnimationPlayback: shouldAnimateSelectionMarker(),
+  });
   return didChange;
 }
 
@@ -9872,7 +9880,7 @@ function resetTileReadout() {
   setTextContent(hoverReadouts, strings.readouts.tileNone);
 }
 
-function clearUnitSelection() {
+function clearUnitSelectionState({ syncActive = true } = {}) {
   let didChange = false;
 
   for (const currentUnit of getUnits()) {
@@ -9881,12 +9889,20 @@ function clearUnitSelection() {
     didChange = true;
   }
 
-  if (!didChange) return;
+  if (!didChange) return false;
 
-  syncActiveUnit();
+  if (syncActive) {
+    syncActiveUnit();
+  }
+
   selectedUnitAction = null;
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
+  return true;
+}
+
+function clearUnitSelection() {
+  if (!clearUnitSelectionState()) return;
+
+  refreshAfterUnitSelectionChange({ drawNow: false });
 }
 
 function openMainMenu() {
@@ -9921,20 +9937,7 @@ function setInteractionMode(nextMode) {
   closeBookOverlay({ restoreState: false });
   clearEditHoverState();
   clearUnitSelection();
-  invalidateStaticLayer();
-  invalidateStaticUnitsLayer();
-
-  updateInteractionModeUi();
-
-  if (didChange) {
-    draw();
-  }
-
-  if (shouldAnimateWorkingUnits()) {
-    scheduleAnimation();
-  }
-
-  maybeAutoAdvanceTurn();
+  refreshAfterModeStateTransition({ drawNow: didChange });
 }
 
 function schedulePostModeActivationLayoutRefresh(expectedMode) {
@@ -9987,7 +9990,7 @@ function getUnitTargetCells() {
   if (
     selectedUnit.task &&
     isCellTargetUnitAction(action) &&
-    doesSelectedUnitActionMatchTaskAction(action, getActionForTask(selectedUnit.task))
+    doesSelectedUnitActionMatchTaskAction(action, getTaskActionId(selectedUnit.task))
   ) {
     const destinationCell = getCell(selectedUnit.task.toX, selectedUnit.task.toY);
     return destinationCell ? [destinationCell] : [];
@@ -10143,7 +10146,7 @@ function canPlaceNewHouseConstructionOnCell(cell) {
 }
 
 function canStartNewHouseConstructionOnCell(cell) {
-  return isBuildingTypeAvailable("house") && canPlaceNewHouseConstructionOnCell(cell) && canAffordBuildingConstruction("house");
+  return isBuildingTypeAvailable("house") && canPlaceNewHouseConstructionOnCell(cell) && canAffordConstructibleType("building", "house");
 }
 
 function getConstructionEntityAtCell(cell, { kind = null, type = null } = {}) {
@@ -10151,24 +10154,19 @@ function getConstructionEntityAtCell(cell, { kind = null, type = null } = {}) {
     return null;
   }
 
-  if (kind === "vehicle") {
-    const vehicle = getVehicleAtCell(cell.x, cell.y);
-    return vehicle && (!type || vehicle.type === type) ? vehicle : null;
+  const kinds = kind
+    ? [normalizeConstructibleKind(kind)]
+    : ["building", "vehicle"];
+
+  for (const currentKind of kinds) {
+    const constructible = findConstructibleAtCellForKind(currentKind, cell.x, cell.y);
+
+    if (constructible && (!type || constructible.type === type)) {
+      return constructible;
+    }
   }
 
-  if (kind === "building") {
-    const building = getBuildingAtCell(cell.x, cell.y);
-    return building && (!type || building.type === type) ? building : null;
-  }
-
-  const building = getBuildingAtCell(cell.x, cell.y);
-
-  if (building && (!type || building.type === type)) {
-    return building;
-  }
-
-  const vehicle = getVehicleAtCell(cell.x, cell.y);
-  return vehicle && (!type || vehicle.type === type) ? vehicle : null;
+  return null;
 }
 
 function canContinueConstructionOnCell(cell, { kind = null, type = null } = {}) {
@@ -10198,7 +10196,7 @@ function getBuildHouseTargetMode(cell, { ignoreAffordability = false } = {}) {
   if (
     isBuildingTypeAvailable("house") &&
     canPlaceNewHouseConstructionOnCell(cell) &&
-    (ignoreAffordability || canAffordBuildingConstruction("house"))
+    (ignoreAffordability || canAffordConstructibleType("building", "house"))
   ) {
     return {
       mode: "new",
@@ -10706,11 +10704,7 @@ function startUnitMove(
     mode: options.mode || "move",
   };
   unit = currentUnit;
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
-  updateTurnControls();
-  scheduleAnimation();
-  draw();
+  refreshAfterUnitTaskChange({ scheduleAnimationPlayback: true });
 }
 
 function scheduleAnimation() {
@@ -10801,10 +10795,7 @@ function stepAnimations(now) {
       movingUnit.move = null;
 
       syncActiveUnit(movingUnit.id);
-      invalidateStaticLayer();
-      invalidateStaticUnitsLayer();
-      updateUnitReadout();
-      updateTurnControls();
+      refreshAfterWorldAndUnitTaskChange({ drawNow: false });
 
       if (isReplayPhase()) {
         startNextReplayEvent();
@@ -10913,7 +10904,7 @@ function shouldMirrorUnitDirection(direction) {
 function getTargetBasedWorkTaskGroundPoint(currentUnit) {
   const task = currentUnit?.task;
 
-  if (!task || !isWorkingTask(task) || task.type === "perform" || task.type === "research") {
+  if (!task || !isWorkingTask(task) || !doesTaskUseTargetGroundPoint(task)) {
     return null;
   }
 
@@ -10978,17 +10969,9 @@ function compareUnitsByDrawOrder(a, b) {
   return a.x - b.x;
 }
 
-function compareBuildingsByDrawOrder(a, b) {
-  const aRow = getBuildingBottomRow(a);
-  const bRow = getBuildingBottomRow(b);
-
-  if (aRow !== bRow) return aRow - bRow;
-  return a.x - b.x;
-}
-
-function compareVehiclesByDrawOrder(a, b) {
-  const aRow = getVehicleBottomRow(a);
-  const bRow = getVehicleBottomRow(b);
+function compareConstructiblesByDrawOrder(kind, a, b) {
+  const aRow = getConstructibleBottomRowForKind(kind, a);
+  const bRow = getConstructibleBottomRowForKind(kind, b);
 
   if (aRow !== bRow) return aRow - bRow;
   return a.x - b.x;
@@ -11088,9 +11071,7 @@ function drawBuildHouseCostHint() {
 
   const constructible = getConstructionHintBuildingType(getSelectedUnit(), playHoverCell)
     || createFoundationConstructibleDescriptor("building", "house");
-  const costStatus = constructible.kind === "vehicle"
-    ? getVehicleBuildCostStatus(constructible.type)
-    : getBuildingBuildCostStatus(constructible.type);
+  const costStatus = getConstructibleBuildCostStatus(constructible.kind, constructible.type);
   const screen = isoToScreen(playHoverCell.x, playHoverCell.y);
   const quantityFontSize = Math.max(10, Math.round(11 * zoomLevels[zoomIndex]));
   const symbolFontSize = Math.max(14, Math.round(18 * zoomLevels[zoomIndex]));
@@ -11107,11 +11088,9 @@ function drawBuildHouseCostHint() {
     width: Math.max(18, Math.round(20 * zoomLevels[zoomIndex])),
     height: Math.max(12, Math.round(14 * zoomLevels[zoomIndex])),
   };
-  const subjectImagePath = constructible.kind === "vehicle"
-    ? (getVehicleSpec(constructible.type)?.subtypes?.[0]?.image || "")
-    : (getBuildingSpec(constructible.type)?.subtypes?.[0]?.image || "");
+  const subjectImagePath = getConstructibleSpec(constructible.kind, constructible.type)?.subtypes?.[0]?.image || "";
   const subjectImage = subjectImagePath
-    ? (constructible.kind === "vehicle" ? vehicleImages[subjectImagePath] : buildingImages[subjectImagePath])
+    ? (getConstructibleImageRegistryForKind(constructible.kind)[subjectImagePath] || null)
     : null;
   const stoneImage = resourceIconImages[resourceUiIcons.stone] || null;
   const lumberImage = resourceIconImages[resourceUiIcons.lumber] || null;
@@ -11310,7 +11289,7 @@ function drawUnitMoveTaskLines(now = performance.now()) {
 
     const moveTarget = isReplayPhase()
       ? turnReplayMoveTargets.get(currentUnit.id) || null
-      : (currentUnit.task?.type === "move" ? currentUnit.task : null);
+      : (isTaskAction(currentUnit.task, unitActions.walk) ? currentUnit.task : null);
 
     if (!moveTarget) {
       return false;
@@ -11437,7 +11416,7 @@ function drawMovingUnit(now = performance.now()) {
     const mountedVehicle = getMountedVehicle(movingUnit);
 
     if (mountedVehicle) {
-      drawVehicle(mountedVehicle);
+      drawConstructibleForKind("vehicle", mountedVehicle);
     } else {
       drawMountedVehicleAtScreen(dismountVehicleScreen, movingUnit, ctx, { now });
     }
@@ -11526,73 +11505,33 @@ function drawMountedVehicleAtScreen(
   }
 
   const mountedVehicleSpriteConfig = getMountedVehicleSpriteConfig(currentUnit);
-
-  if (mountedVehicleSpriteConfig && getSpriteAnimationImagePaths(mountedVehicleSpriteConfig).length > 0) {
-    const direction = currentUnit?.move?.direction || getUnitDisplayDirection(currentUnit);
-    const imagePath = currentUnit?.move
-      ? getMovingSpriteImage(currentUnit, mountedVehicleSpriteConfig, direction, now)
-      : getStationarySpriteImage(currentUnit, mountedVehicleSpriteConfig, now, frameIndex);
-
-    if (imagePath) {
-      drawSpriteAtScreen(
-        screen,
-        drawContext,
-        imagePath,
-        vehicleImages,
-        mountedVehicleSpriteConfig,
-        shouldMirrorSpriteImage(imagePath, direction, currentUnit, mountedVehicleSpriteConfig),
-        false,
-        currentUnit,
-      );
-      return;
-    }
-  }
-
-  const visual = getVehicleVisual(mountedVehicle);
-  const renderMode = visual?.renderMode || getVehicleRenderMode(mountedVehicle.type);
-  const imagePath =
-    renderMode === "perTile" && Array.isArray(visual?.tileImages) && visual.tileImages.length > 0
-      ? (visual.tileImages[0] || visual.image || "")
-      : (visual?.image || "");
-  const image = imagePath ? vehicleImages[imagePath] : null;
-
-  if (!visual || !image?.complete || image.naturalWidth <= 0) {
+  if (!mountedVehicleSpriteConfig) {
     return;
   }
 
-  drawContext.save();
-  drawContext.globalAlpha = visual.alpha ?? 1;
-
-  if (renderMode === "footprintImageNative") {
-    const baseScale = Number(getVehicleSpec(mountedVehicle.type)?.nativeScaleAt100Zoom);
-    const baseOffsetY = Number(getVehicleSpec(mountedVehicle.type)?.nativeOffsetYAt100Zoom);
-    const zoomScale = zoomLevels[zoomIndex] * (Number.isFinite(baseScale) ? baseScale : 0.5);
-    const drawWidth = image.naturalWidth * zoomScale;
-    const drawHeight = image.naturalHeight * zoomScale;
-    const offsetY = zoomLevels[zoomIndex] * (Number.isFinite(baseOffsetY) ? baseOffsetY : 0);
-    const baseY = screen.y - tile.edge - tile.height * 0.32 + tile.height * (visual.yOffsetFactor || 0);
-    const drawBottom = baseY + tile.height + tile.edge;
-
-    drawContext.drawImage(
-      image,
-      screen.x - drawWidth / 2,
-      drawBottom - drawHeight + offsetY,
-      drawWidth,
-      drawHeight,
-    );
-  } else {
-    const drawY = screen.y - tile.edge - tile.height * 0.32 + tile.height * (visual.yOffsetFactor || 0);
-
-    drawContext.drawImage(
-      image,
-      screen.x - tile.width / 2,
-      drawY,
-      tile.width,
-      tile.height + tile.edge,
-    );
+  if (getSpriteAnimationImagePaths(mountedVehicleSpriteConfig).length === 0) {
+    return;
   }
 
-  drawContext.restore();
+  const direction = currentUnit?.move?.direction || getUnitDisplayDirection(currentUnit);
+  const imagePath = currentUnit?.move
+    ? getMovingSpriteImage(currentUnit, mountedVehicleSpriteConfig, direction, now)
+    : getStationarySpriteImage(currentUnit, mountedVehicleSpriteConfig, now, frameIndex);
+
+  if (!imagePath) {
+    return;
+  }
+
+  drawSpriteAtScreen(
+    screen,
+    drawContext,
+    imagePath,
+    vehicleImages,
+    mountedVehicleSpriteConfig,
+    shouldMirrorSpriteImage(imagePath, direction, currentUnit, mountedVehicleSpriteConfig),
+    false,
+    currentUnit,
+  );
 }
 
 function getAnimatedTaskFrameOffset(currentUnit) {
@@ -11616,53 +11555,149 @@ function isFishingTask(currentUnit) {
   return targetCell?.foodType === "fish";
 }
 
-function getFishingTaskFrames(currentUnit, spriteConfig = getRenderedUnitSpriteConfig(currentUnit)) {
-  const fishingConfig = getFishingTaskDirectionConfig(currentUnit, spriteConfig);
-  const frames = getFrameSetPaths(fishingConfig?.frameSet, spriteConfig);
-  return frames.length > 0 ? frames : (spriteConfig?.workFrames || []);
+function getGatherTaskProgressText(task) {
+  const gatherDurationTurns = getGatherTaskDurationTurns();
+  const completedTurns = clampInteger(
+    gatherDurationTurns - clampInteger(task?.turnsRemaining, 0, gatherDurationTurns, gatherDurationTurns),
+    0,
+    gatherDurationTurns,
+    0,
+  );
+
+  return `${completedTurns}/${gatherDurationTurns}`;
 }
 
-function getLandFoodTaskFrames(currentUnit, spriteConfig = getRenderedUnitSpriteConfig(currentUnit)) {
-  return spriteConfig?.landFoodFrames?.length > 0 ? spriteConfig.landFoodFrames : (spriteConfig?.workFrames || []);
+function getSpriteDirectionGroup(direction) {
+  if (usesNorthUnitSprite(direction)) {
+    return "north";
+  }
+
+  if (usesSouthUnitSprite(direction)) {
+    return "south";
+  }
+
+  return "side";
 }
 
-function getMaterialGatherTaskFrames(currentUnit, spriteConfig = getRenderedUnitSpriteConfig(currentUnit)) {
-  const targetCell = getUnitTaskTargetCell(currentUnit);
-  const materialType = getCellMaterialResourceType(targetCell);
-
-  if (materialType === "lumber" && spriteConfig?.lumberFrames?.length > 0) {
-    return spriteConfig.lumberFrames;
+function getDirectionalSpriteSourceCandidates(variant, direction) {
+  const candidateSet = spriteDirectionalSourceCandidateSets[variant];
+  if (!candidateSet) {
+    return [];
   }
 
-  if (materialType === "stone" && spriteConfig?.stoneFrames?.length > 0) {
-    return spriteConfig.stoneFrames;
+  return candidateSet[getSpriteDirectionGroup(direction)] || [];
+}
+
+function getSpriteSourceImagePaths(spriteConfig, sourceKey) {
+  if (!spriteConfig || !sourceKey) {
+    return [];
   }
 
-  return spriteConfig?.workFrames || [];
+  if (spriteAnimationSingleImageFields.includes(sourceKey)) {
+    return hasSpriteImageSource(spriteConfig, sourceKey) ? [spriteConfig[sourceKey]] : [];
+  }
+
+  return getFrameSetPaths(sourceKey, spriteConfig);
+}
+
+function hasSpriteSourceContent(spriteConfig, sourceKey) {
+  return getSpriteSourceImagePaths(spriteConfig, sourceKey).length > 0;
+}
+
+function getFirstSpriteSourceKey(spriteConfig, sourceKeys, { allowOverrides = false } = {}) {
+  if (!spriteConfig) {
+    return "";
+  }
+
+  for (const sourceKey of sourceKeys || []) {
+    if (!sourceKey) {
+      continue;
+    }
+
+    if (hasSpriteSourceContent(spriteConfig, sourceKey)) {
+      return sourceKey;
+    }
+
+    if (allowOverrides && hasSpriteSourceOverrides(spriteConfig, sourceKey)) {
+      return sourceKey;
+    }
+  }
+
+  return "";
+}
+
+function getSpriteSourcePreviewImage(spriteConfig, sourceKey, preferredFrameIndex = 0) {
+  const imagePaths = getSpriteSourceImagePaths(spriteConfig, sourceKey);
+  return imagePaths[preferredFrameIndex] || imagePaths[0] || "";
+}
+
+function getFishingTaskSourceCandidates(currentUnit, spriteConfig = getRenderedUnitSpriteConfig(currentUnit)) {
+  const sourceKey = getFishingRenderSourceKey(currentUnit, spriteConfig);
+
+  return sourceKey
+    ? [sourceKey, ...spriteTaskSourceCandidateSets.work]
+    : spriteTaskSourceCandidateSets.work;
+}
+
+function getGatherFoodTaskSourceCandidates(currentUnit, spriteConfig = getRenderedUnitSpriteConfig(currentUnit)) {
+  if (isFishingTask(currentUnit)) {
+    return getFishingTaskSourceCandidates(currentUnit, spriteConfig);
+  }
+
+  return spriteTaskSourceCandidateSets.landFood;
+}
+
+function getGatherMaterialsTaskSourceCandidates(currentUnit) {
+  const materialType = getCellMaterialResourceType(getUnitTaskTargetCell(currentUnit));
+
+  if (materialType === "lumber") {
+    return spriteTaskSourceCandidateSets.lumber;
+  }
+
+  if (materialType === "stone") {
+    return spriteTaskSourceCandidateSets.stone;
+  }
+
+  return spriteTaskSourceCandidateSets.work;
+}
+
+function getUnitTaskSpriteSourceCandidates(currentUnit, spriteConfig) {
+  const spec = getUnitTaskSpec(currentUnit);
+
+  if (spec?.getTaskSpriteSourceCandidates) {
+    return spec.getTaskSpriteSourceCandidates(currentUnit, spriteConfig) || [];
+  }
+
+  if (spec?.countsAsWork) {
+    return spriteTaskSourceCandidateSets.work;
+  }
+
+  return spriteTaskSourceCandidateSets.idle;
+}
+
+function getUnitTaskAnimatedFrames(currentUnit, spriteConfig = getRenderedUnitSpriteConfig(currentUnit)) {
+  const sourceKey = getUnitTaskSpriteRenderSourceKey(currentUnit, spriteConfig);
+  return getFrameSetPaths(sourceKey, spriteConfig);
+}
+
+function getUnitTaskSpriteRenderSourceKey(currentUnit, spriteConfig) {
+  return getFirstSpriteSourceKey(
+    spriteConfig,
+    getUnitTaskSpriteSourceCandidates(currentUnit, spriteConfig),
+    { allowOverrides: true },
+  );
 }
 
 function getAnimatedTaskSpriteImage(currentUnit, spriteConfig, frameIndex = 0) {
-  let frames = spriteConfig?.workFrames || [];
-
-  if (currentUnit?.task?.type === "perform" && spriteConfig?.playFrames?.length > 0) {
-    frames = spriteConfig.playFrames;
-  } else if (currentUnit?.task?.type === "research" && spriteConfig?.researchFrames?.length > 0) {
-    frames = spriteConfig.researchFrames;
-  } else if (isFishingTask(currentUnit)) {
-    frames = getFishingTaskFrames(currentUnit, spriteConfig);
-  } else if (currentUnit?.task?.type === "gatherFood") {
-    frames = getLandFoodTaskFrames(currentUnit, spriteConfig);
-  } else if (currentUnit?.task?.type === "gatherMaterials") {
-    frames = getMaterialGatherTaskFrames(currentUnit, spriteConfig);
-  }
+  const sourceKey = getUnitTaskSpriteRenderSourceKey(currentUnit, spriteConfig);
+  const frames = getSpriteSourceImagePaths(spriteConfig, sourceKey);
+  const offsetFrameIndex = frameIndex + getAnimatedTaskFrameOffset(currentUnit);
 
   if (frames.length === 0) {
     return spriteConfig?.idleImage || "";
   }
 
-  const offsetFrameIndex = frameIndex + getAnimatedTaskFrameOffset(currentUnit);
-
-  return frames[offsetFrameIndex % frames.length] || spriteConfig?.idleImage || "";
+  return frames[offsetFrameIndex % frames.length] || frames[0] || spriteConfig?.idleImage || "";
 }
 
 function getAnimatedTaskUnitImage(currentUnit, frameIndex = 0) {
@@ -11672,22 +11707,12 @@ function getAnimatedTaskUnitImage(currentUnit, frameIndex = 0) {
 function getMovePreviewSpriteImage(currentUnit, spriteConfig) {
   const task = currentUnit?.task;
   const direction = currentUnit?.move?.direction || (
-    task?.type === "move" || task?.type === "dismount"
+    getUnitTaskInspectorPreviewMode(currentUnit) === "move"
       ? getMoveDirection(currentUnit.x, currentUnit.y, task.toX, task.toY)
       : (currentUnit?.facing || "west")
   );
-  let moveFrames = spriteConfig?.moveFrames || [];
-  let fallbackImage = spriteConfig?.idleImage || "";
-
-  if (usesNorthUnitSprite(direction)) {
-    moveFrames = spriteConfig?.northMoveFrames || [];
-    fallbackImage = spriteConfig?.northImage || fallbackImage;
-  } else if (usesSouthUnitSprite(direction)) {
-    moveFrames = spriteConfig?.southMoveFrames || [];
-    fallbackImage = spriteConfig?.southImage || fallbackImage;
-  }
-
-  return moveFrames[1] || moveFrames[0] || fallbackImage;
+  const sourceKey = getFirstSpriteSourceKey(spriteConfig, getDirectionalSpriteSourceCandidates("move", direction));
+  return getSpriteSourcePreviewImage(spriteConfig, sourceKey, 1);
 }
 
 function getMovePreviewUnitImage(currentUnit) {
@@ -11699,11 +11724,11 @@ function getUnitInspectorSpriteImage(currentUnit) {
     return "";
   }
 
-  if (currentUnit.move || currentUnit.task?.type === "move" || currentUnit.task?.type === "dismount") {
+  if (currentUnit.move || getUnitTaskInspectorPreviewMode(currentUnit) === "move") {
     return getMovePreviewUnitImage(currentUnit);
   }
 
-  if (isWorkingTask(currentUnit.task)) {
+  if (getUnitTaskInspectorPreviewMode(currentUnit) === "animated") {
     return getAnimatedTaskUnitImage(currentUnit, 0);
   }
 
@@ -11719,16 +11744,8 @@ function getStationarySpriteImage(currentUnit, spriteConfig, now = performance.n
   }
 
   const direction = getUnitDisplayDirection(currentUnit);
-
-  if (usesNorthUnitSprite(direction)) {
-    return spriteConfig?.northImage || "";
-  }
-
-  if (usesSouthUnitSprite(direction)) {
-    return spriteConfig?.southImage || "";
-  }
-
-  return spriteConfig?.idleImage || "";
+  const sourceKey = getFirstSpriteSourceKey(spriteConfig, getDirectionalSpriteSourceCandidates("stationary", direction));
+  return getSpriteSourcePreviewImage(spriteConfig, sourceKey);
 }
 
 function getStationaryUnitImage(currentUnit, now = performance.now(), explicitFrameIndex = null) {
@@ -11741,25 +11758,19 @@ function getStationaryUnitImage(currentUnit, now = performance.now(), explicitFr
 }
 
 function getMovingSpriteImage(currentUnit, spriteConfig, direction = "west", now = performance.now()) {
-  let moveFrames = spriteConfig?.moveFrames || [];
-  let fallbackImage = spriteConfig?.idleImage || "";
+  const sourceKey = getFirstSpriteSourceKey(spriteConfig, getDirectionalSpriteSourceCandidates("move", direction));
+  const moveFrames = getSpriteSourceImagePaths(spriteConfig, sourceKey);
+  const fallbackImage = moveFrames[0] || spriteConfig?.idleImage || "";
   const moveFrameSequence = Array.isArray(spriteConfig?.moveFrameSequence)
     ? spriteConfig.moveFrameSequence
     : [];
-
-  if (usesNorthUnitSprite(direction)) {
-    moveFrames = spriteConfig?.northMoveFrames || [];
-    fallbackImage = spriteConfig?.northImage || fallbackImage;
-  } else if (usesSouthUnitSprite(direction)) {
-    moveFrames = spriteConfig?.southMoveFrames || [];
-    fallbackImage = spriteConfig?.southImage || fallbackImage;
-  }
 
   if (
     !currentUnit?.move ||
     moveFrames.length === 0 ||
     !spriteConfig ||
-    moveFrameSequence.length === 0
+    moveFrameSequence.length === 0 ||
+    !spriteAnimationFrameArrayFields.includes(sourceKey)
   ) {
     return fallbackImage;
   }
@@ -11816,7 +11827,7 @@ function getSpriteRenderAction(currentUnit) {
     return "";
   }
 
-  return getActionForTask(currentUnit.task);
+  return getTaskActionId(currentUnit.task) || "";
 }
 
 function hasSpriteFrameSet(spriteConfig, fieldName) {
@@ -11866,117 +11877,28 @@ function getSpriteRenderSourceKey(currentUnit, spriteConfig) {
   }
 
   if (!currentUnit) {
-    return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+    return getFirstSpriteSourceKey(spriteConfig, spriteTaskSourceCandidateSets.idle, { allowOverrides: true });
   }
 
   if (currentUnit.move) {
     const direction = currentUnit.move.direction || currentUnit.facing || "west";
-
-    if (usesNorthUnitSprite(direction)) {
-      if (hasSpriteFrameSet(spriteConfig, "northMoveFrames")) {
-        return "northMoveFrames";
-      }
-      if (hasSpriteImageSource(spriteConfig, "northImage")) {
-        return "northImage";
-      }
-      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
-    }
-
-    if (usesSouthUnitSprite(direction)) {
-      if (hasSpriteFrameSet(spriteConfig, "southMoveFrames")) {
-        return "southMoveFrames";
-      }
-      if (hasSpriteImageSource(spriteConfig, "southImage")) {
-        return "southImage";
-      }
-      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
-    }
-
-    if (hasSpriteFrameSet(spriteConfig, "moveFrames")) {
-      return "moveFrames";
-    }
-
-    return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+    return getFirstSpriteSourceKey(
+      spriteConfig,
+      getDirectionalSpriteSourceCandidates("move", direction),
+      { allowOverrides: true },
+    );
   }
 
   if (isUnitWorking(currentUnit)) {
-    if (currentUnit.task?.type === "perform") {
-      if (hasSpriteFrameSet(spriteConfig, "playFrames")) {
-        return "playFrames";
-      }
-      if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
-        return "workFrames";
-      }
-      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
-    }
-
-    if (currentUnit.task?.type === "research") {
-      if (hasSpriteFrameSet(spriteConfig, "researchFrames")) {
-        return "researchFrames";
-      }
-      if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
-        return "workFrames";
-      }
-      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
-    }
-
-    if (isFishingTask(currentUnit)) {
-      const sourceKey = getFishingRenderSourceKey(currentUnit, spriteConfig);
-      if (sourceKey && (hasSpriteFrameSet(spriteConfig, sourceKey) || hasSpriteSourceOverrides(spriteConfig, sourceKey))) {
-        return sourceKey;
-      }
-      if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
-        return "workFrames";
-      }
-      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
-    }
-
-    if (currentUnit.task?.type === "gatherFood") {
-      if (hasSpriteFrameSet(spriteConfig, "landFoodFrames")) {
-        return "landFoodFrames";
-      }
-      if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
-        return "workFrames";
-      }
-      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
-    }
-
-    if (currentUnit.task?.type === "gatherMaterials") {
-      const materialType = getCellMaterialResourceType(getUnitTaskTargetCell(currentUnit));
-
-      if (materialType === "lumber" && hasSpriteFrameSet(spriteConfig, "lumberFrames")) {
-        return "lumberFrames";
-      }
-
-      if (materialType === "stone" && hasSpriteFrameSet(spriteConfig, "stoneFrames")) {
-        return "stoneFrames";
-      }
-
-      if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
-        return "workFrames";
-      }
-
-      return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
-    }
-
-    if (hasSpriteFrameSet(spriteConfig, "workFrames")) {
-      return "workFrames";
-    }
-
-    return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+    return getUnitTaskSpriteRenderSourceKey(currentUnit, spriteConfig);
   }
 
   const direction = getUnitDisplayDirection(currentUnit);
-
-  if (usesNorthUnitSprite(direction) && hasSpriteImageSource(spriteConfig, "northImage")) {
-    return "northImage";
-  }
-
-  if (usesSouthUnitSprite(direction) && hasSpriteImageSource(spriteConfig, "southImage")) {
-    return "southImage";
-  }
-
-  return hasSpriteImageSource(spriteConfig, "idleImage") ? "idleImage" : "";
+  return getFirstSpriteSourceKey(
+    spriteConfig,
+    getDirectionalSpriteSourceCandidates("stationary", direction),
+    { allowOverrides: true },
+  );
 }
 
 function getSpriteRenderSpec(spriteConfig, currentUnit = null) {
@@ -12902,26 +12824,15 @@ function drawPaths() {
   ctx.restore();
 }
 
-function drawBuildings() {
-  const visibleBuildings = buildings
-    .filter((building) => isCellVisibleToPlayer(getCell(building.x, building.y)))
+function drawVisibleConstructibles(kind, items = getConstructibleCollectionForKind(kind)) {
+  const visibleConstructibles = items
+    .filter((constructible) => !normalizeLinkedEntityId(constructible?.riderUnitId))
+    .filter((constructible) => isCellVisibleToPlayer(getCell(constructible.x, constructible.y)))
     .slice()
-    .sort(compareBuildingsByDrawOrder);
+    .sort((a, b) => compareConstructiblesByDrawOrder(kind, a, b));
 
-  for (const building of visibleBuildings) {
-    drawBuilding(building);
-  }
-}
-
-function drawVehicles() {
-  const visibleVehicles = vehicles
-    .filter((vehicle) => !normalizeLinkedEntityId(vehicle.riderUnitId))
-    .filter((vehicle) => isCellVisibleToPlayer(getCell(vehicle.x, vehicle.y)))
-    .slice()
-    .sort(compareVehiclesByDrawOrder);
-
-  for (const vehicle of visibleVehicles) {
-    drawVehicle(vehicle);
+  for (const constructible of visibleConstructibles) {
+    drawConstructibleForKind(kind, constructible);
   }
 }
 
@@ -12966,14 +12877,6 @@ function drawNativeSingleCellImageAtCell(image, cell, drawContext = ctx) {
     drawBox.width,
     drawBox.height,
   );
-}
-
-function drawBuilding(building) {
-  drawConstructibleForKind("building", building);
-}
-
-function drawVehicle(vehicle) {
-  drawConstructibleForKind("vehicle", vehicle);
 }
 
 function drawFogBorders(cell, screen, lift) {
@@ -13556,8 +13459,8 @@ function renderStaticLayerToMain() {
     }
   }
 
-  drawBuildings();
-  drawVehicles();
+  drawVisibleConstructibles("building", buildings);
+  drawVisibleConstructibles("vehicle", vehicles);
 }
 
 function cacheStaticLayer() {
@@ -13751,13 +13654,11 @@ function applyEditorUnitSelection(unitTypeId) {
   const currentUnit = getUnitAtCell(activeCell.x, activeCell.y);
 
   if (!unitTypeId) {
-    if (currentUnit) {
-      removeEditorUnit(currentUnit);
-      setEditStateDirty(true);
-    }
-    updateEditInspector();
-    closeEditorDropdowns();
-    draw();
+    const mutation = currentUnit ? removeEditorUnit(currentUnit) : null;
+    refreshAfterEditorMutation({
+      ...(mutation || {}),
+      closeDropdowns: true,
+    });
     return;
   }
 
@@ -13768,26 +13669,25 @@ function applyEditorUnitSelection(unitTypeId) {
     currentUnit.staminaMax = getDefaultUnitStamina(currentUnit.unitType);
     currentUnit.stamina = clampNumber(currentUnit.stamina, 0, 999, currentUnit.staminaMax);
 
-    if (currentUnit.task && !canUnitUseAction(currentUnit, getActionForTask(currentUnit.task))) {
+    if (currentUnit.task && !canUnitUseAction(currentUnit, getTaskActionId(currentUnit.task))) {
       currentUnit.task = null;
     }
 
-    invalidateStaticUnitsLayer();
-    updateUnitReadout();
-    if (JSON.stringify(serializeUnit(currentUnit)) !== previousSnapshot) {
-      setEditStateDirty(true);
-    }
-    updateEditInspector();
-    closeEditorDropdowns();
-    draw();
+    refreshAfterEditorMutation({
+      invalidateUnits: true,
+      didChange: JSON.stringify(serializeUnit(currentUnit)) !== previousSnapshot,
+      closeDropdowns: true,
+    });
     return;
   }
 
-  if (placeEditorUnitAtCell(activeCell, unitTypeId)) {
-    setEditStateDirty(true);
-    updateEditInspector();
-    closeEditorDropdowns();
-    draw();
+  const mutation = placeEditorUnitAtCell(activeCell, unitTypeId);
+
+  if (mutation) {
+    refreshAfterEditorMutation({
+      ...mutation,
+      closeDropdowns: true,
+    });
   }
 }
 
@@ -13810,12 +13710,12 @@ function applyEditorUnitActionSelection(action) {
     if (!canUnitUseAction(currentUnit, unitActions.play)) {
       return;
     }
-    currentUnit.task = createPerformTask();
+    currentUnit.task = createUnitTaskForAction(unitActions.play);
   } else if (action === unitActions.research) {
     if (!canUnitUseAction(currentUnit, unitActions.research) || !getSelectedResearchGoalTechnologyId()) {
       return;
     }
-    currentUnit.task = createResearchTask();
+    currentUnit.task = createUnitTaskForAction(unitActions.research);
   } else {
     return;
   }
@@ -13824,15 +13724,12 @@ function applyEditorUnitActionSelection(action) {
   currentUnit.lastStepFromX = null;
   currentUnit.lastStepFromY = null;
   unit = currentUnit;
-  selectedUnitAction = getPreferredUnitAction(currentUnit, getActionForTask(currentUnit.task));
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
-  if (JSON.stringify(serializeUnit(currentUnit)) !== previousSnapshot) {
-    setEditStateDirty(true);
-  }
-  updateEditInspector();
-  closeEditorDropdowns();
-  draw();
+  selectedUnitAction = getPreferredUnitAction(currentUnit, getTaskActionId(currentUnit.task));
+  refreshAfterEditorMutation({
+    invalidateUnits: true,
+    didChange: JSON.stringify(serializeUnit(currentUnit)) !== previousSnapshot,
+    closeDropdowns: true,
+  });
 }
 
 function syncBuildingEditorState(building, { abandoned = building?.state === "abandoned" } = {}) {
@@ -13848,12 +13745,12 @@ function syncBuildingEditorState(building, { abandoned = building?.state === "ab
   building.state = getBuildingCompleteness(building) < 1 ? "construction" : "complete";
 }
 
-function canPlaceEditorBuildingAtCell(cell, type) {
-  if (!cell || hasFoodResource(cell) || getBuildingAtCell(cell.x, cell.y) || getVehicleAtCell(cell.x, cell.y)) {
-    return false;
-  }
+function canPlaceEditorConstructibleAtCell(kind, cell, type) {
+  return canPlaceNewConstructibleConstructionOnCellForKind(kind, cell, type);
+}
 
-  return canPlaceNewBuildingConstructionOnCell(cell, type);
+function canPlaceEditorBuildingAtCell(cell, type) {
+  return canPlaceEditorConstructibleAtCell("building", cell, type);
 }
 
 function canPlaceEditorUnitTypeAtCell(cell, unitTypeId, currentUnit = null) {
@@ -13873,147 +13770,100 @@ function canPlaceEditorUnitTypeAtCell(cell, unitTypeId, currentUnit = null) {
   }).canOccupy;
 }
 
-function canCellHostVehiclePlacement(cell, allowedTerrains = null) {
-  if (!cell) {
-    return false;
-  }
-
-  const normalizedAllowedTerrains = Array.isArray(allowedTerrains) && allowedTerrains.length > 0
-    ? allowedTerrains
-    : ["grass"];
-
-  return (
-    normalizedAllowedTerrains.includes(cell.type) &&
-    !getBuildingAtCell(cell.x, cell.y) &&
-    !getVehicleAtCell(cell.x, cell.y) &&
-    !getUnitAtCell(cell.x, cell.y)
-  );
-}
-
 function canPlaceEditorVehicleAtCell(originCell, type) {
-  const placementEntries = getVehiclePlacementEntries(originCell, type);
-
-  if (placementEntries.length === 0) {
-    return false;
-  }
-
-  return placementEntries.every(({ cell, allowedTerrains }) => canCellHostVehiclePlacement(cell, allowedTerrains));
-}
-
-function clearUnitsHomeBuildingId(buildingId) {
-  for (const currentUnit of getUnits()) {
-    if (currentUnit?.homeBuildingId === buildingId) {
-      currentUnit.homeBuildingId = null;
-    }
-  }
-}
-
-function clearUnitsMountedVehicleId(vehicleId) {
-  for (const currentUnit of getUnits()) {
-    if (currentUnit?.mountedVehicleId === vehicleId) {
-      currentUnit.mountedVehicleId = null;
-    }
-  }
+  return canPlaceEditorConstructibleAtCell("vehicle", originCell, type);
 }
 
 function removeEditorUnit(currentUnit) {
   if (!currentUnit) {
-    return false;
+    return null;
   }
 
+  const mutation = {
+    didChange: true,
+    invalidateWorld: false,
+    invalidateUnits: true,
+  };
   const mountedVehicle = getMountedVehicle(currentUnit);
 
   if (mountedVehicle) {
     mountedVehicle.riderUnitId = null;
     currentUnit.mountedVehicleId = null;
-    invalidateStaticLayer();
+    mutation.invalidateWorld = true;
   }
 
   units = units.filter((candidate) => candidate !== currentUnit);
   removeUnitOccupancyEntry(currentUnit);
 
   if (currentUnit.selected) {
-    clearUnitSelection();
+    clearUnitSelectionState({ syncActive: false });
   }
 
   syncActiveUnit();
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
-  return true;
+  return mutation;
 }
 
-function removeEditorBuilding(building) {
-  if (!building) {
-    return false;
-  }
-
-  buildings = buildings.filter((candidate) => candidate !== building);
-  clearUnitsHomeBuildingId(building.id);
-  clampStockpileToCapacity();
-  invalidateStaticLayer();
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
-  return true;
+function getConstructibleLinkedUnitProperty(kind) {
+  return normalizeConstructibleKind(kind) === "vehicle" ? "mountedVehicleId" : "homeBuildingId";
 }
 
-function placeEditorBuildingAtCell(cell, type) {
-  if (!canPlaceEditorBuildingAtCell(cell, type)) {
-    return false;
+function clearUnitsLinkedConstructibleId(kind, constructibleId) {
+  const property = getConstructibleLinkedUnitProperty(kind);
+
+  for (const currentUnit of getUnits()) {
+    if (currentUnit?.[property] === constructibleId) {
+      currentUnit[property] = null;
+    }
   }
-
-  const building = createBuildingConstructionAtCell(cell, type, { spendResources: false });
-
-  if (!building) {
-    return false;
-  }
-
-  building.state = "complete";
-  building.completeness = 1;
-  invalidateStaticLayer();
-  return true;
 }
 
-function removeEditorVehicle(vehicle) {
-  if (!vehicle) {
-    return false;
+function removeEditorConstructible(kind, constructible) {
+  const normalizedKind = normalizeConstructibleKind(kind);
+
+  if (!constructible) {
+    return null;
   }
 
-  vehicles = vehicles.filter((candidate) => candidate !== vehicle);
-  clearUnitsMountedVehicleId(vehicle.id);
-  invalidateStaticLayer();
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
-  return true;
-}
-
-function placeEditorVehicleAtCell(cell, type) {
-  if (!canPlaceEditorVehicleAtCell(cell, type)) {
-    return false;
+  if (normalizedKind === "vehicle") {
+    vehicles = vehicles.filter((candidate) => candidate !== constructible);
+  } else {
+    buildings = buildings.filter((candidate) => candidate !== constructible);
+    clampStockpileToCapacity();
   }
 
-  const vehicle = {
-    id: createVehicleId(),
-    type,
-    subtype: getVehicleSubtypeVariants(type)[0]?.id || `${type}_01`,
-    x: cell.x,
-    y: cell.y,
-    width: getVehicleWidth(type),
-    height: getVehicleHeight(type),
-    state: "complete",
-    walkable: isVehicleWalkable(type),
-    completeness: 1,
-    constructionCost: getVehicleConstructionCost(type),
-    riderUnitId: null,
+  clearUnitsLinkedConstructibleId(normalizedKind, constructible.id);
+  return {
+    didChange: true,
+    invalidateWorld: true,
+    invalidateUnits: true,
   };
+}
 
-  vehicles.push(vehicle);
-  invalidateStaticLayer();
-  return true;
+function placeEditorConstructibleAtCell(kind, cell, type) {
+  const normalizedKind = normalizeConstructibleKind(kind);
+
+  if (!canPlaceEditorConstructibleAtCell(normalizedKind, cell, type)) {
+    return null;
+  }
+
+  const constructible = createConstructibleConstructionAtCellForKind(normalizedKind, cell, type, { spendResources: false });
+
+  if (!constructible) {
+    return null;
+  }
+
+  constructible.state = "complete";
+  constructible.completeness = 1;
+  return {
+    didChange: true,
+    invalidateWorld: true,
+    invalidateUnits: false,
+  };
 }
 
 function placeEditorUnitAtCell(cell, unitTypeId) {
   if (!cell || !canPlaceEditorUnitTypeAtCell(cell, unitTypeId)) {
-    return false;
+    return null;
   }
 
   const normalizedTypeId = normalizeUnitTypeId(unitTypeId);
@@ -14039,11 +13889,131 @@ function placeEditorUnitAtCell(cell, unitTypeId) {
 
   units.push(newUnit);
   updateUnitOccupancyEntry(newUnit);
-  maybeMountUnitAtCurrentCell(newUnit);
+  const didMountVehicle = maybeMountUnitAtCurrentCell(newUnit, { refreshPresentation: false });
   syncActiveUnit();
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
-  return true;
+  return {
+    didChange: true,
+    invalidateWorld: didMountVehicle,
+    invalidateUnits: true,
+  };
+}
+
+function refreshAfterEditorMutation({
+  invalidateWorld = false,
+  invalidateUnits = false,
+  didChange = false,
+  closeDropdowns = false,
+  drawNow = true,
+} = {}) {
+  if (invalidateWorld) {
+    invalidateStaticLayer();
+  }
+
+  if (invalidateUnits) {
+    invalidateStaticUnitsLayer();
+    updateUnitReadout();
+  }
+
+  if (didChange) {
+    setEditStateDirty(true);
+  }
+
+  updateEditInspector();
+
+  if (closeDropdowns) {
+    closeEditorDropdowns();
+  }
+
+  if (drawNow) {
+    draw();
+  }
+}
+
+function getEditorConstructibleControls(kind) {
+  return normalizeConstructibleKind(kind) === "vehicle"
+    ? {
+      completionInput: editorVehicleCompletionInput,
+      abandonedInput: editorVehicleAbandonedInput,
+    }
+    : {
+      completionInput: editorBuildingCompletionInput,
+      abandonedInput: editorBuildingAbandonedInput,
+    };
+}
+
+function getEditorConstructibleAtActiveCell(kind) {
+  return activeCell ? findConstructibleAtCellForKind(kind, activeCell.x, activeCell.y) : null;
+}
+
+function applyEditorConstructibleCompletionValue(kind) {
+  const constructible = getEditorConstructibleAtActiveCell(kind);
+
+  if (!constructible) {
+    return;
+  }
+
+  const { completionInput, abandonedInput } = getEditorConstructibleControls(kind);
+  const previousSnapshot = JSON.stringify(serializeConstructibleForKind(kind, constructible));
+  constructible.completeness = clamp(
+    getEditorIntegerInputValue(completionInput, Math.round(getBuildingCompleteness(constructible) * 100), 0, 100) / 100,
+    0,
+    1,
+  );
+  syncBuildingEditorState(constructible, { abandoned: Boolean(abandonedInput?.checked) });
+
+  refreshAfterEditorMutation({
+    invalidateWorld: true,
+    didChange: JSON.stringify(serializeConstructibleForKind(kind, constructible)) !== previousSnapshot,
+  });
+}
+
+function applyEditorConstructibleAbandonedValue(kind) {
+  const constructible = getEditorConstructibleAtActiveCell(kind);
+
+  if (!constructible) {
+    return;
+  }
+
+  const { abandonedInput } = getEditorConstructibleControls(kind);
+  const previousSnapshot = JSON.stringify(serializeConstructibleForKind(kind, constructible));
+  syncBuildingEditorState(constructible, { abandoned: Boolean(abandonedInput?.checked) });
+
+  refreshAfterEditorMutation({
+    invalidateWorld: true,
+    didChange: JSON.stringify(serializeConstructibleForKind(kind, constructible)) !== previousSnapshot,
+  });
+}
+
+function applyEditorConstructibleSelection(kind, type, canEditSelection) {
+  if (!activeCell || typeof canEditSelection !== "function" || !canEditSelection(activeCell)) {
+    return;
+  }
+
+  const normalizedKind = normalizeConstructibleKind(kind);
+  const currentConstructible = findConstructibleAtCellForKind(normalizedKind, activeCell.x, activeCell.y);
+
+  if (!type) {
+    const mutation = currentConstructible ? removeEditorConstructible(normalizedKind, currentConstructible) : null;
+    refreshAfterEditorMutation({
+      ...(mutation || {}),
+      closeDropdowns: true,
+    });
+    return;
+  }
+
+  if (currentConstructible) {
+    closeEditorDropdowns();
+    return;
+  }
+
+  const mutation = placeEditorConstructibleAtCell(normalizedKind, activeCell, type);
+
+  if (mutation) {
+    refreshAfterEditorMutation({
+      ...mutation,
+      closeDropdowns: true,
+    });
+  }
 }
 
 function handlePlayCanvasMove(event) {
@@ -14113,12 +14083,10 @@ function applyTerrainSelection(type) {
 
   const previousSnapshot = JSON.stringify(serializeCell(activeCell));
   setCellTerrain(activeCell, type);
-  if (JSON.stringify(serializeCell(activeCell)) !== previousSnapshot) {
-    setEditStateDirty(true);
-  }
-  updateEditInspector();
-  closeEditorDropdowns();
-  draw();
+  refreshAfterEditorMutation({
+    didChange: JSON.stringify(serializeCell(activeCell)) !== previousSnapshot,
+    closeDropdowns: true,
+  });
 }
 
 function applyEditorFoodSelection(foodType) {
@@ -14144,13 +14112,11 @@ function applyEditorFoodSelection(foodType) {
     activeCell.foodAmount = activeCell.foodCapacity;
   }
 
-  invalidateStaticLayer();
-  if (JSON.stringify(serializeCell(activeCell)) !== previousSnapshot) {
-    setEditStateDirty(true);
-  }
-  updateEditInspector();
-  closeEditorDropdowns();
-  draw();
+  refreshAfterEditorMutation({
+    invalidateWorld: true,
+    didChange: JSON.stringify(serializeCell(activeCell)) !== previousSnapshot,
+    closeDropdowns: true,
+  });
 }
 
 function applyEditorResourceCurrentValue() {
@@ -14178,14 +14144,12 @@ function applyEditorResourceCurrentValue() {
     activeCell.materialAmount = getEditorNumberInputValue(editorResourceCurrentInput, activeCell.materialAmount, 0);
   }
 
-  invalidateStaticLayer();
   const nextValue =
     resourceMode.kind === "path" ? getCellVisitsCount(activeCell) : clampNonNegativeNumber(activeCell.materialAmount, 999999, 0);
-  if (nextValue !== previousValue) {
-    setEditStateDirty(true);
-  }
-  updateEditInspector();
-  draw();
+  refreshAfterEditorMutation({
+    invalidateWorld: true,
+    didChange: nextValue !== previousValue,
+  });
 }
 
 function applyEditorResourceTotalValue() {
@@ -14200,12 +14164,10 @@ function applyEditorFoodCurrentValue() {
   const previousValue = clampNonNegativeNumber(activeCell.foodAmount, 999999, 0);
   activeCell.foodAmount = getEditorNumberInputValue(editorFoodCurrentInput, activeCell.foodAmount, 0, getCellFoodMaxAmount(activeCell));
 
-  invalidateStaticLayer();
-  if (clampNonNegativeNumber(activeCell.foodAmount, 999999, 0) !== previousValue) {
-    setEditStateDirty(true);
-  }
-  updateEditInspector();
-  draw();
+  refreshAfterEditorMutation({
+    invalidateWorld: true,
+    didChange: clampNonNegativeNumber(activeCell.foodAmount, 999999, 0) !== previousValue,
+  });
 }
 
 function applyEditorFoodTotalValue() {
@@ -14218,170 +14180,36 @@ function applyEditorFoodTotalValue() {
   activeCell.foodCapacity = getEditorNumberInputValue(editorFoodTotalInput, getCellFoodMaxAmount(activeCell), 0);
   activeCell.foodAmount = clampNumber(activeCell.foodAmount, 0, getCellFoodMaxAmount(activeCell), 0);
 
-  invalidateStaticLayer();
-  if (getCellFoodMaxAmount(activeCell) !== previousCapacity || clampNonNegativeNumber(activeCell.foodAmount, 999999, 0) !== previousAmount) {
-    setEditStateDirty(true);
-  }
-  updateEditInspector();
-  draw();
+  refreshAfterEditorMutation({
+    invalidateWorld: true,
+    didChange:
+      getCellFoodMaxAmount(activeCell) !== previousCapacity ||
+      clampNonNegativeNumber(activeCell.foodAmount, 999999, 0) !== previousAmount,
+  });
 }
 
 function applyEditorBuildingCompletionValue() {
-  if (!activeCell) {
-    return;
-  }
-
-  const building = getBuildingAtCell(activeCell.x, activeCell.y);
-
-  if (!building) {
-    return;
-  }
-
-  const previousSnapshot = JSON.stringify(serializeBuilding(building));
-  building.completeness = clamp(
-    getEditorIntegerInputValue(editorBuildingCompletionInput, Math.round(getBuildingCompleteness(building) * 100), 0, 100) / 100,
-    0,
-    1,
-  );
-  syncBuildingEditorState(building, { abandoned: Boolean(editorBuildingAbandonedInput?.checked) });
-
-  invalidateStaticLayer();
-  if (JSON.stringify(serializeBuilding(building)) !== previousSnapshot) {
-    setEditStateDirty(true);
-  }
-  updateEditInspector();
-  draw();
+  applyEditorConstructibleCompletionValue("building");
 }
 
 function applyEditorBuildingAbandonedValue() {
-  if (!activeCell) {
-    return;
-  }
-
-  const building = getBuildingAtCell(activeCell.x, activeCell.y);
-
-  if (!building) {
-    return;
-  }
-
-  const previousSnapshot = JSON.stringify(serializeBuilding(building));
-  syncBuildingEditorState(building, { abandoned: Boolean(editorBuildingAbandonedInput?.checked) });
-  invalidateStaticLayer();
-  if (JSON.stringify(serializeBuilding(building)) !== previousSnapshot) {
-    setEditStateDirty(true);
-  }
-  updateEditInspector();
-  draw();
+  applyEditorConstructibleAbandonedValue("building");
 }
 
 function applyEditorVehicleCompletionValue() {
-  if (!activeCell) {
-    return;
-  }
-
-  const vehicle = getVehicleAtCell(activeCell.x, activeCell.y);
-
-  if (!vehicle) {
-    return;
-  }
-
-  const previousSnapshot = JSON.stringify(serializeVehicle(vehicle));
-  vehicle.completeness = clamp(
-    getEditorIntegerInputValue(editorVehicleCompletionInput, Math.round(getBuildingCompleteness(vehicle) * 100), 0, 100) / 100,
-    0,
-    1,
-  );
-  syncBuildingEditorState(vehicle, { abandoned: Boolean(editorVehicleAbandonedInput?.checked) });
-
-  invalidateStaticLayer();
-  if (JSON.stringify(serializeVehicle(vehicle)) !== previousSnapshot) {
-    setEditStateDirty(true);
-  }
-  updateEditInspector();
-  draw();
+  applyEditorConstructibleCompletionValue("vehicle");
 }
 
 function applyEditorVehicleAbandonedValue() {
-  if (!activeCell) {
-    return;
-  }
-
-  const vehicle = getVehicleAtCell(activeCell.x, activeCell.y);
-
-  if (!vehicle) {
-    return;
-  }
-
-  const previousSnapshot = JSON.stringify(serializeVehicle(vehicle));
-  syncBuildingEditorState(vehicle, { abandoned: Boolean(editorVehicleAbandonedInput?.checked) });
-  invalidateStaticLayer();
-  if (JSON.stringify(serializeVehicle(vehicle)) !== previousSnapshot) {
-    setEditStateDirty(true);
-  }
-  updateEditInspector();
-  draw();
+  applyEditorConstructibleAbandonedValue("vehicle");
 }
 
 function applyEditorBuildingSelection(buildingType) {
-  if (!activeCell || !canEditBuildingSelection(activeCell)) {
-    return;
-  }
-
-  const currentBuilding = getBuildingAtCell(activeCell.x, activeCell.y);
-
-  if (!buildingType) {
-    if (currentBuilding) {
-      removeEditorBuilding(currentBuilding);
-      setEditStateDirty(true);
-    }
-    updateEditInspector();
-    closeEditorDropdowns();
-    draw();
-    return;
-  }
-
-  if (currentBuilding) {
-    closeEditorDropdowns();
-    return;
-  }
-
-  if (placeEditorBuildingAtCell(activeCell, buildingType)) {
-    setEditStateDirty(true);
-    updateEditInspector();
-    closeEditorDropdowns();
-    draw();
-  }
+  applyEditorConstructibleSelection("building", buildingType, canEditBuildingSelection);
 }
 
 function applyEditorVehicleSelection(vehicleType) {
-  if (!activeCell || !canEditVehicleSelection(activeCell)) {
-    return;
-  }
-
-  const currentVehicle = getVehicleAtCell(activeCell.x, activeCell.y);
-
-  if (!vehicleType) {
-    if (currentVehicle) {
-      removeEditorVehicle(currentVehicle);
-      setEditStateDirty(true);
-    }
-    updateEditInspector();
-    closeEditorDropdowns();
-    draw();
-    return;
-  }
-
-  if (currentVehicle) {
-    closeEditorDropdowns();
-    return;
-  }
-
-  if (placeEditorVehicleAtCell(activeCell, vehicleType)) {
-    setEditStateDirty(true);
-    updateEditInspector();
-    closeEditorDropdowns();
-    draw();
-  }
+  applyEditorConstructibleSelection("vehicle", vehicleType, canEditVehicleSelection);
 }
 
 bindEditorUiEvents();
