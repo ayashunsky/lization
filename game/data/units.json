@@ -150,162 +150,187 @@
   ],
   "spriteTypes": {
     "villager": {
-      "idleImage": "../assets/units/unit_sprite.png",
-      "northImage": "../assets/units/unit_back_sprite.png",
-      "southImage": "../assets/units/unit_front_sprite.png",
-      "workFrames": [
-        "../assets/units/unit_work_sprite.png",
-        "../assets/units/unit_work_sprite_1.png"
-      ],
-      "landFoodFrames": [
-        "../assets/units/unit_food_sprite.png",
-        "../assets/units/unit_food_sprite_1.png"
-      ],
-      "lumberFrames": [
-        "../assets/units/unit_lumber_sprite.png",
-        "../assets/units/unit_lumber_sprite_1.png"
-      ],
-      "stoneFrames": [
-        "../assets/units/unit_stone_sprite.png",
-        "../assets/units/unit_stone_sprite_1.png"
-      ],
-      "sideFishingFrames": [
-        "../assets/units/unit_fishing_sprite.png",
-        "../assets/units/unit_fishing_sprite_1.png"
-      ],
-      "northFishingFrames": [
-        "../assets/units/unit_fishing_north_sprite.png",
-        "../assets/units/unit_fishing_north_sprite_1.png"
-      ],
-      "southFishingFrames": [
-        "../assets/units/unit_fishing_south_sprite.png",
-        "../assets/units/unit_fishing_south_sprite_1.png"
-      ],
-      "playFrames": [
-        "../assets/units/unit_play_sprite.png",
-        "../assets/units/unit_play_sprite_1.png"
-      ],
-      "workFrameDuration": 180,
-      "northMoveFrames": [
-        "../assets/units/unit_back_step_sprite.png",
-        "../assets/units/unit_back_step_sprite_2.png"
-      ],
-      "southMoveFrames": [
-        "../assets/units/unit_front_step_sprite.png",
-        "../assets/units/unit_front_step_sprite_2.png"
-      ],
-      "moveFrames": [
-        "../assets/units/unit_sprite.png",
-        "../assets/units/unit_step_sprite.png"
-      ],
-      "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0],
-      "sourceRenderOverrides": {
-        "southFishingFrames": {
-          "anchorY": 34.5
+      "sources": {
+        "idle": {
+          "W": "../assets/units/unit_sprite.png",
+          "N": "../assets/units/unit_back_sprite.png",
+          "S": "../assets/units/unit_front_sprite.png"
+        },
+        "move": {
+          "W": [
+            "../assets/units/unit_sprite.png",
+            "../assets/units/unit_step_sprite.png"
+          ],
+          "N": [
+            "../assets/units/unit_back_step_sprite.png",
+            "../assets/units/unit_back_step_sprite_2.png"
+          ],
+          "S": [
+            "../assets/units/unit_front_step_sprite.png",
+            "../assets/units/unit_front_step_sprite_2.png"
+          ]
+        },
+        "work": {
+          "O": [
+            "../assets/units/unit_work_sprite.png",
+            "../assets/units/unit_work_sprite_1.png"
+          ]
+        },
+        "gatherFoodLand": {
+          "O": [
+            "../assets/units/unit_food_sprite.png",
+            "../assets/units/unit_food_sprite_1.png"
+          ]
+        },
+        "gatherFoodFish": {
+          "W": [
+            "../assets/units/unit_fishing_sprite.png",
+            "../assets/units/unit_fishing_sprite_1.png"
+          ],
+          "N": [
+            "../assets/units/unit_fishing_north_sprite.png",
+            "../assets/units/unit_fishing_north_sprite_1.png"
+          ],
+          "S": [
+            "../assets/units/unit_fishing_south_sprite.png",
+            "../assets/units/unit_fishing_south_sprite_1.png"
+          ]
+        },
+        "play": {
+          "O": [
+            "../assets/units/unit_play_sprite.png",
+            "../assets/units/unit_play_sprite_1.png"
+          ]
+        },
+        "gatherMaterialsLumber": {
+          "O": [
+            "../assets/units/unit_lumber_sprite.png",
+            "../assets/units/unit_lumber_sprite_1.png"
+          ]
+        },
+        "gatherMaterialsStone": {
+          "O": [
+            "../assets/units/unit_stone_sprite.png",
+            "../assets/units/unit_stone_sprite_1.png"
+          ]
         }
       },
-      "fishingDirections": {
-        "north": {
-          "frameSet": "northFishingFrames",
-          "mirror": false
+      "workFrameDuration": 180,
+      "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0],
+      "actionContextSourceCandidates": {
+        "gatherFood": {
+          "food:fish": ["gatherFoodFish", "work", "idle"],
+          "terrain:water": ["gatherFoodFish", "work", "idle"],
+          "default": ["gatherFoodLand", "work", "idle"]
         },
-        "northEast": {
-          "frameSet": "sideFishingFrames",
-          "mirror": true
-        },
-        "east": {
-          "frameSet": "sideFishingFrames",
-          "mirror": true
-        },
-        "southEast": {
-          "frameSet": "sideFishingFrames",
-          "mirror": true
-        },
-        "south": {
-          "frameSet": "southFishingFrames",
-          "mirror": false
-        },
-        "southWest": {
-          "frameSet": "sideFishingFrames",
-          "mirror": false
-        },
-        "west": {
-          "frameSet": "sideFishingFrames",
-          "mirror": false
-        },
-        "northWest": {
-          "frameSet": "sideFishingFrames",
-          "mirror": false
+        "gatherMaterials": {
+          "material:lumber": ["gatherMaterialsLumber", "work", "idle"],
+          "material:stone": ["gatherMaterialsStone", "work", "idle"],
+          "default": ["work", "idle"]
         }
       },
       "groundOffset": 0.75,
       "moveDuration": 720
     },
     "grandSchtroumpf": {
-      "idleImage": "../assets/units/unit_grand_schtroumpf_sprite.png",
-      "northImage": "../assets/units/unit_grand_schtroumpf_back_sprite.png",
-      "southImage": "../assets/units/unit_grand_schtroumpf_front_sprite.png",
-      "northMoveFrames": [
-        "../assets/units/unit_grand_schtroumpf_back_step_sprite.png",
-        "../assets/units/unit_grand_schtroumpf_back_step_sprite_2.png"
-      ],
-      "southMoveFrames": [
-        "../assets/units/unit_grand_schtroumpf_front_step_sprite.png",
-        "../assets/units/unit_grand_schtroumpf_front_step_sprite_2.png"
-      ],
-      "moveFrames": [
-        "../assets/units/unit_grand_schtroumpf_sprite.png",
-        "../assets/units/unit_grand_schtroumpf_step_sprite.png"
-      ],
-      "researchFrames": [
-        "../assets/units/unit_gs_research_sprite.png",
-        "../assets/units/unit_gs_research_sprite_1.png"
-      ]
+      "sources": {
+        "idle": {
+          "W": "../assets/units/unit_grand_schtroumpf_sprite.png",
+          "N": "../assets/units/unit_grand_schtroumpf_back_sprite.png",
+          "S": "../assets/units/unit_grand_schtroumpf_front_sprite.png"
+        },
+        "move": {
+          "W": [
+            "../assets/units/unit_grand_schtroumpf_sprite.png",
+            "../assets/units/unit_grand_schtroumpf_step_sprite.png"
+          ],
+          "N": [
+            "../assets/units/unit_grand_schtroumpf_back_step_sprite.png",
+            "../assets/units/unit_grand_schtroumpf_back_step_sprite_2.png"
+          ],
+          "S": [
+            "../assets/units/unit_grand_schtroumpf_front_step_sprite.png",
+            "../assets/units/unit_grand_schtroumpf_front_step_sprite_2.png"
+          ]
+        },
+        "research": {
+          "O": [
+            "../assets/units/unit_gs_research_sprite.png",
+            "../assets/units/unit_gs_research_sprite_1.png"
+          ]
+        }
+      }
     },
     "paresseux": {
-      "playFrames": [
-        "../assets/units/paresseux.png"
-      ]
+      "sources": {
+        "play": {
+          "O": [
+            "../assets/units/paresseux.png"
+          ]
+        }
+      }
     },
     "farceur": {
-      "playFrames": [
-        "../assets/units/farceur_play.png",
-        "../assets/units/farceur_play_1.png"
-      ]
+      "sources": {
+        "play": {
+          "O": [
+            "../assets/units/farceur_play.png",
+            "../assets/units/farceur_play_1.png"
+          ]
+        }
+      }
     },
     "gourmand": {
-      "playFrames": [
-        "../assets/units/gourmand_play.png",
-        "../assets/units/gourmand_play_1.png"
-      ]
+      "sources": {
+        "play": {
+          "O": [
+            "../assets/units/gourmand_play.png",
+            "../assets/units/gourmand_play_1.png"
+          ]
+        }
+      }
     },
     "lunettes": {
-      "idleImage": "../assets/units/lunettes.png",
-      "southImage": "../assets/units/lunettes_front.png",
-      "moveFrames": [
-        "../assets/units/lunettes.png",
-        "../assets/units/lunettes_step.png"
-      ],
-      "southMoveFrames": [
-        "../assets/units/lunettes_front_step.png",
-        "../assets/units/lunettes_front_step_2.png"
-      ],
-      "workFrames": [
-        "../assets/units/lunettes_work.png",
-        "../assets/units/lunettes_work_1.png"
-      ],
-      "lumberFrames": [
-        "../assets/units/lunettes_lumber.png",
-        "../assets/units/lunettes_lumber_1.png"
-      ],
-      "stoneFrames": [
-        "../assets/units/lunettes_stone.png",
-        "../assets/units/lunettes_stone_1.png"
-      ],
-      "playFrames": [
-        "../assets/units/lunettes_play.png",
-        "../assets/units/lunettes_play_1.png"
-      ]
+      "sources": {
+        "idle": {
+          "W": "../assets/units/lunettes.png",
+          "S": "../assets/units/lunettes_front.png"
+        },
+        "move": {
+          "W": [
+            "../assets/units/lunettes.png",
+            "../assets/units/lunettes_step.png"
+          ],
+          "S": [
+            "../assets/units/lunettes_front_step.png",
+            "../assets/units/lunettes_front_step_2.png"
+          ]
+        },
+        "work": {
+          "O": [
+            "../assets/units/lunettes_work.png",
+            "../assets/units/lunettes_work_1.png"
+          ]
+        },
+        "gatherMaterialsLumber": {
+          "O": [
+            "../assets/units/lunettes_lumber.png",
+            "../assets/units/lunettes_lumber_1.png"
+          ]
+        },
+        "gatherMaterialsStone": {
+          "O": [
+            "../assets/units/lunettes_stone.png",
+            "../assets/units/lunettes_stone_1.png"
+          ]
+        },
+        "play": {
+          "O": [
+            "../assets/units/lunettes_play.png",
+            "../assets/units/lunettes_play_1.png"
+          ]
+        }
+      }
     }
   }
 }

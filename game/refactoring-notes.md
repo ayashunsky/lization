@@ -104,3 +104,7 @@
 3. Sprite source selection is now candidate-based for movement, stationary rendering, and task rendering.
    - Task specs provide source candidates instead of each action owning separate frame/source selector helpers.
    - The current manifest field names stay unchanged; the cleanup is internal only.
+
+4. Sprite manifests now support a direction-keyed `sources` catalog.
+   - Runtime lookup now resolves `O/N/E/S/W/NE/NW/SE/SW` with a hard-coded fallback chain.
+   - Checked-in unit and mounted-vehicle manifests have been migrated to `sources`.

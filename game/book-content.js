@@ -22,6 +22,7 @@ export function createBookContentApi({
     hasDefinedUnitType,
     getResolvedUnitConfig,
     getUnitSpriteConfig,
+    getUnitSpriteIcon,
     getDefaultUnitName,
     getTechnologyDefinition,
     getTechnologyLabel,
@@ -267,7 +268,7 @@ export function createBookContentApi({
 
     const config = getResolvedUnitConfig(resolvedTypeId);
     const spriteConfig = getUnitSpriteConfig(resolvedTypeId);
-    const icon = spriteConfig?.idleImage || null;
+    const icon = getUnitSpriteIcon(resolvedTypeId, spriteConfig);
 
     return {
       ...(config && typeof config === "object" ? config : {}),

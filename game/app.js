@@ -313,7 +313,6 @@ const unitActionSpecs = Object.freeze({
     resolveTask: (currentUnit) => resolveGatherFoodTask(currentUnit),
     queueTask: (options) => queueGatherFoodUnitAction(options),
     getInspectorProgressText: (currentUnit) => getGatherTaskProgressText(currentUnit?.task),
-    getTaskSpriteSourceCandidates: (currentUnit, spriteConfig) => getGatherFoodTaskSourceCandidates(currentUnit, spriteConfig),
   }),
   [unitActions.gatherMaterials]: Object.freeze({
     id: unitActions.gatherMaterials,
@@ -333,7 +332,6 @@ const unitActionSpecs = Object.freeze({
     resolveTask: (currentUnit) => resolveGatherMaterialsTask(currentUnit),
     queueTask: (options) => queueGatherMaterialsUnitAction(options),
     getInspectorProgressText: (currentUnit) => getGatherTaskProgressText(currentUnit?.task),
-    getTaskSpriteSourceCandidates: (currentUnit) => getGatherMaterialsTaskSourceCandidates(currentUnit),
   }),
   [unitActions.buildHouse]: Object.freeze({
     id: unitActions.buildHouse,
@@ -796,6 +794,7 @@ const {
     hasDefinedUnitType,
     getResolvedUnitConfig,
     getUnitSpriteConfig,
+    getUnitSpriteIcon,
     getDefaultUnitName,
     getTechnologyDefinition,
     getTechnologyLabel,
@@ -1372,21 +1371,57 @@ function normalizeUnitRulesConfig(entry) {
   return normalized;
 }
 
-const spriteAnimationSingleImageFields = Object.freeze(["idleImage", "northImage", "southImage"]);
-const spriteAnimationFrameArrayFields = Object.freeze([
-  "workFrames",
-  "researchFrames",
-  "landFoodFrames",
-  "lumberFrames",
-  "stoneFrames",
-  "sideFishingFrames",
-  "northFishingFrames",
-  "southFishingFrames",
-  "playFrames",
-  "northMoveFrames",
-  "southMoveFrames",
-  "moveFrames",
-]);
+const spriteSourceIds = Object.freeze({
+  idle: "idle",
+  move: "move",
+  work: "work",
+  gatherFoodLand: "gatherFoodLand",
+  gatherFoodFish: "gatherFoodFish",
+  gatherMaterialsLumber: "gatherMaterialsLumber",
+  gatherMaterialsStone: "gatherMaterialsStone",
+  play: "play",
+  research: "research",
+});
+const spriteDirectionFallbacks = Object.freeze({
+  O: null,
+  N: Object.freeze({ to: "W", mirror: false }),
+  E: Object.freeze({ to: "W", mirror: true }),
+  S: Object.freeze({ to: "E", mirror: false }),
+  W: Object.freeze({ to: "O", mirror: false }),
+  NE: Object.freeze({ to: "E", mirror: false }),
+  NW: Object.freeze({ to: "W", mirror: false }),
+  SE: Object.freeze({ to: "E", mirror: false }),
+  SW: Object.freeze({ to: "W", mirror: false }),
+});
+const spriteDirectionAliases = Object.freeze({
+  o: "O",
+  origin: "O",
+  no_direction: "O",
+  n: "N",
+  north: "N",
+  e: "E",
+  east: "E",
+  s: "S",
+  south: "S",
+  w: "W",
+  west: "W",
+  ne: "NE",
+  northeast: "NE",
+  north_east: "NE",
+  northEast: "NE",
+  nw: "NW",
+  northwest: "NW",
+  north_west: "NW",
+  northWest: "NW",
+  se: "SE",
+  southeast: "SE",
+  south_east: "SE",
+  southEast: "SE",
+  sw: "SW",
+  southwest: "SW",
+  south_west: "SW",
+  southWest: "SW",
+});
 const spriteAnimationNumericFields = Object.freeze([
   "workFrameDuration",
   "width",
@@ -1397,31 +1432,181 @@ const spriteAnimationNumericFields = Object.freeze([
   "moveDuration",
 ]);
 const spriteDirectionalSourceCandidateSets = Object.freeze({
-  stationary: Object.freeze({
-    north: Object.freeze(["northImage", "idleImage"]),
-    south: Object.freeze(["southImage", "idleImage"]),
-    side: Object.freeze(["idleImage"]),
-  }),
-  move: Object.freeze({
-    north: Object.freeze(["northMoveFrames", "northImage", "idleImage"]),
-    south: Object.freeze(["southMoveFrames", "southImage", "idleImage"]),
-    side: Object.freeze(["moveFrames", "idleImage"]),
-  }),
+  stationary: Object.freeze([spriteSourceIds.idle]),
+  move: Object.freeze([spriteSourceIds.move, spriteSourceIds.idle]),
 });
 const spriteTaskSourceCandidateSets = Object.freeze({
-  idle: Object.freeze(["idleImage"]),
-  work: Object.freeze(["workFrames", "idleImage"]),
-  play: Object.freeze(["playFrames", "workFrames", "idleImage"]),
-  research: Object.freeze(["researchFrames", "workFrames", "idleImage"]),
-  landFood: Object.freeze(["landFoodFrames", "workFrames", "idleImage"]),
-  lumber: Object.freeze(["lumberFrames", "workFrames", "idleImage"]),
-  stone: Object.freeze(["stoneFrames", "workFrames", "idleImage"]),
+  idle: Object.freeze([spriteSourceIds.idle]),
+  work: Object.freeze([spriteSourceIds.work, spriteSourceIds.idle]),
+  play: Object.freeze([spriteSourceIds.play, spriteSourceIds.work, spriteSourceIds.idle]),
+  research: Object.freeze([spriteSourceIds.research, spriteSourceIds.work, spriteSourceIds.idle]),
 });
+const spriteSourceCandidateDefaultContextId = "default";
+
+function normalizeSpriteDirectionId(direction) {
+  if (typeof direction !== "string") {
+    return "";
+  }
+
+  const trimmed = direction.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const directUpper = trimmed.toUpperCase();
+  if (spriteDirectionFallbacks[directUpper] || directUpper === "O") {
+    return directUpper;
+  }
+
+  return spriteDirectionAliases[trimmed] || spriteDirectionAliases[trimmed.toLowerCase()] || "";
+}
+
+function getSpriteDirectionId(direction, fallback = "O") {
+  return normalizeSpriteDirectionId(direction) || fallback;
+}
+
+function normalizeSpriteSourceId(sourceId) {
+  if (typeof sourceId !== "string") {
+    return "";
+  }
+
+  const trimmed = sourceId.trim();
+  return trimmed || "";
+}
 
 function normalizeSpriteFramePaths(value, imageResolver, manifestPath) {
   return Array.isArray(value)
     ? value.map((path) => imageResolver(path, manifestPath)).filter(Boolean)
     : undefined;
+}
+
+function normalizeSpriteSourceCandidateList(value) {
+  if (typeof value === "string") {
+    const normalizedSourceId = normalizeSpriteSourceId(value);
+    return normalizedSourceId ? [normalizedSourceId] : undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const normalized = value
+    .map((sourceId) => normalizeSpriteSourceId(sourceId))
+    .filter(Boolean);
+
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeSpriteSourceValue(
+  value,
+  kind,
+  imageResolver,
+  manifestPath,
+) {
+  if (kind === "image") {
+    const resolved = imageResolver(value, manifestPath);
+    return resolved ? { kind: "image", paths: [resolved] } : null;
+  }
+
+  const paths = normalizeSpriteFramePaths(value, imageResolver, manifestPath);
+  return paths && paths.length > 0
+    ? { kind: "frames", paths }
+    : null;
+}
+
+function normalizeSpriteDirectionSourceEntries(
+  entry,
+  imageResolver,
+  manifestPath,
+) {
+  if (!entry) {
+    return {};
+  }
+
+  const normalized = {};
+  const addDirectionEntry = (directionId, rawValue) => {
+    const normalizedDirectionId = getSpriteDirectionId(directionId, "");
+    const normalizedValue = normalizeSpriteSourceDirectionValue(rawValue, imageResolver, manifestPath);
+
+    if (!normalizedDirectionId || !normalizedValue) {
+      return;
+    }
+
+    normalized[normalizedDirectionId] = normalizedValue;
+  };
+
+  if (typeof entry === "string" || Array.isArray(entry)) {
+    addDirectionEntry("O", entry);
+    return normalized;
+  }
+
+  if (!entry || typeof entry !== "object") {
+    return normalized;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(entry, "image") || Object.prototype.hasOwnProperty.call(entry, "frames")) {
+    addDirectionEntry("O", entry);
+    return normalized;
+  }
+
+  for (const [directionId, rawValue] of Object.entries(entry)) {
+    addDirectionEntry(directionId, rawValue);
+  }
+
+  return normalized;
+}
+
+function normalizeSpriteSourceDirectionValue(value, imageResolver, manifestPath) {
+  if (typeof value === "string") {
+    return normalizeSpriteSourceValue(value, "image", imageResolver, manifestPath);
+  }
+
+  if (Array.isArray(value)) {
+    return normalizeSpriteSourceValue(value, "frames", imageResolver, manifestPath);
+  }
+
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  if (typeof value.image === "string") {
+    return normalizeSpriteSourceValue(value.image, "image", imageResolver, manifestPath);
+  }
+
+  if (Array.isArray(value.frames)) {
+    return normalizeSpriteSourceValue(value.frames, "frames", imageResolver, manifestPath);
+  }
+
+  return null;
+}
+
+function normalizeSpriteSources(entry, imageResolver, manifestPath) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    return undefined;
+  }
+
+  const normalized = {};
+
+  for (const [sourceKey, directionEntries] of Object.entries(entry)) {
+    const normalizedSourceId = normalizeSpriteSourceId(sourceKey);
+    if (!normalizedSourceId) {
+      continue;
+    }
+
+    const normalizedDirections = normalizeSpriteDirectionSourceEntries(
+      directionEntries,
+      imageResolver,
+      manifestPath,
+    );
+
+    if (Object.keys(normalizedDirections).length === 0) {
+      continue;
+    }
+
+    normalized[normalizedSourceId] = normalizedDirections;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 function normalizeSpriteAnimationConfig(
@@ -1435,19 +1620,10 @@ function normalizeSpriteAnimationConfig(
   const spriteEntry = entry && typeof entry === "object" ? entry : {};
   const normalized = {};
   const numericFields = [...spriteAnimationNumericFields, ...extraNumericFields];
+  const normalizedSources = normalizeSpriteSources(spriteEntry.sources, imageResolver, manifestPath);
 
-  for (const field of spriteAnimationSingleImageFields) {
-    const resolved = imageResolver(spriteEntry[field], manifestPath);
-    if (resolved) {
-      normalized[field] = resolved;
-    }
-  }
-
-  for (const field of spriteAnimationFrameArrayFields) {
-    const resolved = normalizeSpriteFramePaths(spriteEntry[field], imageResolver, manifestPath);
-    if (resolved) {
-      normalized[field] = resolved;
-    }
+  if (normalizedSources && Object.keys(normalizedSources).length > 0) {
+    normalized.sources = normalizedSources;
   }
 
   for (const field of numericFields) {
@@ -1463,69 +1639,12 @@ function normalizeSpriteAnimationConfig(
       .filter((value) => Number.isFinite(value));
   }
 
-  const directionRenderOverrides = normalizeNestedNumericObjects(spriteEntry.directionRenderOverrides);
-  if (directionRenderOverrides) {
-    normalized.directionRenderOverrides = directionRenderOverrides;
-  }
-
-  const sourceRenderOverrides = normalizeNestedNumericObjects(spriteEntry.sourceRenderOverrides);
-  if (sourceRenderOverrides) {
-    normalized.sourceRenderOverrides = sourceRenderOverrides;
-  }
-
-  const sourceDirectionRenderOverrides = normalizeDoubleNestedNumericObjects(spriteEntry.sourceDirectionRenderOverrides);
-  if (sourceDirectionRenderOverrides) {
-    normalized.sourceDirectionRenderOverrides = sourceDirectionRenderOverrides;
-  }
-
-  const actionRenderOverrides = normalizeNestedNumericObjects(spriteEntry.actionRenderOverrides);
-  if (actionRenderOverrides) {
-    normalized.actionRenderOverrides = actionRenderOverrides;
-  }
-
-  const actionDirectionRenderOverrides = normalizeDoubleNestedNumericObjects(spriteEntry.actionDirectionRenderOverrides);
-  if (actionDirectionRenderOverrides) {
-    normalized.actionDirectionRenderOverrides = actionDirectionRenderOverrides;
-  }
-
-  const fishingDirections = normalizeFishingDirectionEntries(spriteEntry.fishingDirections);
-  if (fishingDirections) {
-    normalized.fishingDirections = fishingDirections;
+  const actionContextSourceCandidates = normalizeActionContextSourceCandidates(spriteEntry.actionContextSourceCandidates);
+  if (actionContextSourceCandidates) {
+    normalized.actionContextSourceCandidates = actionContextSourceCandidates;
   }
 
   return normalized;
-}
-
-function normalizeUnitFramePaths(value, manifestPath = unitManifestPath) {
-  return normalizeSpriteFramePaths(value, resolveUnitAssetPath, manifestPath);
-}
-
-function normalizeFishingDirectionEntries(entries) {
-  if (!entries || typeof entries !== "object" || Array.isArray(entries)) {
-    return undefined;
-  }
-
-  const normalized = {};
-
-  for (const [direction, config] of Object.entries(entries)) {
-    const normalizedDirection = typeof direction === "string" ? direction.trim() : "";
-
-    if (!normalizedDirection || !config || typeof config !== "object" || Array.isArray(config)) {
-      continue;
-    }
-
-    const frameSet = typeof config.frameSet === "string" ? config.frameSet.trim() : "";
-    if (!frameSet) {
-      continue;
-    }
-
-    normalized[normalizedDirection] = {
-      frameSet,
-      mirror: Boolean(config.mirror),
-    };
-  }
-
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 function normalizeNumericObject(entry) {
@@ -1549,43 +1668,36 @@ function normalizeNumericObject(entry) {
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
-function normalizeNestedNumericObjects(entry) {
+function normalizeActionContextSourceCandidates(entry) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     return undefined;
   }
 
   const normalized = {};
 
-  for (const [key, value] of Object.entries(entry)) {
-    const normalizedKey = typeof key === "string" ? key.trim() : "";
-    const normalizedValue = normalizeNumericObject(value);
+  for (const [actionKey, contextEntries] of Object.entries(entry)) {
+    const normalizedActionId = typeof actionKey === "string" ? actionKey.trim() : "";
 
-    if (!normalizedKey || !normalizedValue) {
+    if (!normalizedActionId || !contextEntries || typeof contextEntries !== "object" || Array.isArray(contextEntries)) {
       continue;
     }
 
-    normalized[normalizedKey] = normalizedValue;
-  }
+    const normalizedContexts = {};
 
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
-}
+    for (const [contextKey, sourceCandidates] of Object.entries(contextEntries)) {
+      const normalizedContextKey = typeof contextKey === "string" ? contextKey.trim() : "";
+      const normalizedSourceCandidates = normalizeSpriteSourceCandidateList(sourceCandidates);
 
-function normalizeDoubleNestedNumericObjects(entry) {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-    return undefined;
-  }
+      if (!normalizedContextKey || !normalizedSourceCandidates) {
+        continue;
+      }
 
-  const normalized = {};
-
-  for (const [key, value] of Object.entries(entry)) {
-    const normalizedKey = typeof key === "string" ? key.trim() : "";
-    const normalizedValue = normalizeNestedNumericObjects(value);
-
-    if (!normalizedKey || !normalizedValue) {
-      continue;
+      normalizedContexts[normalizedContextKey] = normalizedSourceCandidates;
     }
 
-    normalized[normalizedKey] = normalizedValue;
+    if (Object.keys(normalizedContexts).length > 0) {
+      normalized[normalizedActionId] = normalizedContexts;
+    }
   }
 
   return Object.keys(normalized).length > 0 ? normalized : undefined;
@@ -5569,7 +5681,7 @@ function getEffectiveUnitConfig(unitOrTypeId = getDefaultUnitTypeId(), context =
   return applyUnitConfigModifiers(getResolvedUnitConfig(unitOrTypeId), context);
 }
 
-function mergeSpriteDirectionObjects(baseEntries, overrideEntries) {
+function mergeNestedSpriteValueObjects(baseEntries, overrideEntries) {
   const merged = { ...(baseEntries || {}) };
 
   for (const [key, value] of Object.entries(overrideEntries || {})) {
@@ -5584,17 +5696,24 @@ function mergeSpriteDirectionObjects(baseEntries, overrideEntries) {
         : value;
   }
 
-  return merged;
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-function mergeDoubleNestedSpriteDirectionObjects(baseEntries, overrideEntries) {
-  const merged = { ...(baseEntries || {}) };
+function mergeSpriteSourceCatalogs(baseSources, overrideSources) {
+  const merged = {};
 
-  for (const [key, value] of Object.entries(overrideEntries || {})) {
-    merged[key] = mergeSpriteDirectionObjects(baseEntries?.[key], value);
+  for (const [sourceId, directions] of Object.entries(baseSources || {})) {
+    merged[sourceId] = { ...(directions || {}) };
   }
 
-  return merged;
+  for (const [sourceId, directions] of Object.entries(overrideSources || {})) {
+    merged[sourceId] = {
+      ...(merged[sourceId] || {}),
+      ...(directions || {}),
+    };
+  }
+
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
 function mergeSpriteConfigs(baseConfig, overrideConfig) {
@@ -5604,29 +5723,10 @@ function mergeSpriteConfigs(baseConfig, overrideConfig) {
   return {
     ...base,
     ...override,
-    directionRenderOverrides: mergeSpriteDirectionObjects(
-      base.directionRenderOverrides,
-      override.directionRenderOverrides,
-    ),
-    sourceRenderOverrides: mergeSpriteDirectionObjects(
-      base.sourceRenderOverrides,
-      override.sourceRenderOverrides,
-    ),
-    sourceDirectionRenderOverrides: mergeDoubleNestedSpriteDirectionObjects(
-      base.sourceDirectionRenderOverrides,
-      override.sourceDirectionRenderOverrides,
-    ),
-    actionRenderOverrides: mergeSpriteDirectionObjects(
-      base.actionRenderOverrides,
-      override.actionRenderOverrides,
-    ),
-    actionDirectionRenderOverrides: mergeDoubleNestedSpriteDirectionObjects(
-      base.actionDirectionRenderOverrides,
-      override.actionDirectionRenderOverrides,
-    ),
-    fishingDirections: mergeSpriteDirectionObjects(
-      base.fishingDirections,
-      override.fishingDirections,
+    sources: mergeSpriteSourceCatalogs(base.sources, override.sources),
+    actionContextSourceCandidates: mergeNestedSpriteValueObjects(
+      base.actionContextSourceCandidates,
+      override.actionContextSourceCandidates,
     ),
   };
 }
@@ -5684,6 +5784,12 @@ function getUnitSpriteConfig(unitOrTypeId = unit) {
   }
 
   return mergeSpriteConfigs(defaultConfig, specificConfig);
+}
+
+function getUnitSpriteIcon(unitOrTypeId = unit, spriteConfig = getUnitSpriteConfig(unitOrTypeId)) {
+  return getSpriteResolvedImagePath(
+    getFirstResolvedSpriteSource(spriteConfig, spriteDirectionalSourceCandidateSets.stationary, "W"),
+  );
 }
 
 function getMountedRenderConfig(currentUnit = unit) {
@@ -7294,12 +7400,13 @@ function hasWorkingUnits() {
 
 function getWorkingUnitFrameIndex(now = performance.now()) {
   const spriteConfig = getUnitSpriteConfig();
+  const workFrames = getSpriteSourcePaths(spriteConfig, spriteSourceIds.work, "O");
 
-  if (!spriteConfig || spriteConfig.workFrames.length <= 1) {
+  if (!spriteConfig || workFrames.length <= 1) {
     return 0;
   }
 
-  return Math.floor(now / spriteConfig.workFrameDuration) % spriteConfig.workFrames.length;
+  return Math.floor(now / spriteConfig.workFrameDuration) % workFrames.length;
 }
 
 function canRenderAnimatedFrames() {
@@ -7336,30 +7443,68 @@ function getAnimationFrameInterval() {
   return Number.POSITIVE_INFINITY;
 }
 
-function getFrameSetPaths(frameSetName, spriteConfig = getUnitSpriteConfig()) {
-  const frameSet = spriteConfig?.[frameSetName];
-  return Array.isArray(frameSet) ? frameSet : [];
+function getSpriteDefinedSourceEntry(
+  spriteConfig,
+  sourceId,
+  directionId = "O",
+) {
+  return spriteConfig?.sources?.[sourceId]?.[directionId] || null;
 }
 
-function getAllFishingFrameSetNames() {
-  return Array.from(
-    new Set(
-      Object.values(getAllUnitSpriteConfigs())
-        .flatMap((spriteConfig) => Object.values(spriteConfig?.fishingDirections || {}))
-        .map((config) => config?.frameSet)
-        .filter((frameSetName) => typeof frameSetName === "string" && frameSetName),
-    ),
-  );
+function resolveSpriteSourceEntry(
+  spriteConfig,
+  sourceId,
+  requestedDirectionId = "O",
+) {
+  const normalizedDirectionId = getSpriteDirectionId(requestedDirectionId, "O");
+  let currentDirectionId = normalizedDirectionId;
+  let mirror = false;
+  const visited = new Set();
+
+  while (currentDirectionId && !visited.has(currentDirectionId)) {
+    visited.add(currentDirectionId);
+    const entry = getSpriteDefinedSourceEntry(spriteConfig, sourceId, currentDirectionId);
+
+    if (entry) {
+      return {
+        sourceId,
+        requestedDirectionId: normalizedDirectionId,
+        resolvedDirectionId: currentDirectionId,
+        mirror,
+        kind: entry.kind,
+        paths: entry.paths || [],
+      };
+    }
+
+    const fallback = spriteDirectionFallbacks[currentDirectionId];
+    if (!fallback) {
+      break;
+    }
+
+    mirror = fallback.mirror ? !mirror : mirror;
+    currentDirectionId = fallback.to || "";
+  }
+
+  return null;
 }
 
-function getAllFishingFrameImagePaths() {
-  return Array.from(
-    new Set(
-      Object.values(getAllUnitSpriteConfigs()).flatMap((spriteConfig) =>
-        getAllFishingFrameSetNames().flatMap((frameSetName) => getFrameSetPaths(frameSetName, spriteConfig)),
-      ),
-    ),
-  );
+function getSpriteSourcePaths(spriteConfig, sourceId, requestedDirectionId = "O") {
+  return resolveSpriteSourceEntry(spriteConfig, sourceId, requestedDirectionId)?.paths || [];
+}
+
+function getFirstResolvedSpriteSource(spriteConfig, sourceIds, requestedDirectionId = "O") {
+  for (const sourceId of sourceIds || []) {
+    if (!sourceId) {
+      continue;
+    }
+
+    const resolved = resolveSpriteSourceEntry(spriteConfig, sourceId, requestedDirectionId);
+    if (resolved && resolved.paths.length > 0) {
+      return resolved;
+    }
+  }
+
+  return null;
 }
 
 function shouldAnimateWorkingUnits() {
@@ -7388,13 +7533,7 @@ function getRawUnitTaskDirection(currentUnit) {
 }
 
 function getUnitTaskDirection(currentUnit) {
-  const direction = getRawUnitTaskDirection(currentUnit);
-
-  if (direction === "south") {
-    return "southEast";
-  }
-
-  return direction;
+  return getRawUnitTaskDirection(currentUnit);
 }
 
 function getUnitTaskTargetCell(currentUnit) {
@@ -7405,16 +7544,6 @@ function getUnitTaskTargetCell(currentUnit) {
   }
 
   return getCell(task.toX, task.toY);
-}
-
-function getFishingTaskDirectionConfig(currentUnit, spriteConfig = getRenderedUnitSpriteConfig(currentUnit)) {
-  if (!isFishingTask(currentUnit)) {
-    return null;
-  }
-
-  const direction = getRawUnitTaskDirection(currentUnit);
-
-  return spriteConfig?.fishingDirections?.[direction] || spriteConfig?.fishingDirections?.east || null;
 }
 
 function isUnitAnimating(currentUnit) {
@@ -8772,47 +8901,7 @@ function loadTileImages() {
       continue;
     }
 
-    pendingLoads.push(loadImage(spriteConfig.idleImage, unitImages));
-    pendingLoads.push(loadImage(spriteConfig.northImage, unitImages));
-    pendingLoads.push(loadImage(spriteConfig.southImage, unitImages));
-
-  for (const imagePath of spriteConfig.workFrames || []) {
-    pendingLoads.push(loadImage(imagePath, unitImages));
-  }
-
-    for (const imagePath of spriteConfig.researchFrames || []) {
-      pendingLoads.push(loadImage(imagePath, unitImages));
-    }
-
-    for (const imagePath of spriteConfig.landFoodFrames || []) {
-      pendingLoads.push(loadImage(imagePath, unitImages));
-    }
-
-    for (const imagePath of spriteConfig.lumberFrames || []) {
-      pendingLoads.push(loadImage(imagePath, unitImages));
-    }
-
-    for (const imagePath of spriteConfig.stoneFrames || []) {
-      pendingLoads.push(loadImage(imagePath, unitImages));
-    }
-
-    for (const imagePath of getAllFishingFrameImagePaths()) {
-      pendingLoads.push(loadImage(imagePath, unitImages));
-    }
-
-    for (const imagePath of spriteConfig.playFrames || []) {
-      pendingLoads.push(loadImage(imagePath, unitImages));
-    }
-
-    for (const imagePath of spriteConfig.northMoveFrames || []) {
-      pendingLoads.push(loadImage(imagePath, unitImages));
-    }
-
-    for (const imagePath of spriteConfig.southMoveFrames || []) {
-      pendingLoads.push(loadImage(imagePath, unitImages));
-    }
-
-    for (const imagePath of spriteConfig.moveFrames || []) {
+    for (const imagePath of getSpriteAnimationImagePaths(spriteConfig)) {
       pendingLoads.push(loadImage(imagePath, unitImages));
     }
   }
@@ -8897,21 +8986,14 @@ function getSpriteAnimationImagePaths(spriteConfig) {
     return [];
   }
 
-  const paths = [];
-
-  for (const field of spriteAnimationSingleImageFields) {
-    if (typeof spriteConfig[field] === "string" && spriteConfig[field]) {
-      paths.push(spriteConfig[field]);
-    }
-  }
-
-  for (const field of spriteAnimationFrameArrayFields) {
-    if (Array.isArray(spriteConfig[field])) {
-      paths.push(...spriteConfig[field].filter(Boolean));
-    }
-  }
-
-  return paths;
+  return [
+    ...new Set(
+      Object.values(spriteConfig.sources || {})
+        .flatMap((directionEntries) => Object.values(directionEntries || {}))
+        .flatMap((entry) => entry?.paths || [])
+        .filter(Boolean),
+    ),
+  ];
 }
 
 function getMountedRenderLayerImagePaths(catalog, layerKey) {
@@ -10897,10 +10979,6 @@ function getMoveDirection(fromX, fromY, toX, toY) {
   return "west";
 }
 
-function shouldMirrorUnitDirection(direction) {
-  return direction === "east" || direction === "northEast" || direction === "southEast";
-}
-
 function getTargetBasedWorkTaskGroundPoint(currentUnit) {
   const task = currentUnit?.task;
 
@@ -10909,6 +10987,7 @@ function getTargetBasedWorkTaskGroundPoint(currentUnit) {
   }
 
   const baseScreen = getCellScreenPositionForUnitRendering(getCell(currentUnit.x, currentUnit.y));
+  const targetCell = getUnitTaskTargetCell(currentUnit);
   const direction = getRawUnitTaskDirection(currentUnit);
   const halfW = tile.width / 2;
   const halfH = tile.height / 2;
@@ -10922,8 +11001,20 @@ function getTargetBasedWorkTaskGroundPoint(currentUnit) {
       return { x: baseScreen.x, y: baseScreen.y };
     case "east":
       return { x: baseScreen.x + halfW, y: baseScreen.y + halfH };
-    case "south":
-      return { x: baseScreen.x, y: baseScreen.y + tile.height };
+    case "south": {
+      const targetScreen = getCellScreenPositionForUnitRendering(targetCell);
+      const sourceSouthVertex = { x: baseScreen.x, y: baseScreen.y + tile.height };
+
+      if (!targetScreen) {
+        return sourceSouthVertex;
+      }
+
+      const targetCenter = { x: targetScreen.x, y: targetScreen.y + halfH };
+      return {
+        x: (sourceSouthVertex.x + targetCenter.x) / 2,
+        y: (sourceSouthVertex.y + targetCenter.y) / 2,
+      };
+    }
     case "west":
       return { x: baseScreen.x - halfW, y: baseScreen.y + halfH };
     case "northEast":
@@ -10937,14 +11028,6 @@ function getTargetBasedWorkTaskGroundPoint(currentUnit) {
     default:
       return null;
   }
-}
-
-function usesNorthUnitSprite(direction) {
-  return direction === "north";
-}
-
-function usesSouthUnitSprite(direction) {
-  return direction === "south";
 }
 
 function getStationaryUnits() {
@@ -11427,7 +11510,7 @@ function drawMovingUnit(now = performance.now()) {
     screen,
     ctx,
     imagePath,
-    shouldMirrorUnitImage(imagePath, direction, movingUnit),
+    shouldMirrorUnitImage(imagePath, movingUnit),
     !movingUnit.selected,
     movingUnit,
   );
@@ -11440,7 +11523,6 @@ function drawSelectedStationaryUnit(now = performance.now()) {
     return;
   }
 
-  const direction = getUnitDisplayDirection(selectedUnit);
   const imagePath = getStationaryUnitImage(selectedUnit, now);
   const screen = getStationaryUnitDrawScreenPosition(selectedUnit, imagePath, now);
 
@@ -11453,7 +11535,7 @@ function drawSelectedStationaryUnit(now = performance.now()) {
     screen,
     ctx,
     imagePath,
-    shouldMirrorUnitImage(imagePath, direction, selectedUnit),
+    shouldMirrorUnitImage(imagePath, selectedUnit),
     false,
     selectedUnit,
   );
@@ -11463,7 +11545,6 @@ function drawStationaryUnits(drawContext = ctx, frameIndex = 0) {
   const stationaryUnits = getStationaryUnits().slice().sort(compareUnitsByDrawOrder);
 
   for (const stationaryUnit of stationaryUnits) {
-    const direction = getUnitDisplayDirection(stationaryUnit);
     const imagePath = getStationaryUnitImage(stationaryUnit, undefined, frameIndex);
     const screen = getStationaryUnitDrawScreenPosition(stationaryUnit, imagePath);
 
@@ -11477,7 +11558,7 @@ function drawStationaryUnits(drawContext = ctx, frameIndex = 0) {
       screen,
       drawContext,
       imagePath,
-      shouldMirrorUnitImage(imagePath, direction, stationaryUnit),
+      shouldMirrorUnitImage(imagePath, stationaryUnit),
       !stationaryUnit.selected,
       stationaryUnit,
     );
@@ -11528,7 +11609,7 @@ function drawMountedVehicleAtScreen(
     imagePath,
     vehicleImages,
     mountedVehicleSpriteConfig,
-    shouldMirrorSpriteImage(imagePath, direction, currentUnit, mountedVehicleSpriteConfig),
+    shouldMirrorSpriteImage(imagePath, currentUnit, mountedVehicleSpriteConfig),
     false,
     currentUnit,
   );
@@ -11567,101 +11648,104 @@ function getGatherTaskProgressText(task) {
   return `${completedTurns}/${gatherDurationTurns}`;
 }
 
-function getSpriteDirectionGroup(direction) {
-  if (usesNorthUnitSprite(direction)) {
-    return "north";
-  }
-
-  if (usesSouthUnitSprite(direction)) {
-    return "south";
-  }
-
-  return "side";
+function getDirectionalSpriteSourceCandidates(variant) {
+  return spriteDirectionalSourceCandidateSets[variant] || [];
 }
 
-function getDirectionalSpriteSourceCandidates(variant, direction) {
-  const candidateSet = spriteDirectionalSourceCandidateSets[variant];
-  if (!candidateSet) {
-    return [];
-  }
-
-  return candidateSet[getSpriteDirectionGroup(direction)] || [];
-}
-
-function getSpriteSourceImagePaths(spriteConfig, sourceKey) {
-  if (!spriteConfig || !sourceKey) {
-    return [];
-  }
-
-  if (spriteAnimationSingleImageFields.includes(sourceKey)) {
-    return hasSpriteImageSource(spriteConfig, sourceKey) ? [spriteConfig[sourceKey]] : [];
-  }
-
-  return getFrameSetPaths(sourceKey, spriteConfig);
-}
-
-function hasSpriteSourceContent(spriteConfig, sourceKey) {
-  return getSpriteSourceImagePaths(spriteConfig, sourceKey).length > 0;
-}
-
-function getFirstSpriteSourceKey(spriteConfig, sourceKeys, { allowOverrides = false } = {}) {
-  if (!spriteConfig) {
+function getSpriteResolvedImagePath(sourceResolution, preferredFrameIndex = 0) {
+  if (!sourceResolution || sourceResolution.paths.length === 0) {
     return "";
   }
 
-  for (const sourceKey of sourceKeys || []) {
-    if (!sourceKey) {
-      continue;
+  return sourceResolution.paths[preferredFrameIndex] || sourceResolution.paths[0] || "";
+}
+
+function pushUnitTaskSpriteContextId(contextIds, contextId) {
+  const normalizedContextId = typeof contextId === "string" ? contextId.trim() : "";
+
+  if (!normalizedContextId || contextIds.includes(normalizedContextId)) {
+    return;
+  }
+
+  contextIds.push(normalizedContextId);
+}
+
+function getUnitTaskTargetSpriteContextIds(currentUnit) {
+  const contextIds = [];
+  const task = currentUnit?.task;
+  const targetCell = getUnitTaskTargetCell(currentUnit);
+
+  if (typeof task?.subjectKind === "string" && task.subjectKind) {
+    pushUnitTaskSpriteContextId(contextIds, `subjectKind:${task.subjectKind}`);
+  }
+
+  if (typeof task?.subjectType === "string" && task.subjectType) {
+    pushUnitTaskSpriteContextId(contextIds, `subjectType:${task.subjectType}`);
+
+    if (typeof task?.subjectKind === "string" && task.subjectKind) {
+      pushUnitTaskSpriteContextId(contextIds, `${task.subjectKind}:${task.subjectType}`);
     }
+  }
 
-    if (hasSpriteSourceContent(spriteConfig, sourceKey)) {
-      return sourceKey;
+  if (!targetCell) {
+    return contextIds;
+  }
+
+  const building = getBuildingAtCell(targetCell.x, targetCell.y);
+  if (building?.type) {
+    pushUnitTaskSpriteContextId(contextIds, "constructible:building");
+    pushUnitTaskSpriteContextId(contextIds, `building:${building.type}`);
+  }
+
+  const vehicle = getVehicleAtCell(targetCell.x, targetCell.y);
+  if (vehicle?.type) {
+    pushUnitTaskSpriteContextId(contextIds, "constructible:vehicle");
+    pushUnitTaskSpriteContextId(contextIds, `vehicle:${vehicle.type}`);
+  }
+
+  if (typeof targetCell.foodType === "string" && targetCell.foodType) {
+    pushUnitTaskSpriteContextId(contextIds, `food:${targetCell.foodType}`);
+  }
+
+  const materialType = getCellMaterialResourceType(targetCell);
+  if (materialType) {
+    pushUnitTaskSpriteContextId(contextIds, `material:${materialType}`);
+  }
+
+  if (typeof targetCell.type === "string" && targetCell.type) {
+    pushUnitTaskSpriteContextId(contextIds, `terrain:${targetCell.type}`);
+  }
+
+  return contextIds;
+}
+
+function getTaskActionContextSourceCandidates(currentUnit, spriteConfig) {
+  const actionId = getTaskActionId(currentUnit?.task);
+  const actionContextEntries = actionId
+    ? (spriteConfig?.actionContextSourceCandidates?.[actionId] || null)
+    : null;
+
+  if (!actionContextEntries) {
+    return [];
+  }
+
+  for (const contextId of getUnitTaskTargetSpriteContextIds(currentUnit)) {
+    const sourceCandidates = actionContextEntries[contextId];
+
+    if (Array.isArray(sourceCandidates) && sourceCandidates.length > 0) {
+      return sourceCandidates;
     }
-
-    if (allowOverrides && hasSpriteSourceOverrides(spriteConfig, sourceKey)) {
-      return sourceKey;
-    }
   }
 
-  return "";
-}
-
-function getSpriteSourcePreviewImage(spriteConfig, sourceKey, preferredFrameIndex = 0) {
-  const imagePaths = getSpriteSourceImagePaths(spriteConfig, sourceKey);
-  return imagePaths[preferredFrameIndex] || imagePaths[0] || "";
-}
-
-function getFishingTaskSourceCandidates(currentUnit, spriteConfig = getRenderedUnitSpriteConfig(currentUnit)) {
-  const sourceKey = getFishingRenderSourceKey(currentUnit, spriteConfig);
-
-  return sourceKey
-    ? [sourceKey, ...spriteTaskSourceCandidateSets.work]
-    : spriteTaskSourceCandidateSets.work;
-}
-
-function getGatherFoodTaskSourceCandidates(currentUnit, spriteConfig = getRenderedUnitSpriteConfig(currentUnit)) {
-  if (isFishingTask(currentUnit)) {
-    return getFishingTaskSourceCandidates(currentUnit, spriteConfig);
-  }
-
-  return spriteTaskSourceCandidateSets.landFood;
-}
-
-function getGatherMaterialsTaskSourceCandidates(currentUnit) {
-  const materialType = getCellMaterialResourceType(getUnitTaskTargetCell(currentUnit));
-
-  if (materialType === "lumber") {
-    return spriteTaskSourceCandidateSets.lumber;
-  }
-
-  if (materialType === "stone") {
-    return spriteTaskSourceCandidateSets.stone;
-  }
-
-  return spriteTaskSourceCandidateSets.work;
+  return actionContextEntries[spriteSourceCandidateDefaultContextId] || actionContextEntries["*"] || [];
 }
 
 function getUnitTaskSpriteSourceCandidates(currentUnit, spriteConfig) {
+  const configuredContextCandidates = getTaskActionContextSourceCandidates(currentUnit, spriteConfig);
+  if (configuredContextCandidates.length > 0) {
+    return configuredContextCandidates;
+  }
+
   const spec = getUnitTaskSpec(currentUnit);
 
   if (spec?.getTaskSpriteSourceCandidates) {
@@ -11675,29 +11759,18 @@ function getUnitTaskSpriteSourceCandidates(currentUnit, spriteConfig) {
   return spriteTaskSourceCandidateSets.idle;
 }
 
-function getUnitTaskAnimatedFrames(currentUnit, spriteConfig = getRenderedUnitSpriteConfig(currentUnit)) {
-  const sourceKey = getUnitTaskSpriteRenderSourceKey(currentUnit, spriteConfig);
-  return getFrameSetPaths(sourceKey, spriteConfig);
-}
-
-function getUnitTaskSpriteRenderSourceKey(currentUnit, spriteConfig) {
-  return getFirstSpriteSourceKey(
-    spriteConfig,
-    getUnitTaskSpriteSourceCandidates(currentUnit, spriteConfig),
-    { allowOverrides: true },
-  );
-}
-
 function getAnimatedTaskSpriteImage(currentUnit, spriteConfig, frameIndex = 0) {
-  const sourceKey = getUnitTaskSpriteRenderSourceKey(currentUnit, spriteConfig);
-  const frames = getSpriteSourceImagePaths(spriteConfig, sourceKey);
+  const sourceResolution = getUnitTaskSpriteSourceResolution(currentUnit, spriteConfig);
+  const frames = sourceResolution?.paths || [];
   const offsetFrameIndex = frameIndex + getAnimatedTaskFrameOffset(currentUnit);
 
   if (frames.length === 0) {
-    return spriteConfig?.idleImage || "";
+    return getSpriteResolvedImagePath(
+      getFirstResolvedSpriteSource(spriteConfig, spriteTaskSourceCandidateSets.idle, "W"),
+    );
   }
 
-  return frames[offsetFrameIndex % frames.length] || frames[0] || spriteConfig?.idleImage || "";
+  return frames[offsetFrameIndex % frames.length] || frames[0] || "";
 }
 
 function getAnimatedTaskUnitImage(currentUnit, frameIndex = 0) {
@@ -11711,8 +11784,12 @@ function getMovePreviewSpriteImage(currentUnit, spriteConfig) {
       ? getMoveDirection(currentUnit.x, currentUnit.y, task.toX, task.toY)
       : (currentUnit?.facing || "west")
   );
-  const sourceKey = getFirstSpriteSourceKey(spriteConfig, getDirectionalSpriteSourceCandidates("move", direction));
-  return getSpriteSourcePreviewImage(spriteConfig, sourceKey, 1);
+  const sourceResolution = getFirstResolvedSpriteSource(
+    spriteConfig,
+    getDirectionalSpriteSourceCandidates("move"),
+    getSpriteDirectionId(direction, "W"),
+  );
+  return getSpriteResolvedImagePath(sourceResolution, 1);
 }
 
 function getMovePreviewUnitImage(currentUnit) {
@@ -11743,9 +11820,12 @@ function getStationarySpriteImage(currentUnit, spriteConfig, now = performance.n
     return getAnimatedTaskSpriteImage(currentUnit, spriteConfig, frameIndex);
   }
 
-  const direction = getUnitDisplayDirection(currentUnit);
-  const sourceKey = getFirstSpriteSourceKey(spriteConfig, getDirectionalSpriteSourceCandidates("stationary", direction));
-  return getSpriteSourcePreviewImage(spriteConfig, sourceKey);
+  const sourceResolution = getFirstResolvedSpriteSource(
+    spriteConfig,
+    getDirectionalSpriteSourceCandidates("stationary"),
+    getSpriteRenderDirection(currentUnit),
+  );
+  return getSpriteResolvedImagePath(sourceResolution);
 }
 
 function getStationaryUnitImage(currentUnit, now = performance.now(), explicitFrameIndex = null) {
@@ -11758,9 +11838,13 @@ function getStationaryUnitImage(currentUnit, now = performance.now(), explicitFr
 }
 
 function getMovingSpriteImage(currentUnit, spriteConfig, direction = "west", now = performance.now()) {
-  const sourceKey = getFirstSpriteSourceKey(spriteConfig, getDirectionalSpriteSourceCandidates("move", direction));
-  const moveFrames = getSpriteSourceImagePaths(spriteConfig, sourceKey);
-  const fallbackImage = moveFrames[0] || spriteConfig?.idleImage || "";
+  const sourceResolution = getFirstResolvedSpriteSource(
+    spriteConfig,
+    getDirectionalSpriteSourceCandidates("move"),
+    getSpriteDirectionId(direction, "W"),
+  );
+  const moveFrames = sourceResolution?.paths || [];
+  const fallbackImage = getSpriteResolvedImagePath(sourceResolution);
   const moveFrameSequence = Array.isArray(spriteConfig?.moveFrameSequence)
     ? spriteConfig.moveFrameSequence
     : [];
@@ -11770,7 +11854,7 @@ function getMovingSpriteImage(currentUnit, spriteConfig, direction = "west", now
     moveFrames.length === 0 ||
     !spriteConfig ||
     moveFrameSequence.length === 0 ||
-    !spriteAnimationFrameArrayFields.includes(sourceKey)
+    sourceResolution?.kind !== "frames"
   ) {
     return fallbackImage;
   }
@@ -11796,18 +11880,22 @@ function getMovingUnitImage(currentUnit = unit, direction = "west", now = perfor
 
 function getSpriteRenderDirection(currentUnit) {
   if (!currentUnit) {
-    return "west";
+    return "W";
   }
 
   if (currentUnit.move?.direction) {
-    return currentUnit.move.direction;
+    return getSpriteDirectionId(currentUnit.move.direction, "W");
   }
 
-  if (isFishingTask(currentUnit)) {
-    return getRawUnitTaskDirection(currentUnit);
+  if (currentUnit.task) {
+    if (doesTaskUseTargetDirection(currentUnit.task)) {
+      return getSpriteDirectionId(getRawUnitTaskDirection(currentUnit), "O");
+    }
+
+    return getSpriteDirectionId(currentUnit.facing || "west", "W");
   }
 
-  return getUnitDisplayDirection(currentUnit);
+  return getSpriteDirectionId(getUnitDisplayDirection(currentUnit), "W");
 }
 
 function getSpriteRenderAction(currentUnit) {
@@ -11830,144 +11918,66 @@ function getSpriteRenderAction(currentUnit) {
   return getTaskActionId(currentUnit.task) || "";
 }
 
-function hasSpriteFrameSet(spriteConfig, fieldName) {
-  return Array.isArray(spriteConfig?.[fieldName]) && spriteConfig[fieldName].length > 0;
-}
-
-function hasSpriteImageSource(spriteConfig, fieldName) {
-  return typeof spriteConfig?.[fieldName] === "string" && spriteConfig[fieldName].trim().length > 0;
-}
-
-function hasSpriteSourceOverrides(spriteConfig, sourceKey) {
-  if (!spriteConfig || !sourceKey) {
-    return false;
-  }
-
-  if (spriteConfig?.sourceRenderOverrides?.[sourceKey]) {
-    return true;
-  }
-
-  const directionOverrides = spriteConfig?.sourceDirectionRenderOverrides?.[sourceKey];
-  return Boolean(directionOverrides && Object.keys(directionOverrides).length > 0);
-}
-
-function getFishingRenderSourceKey(currentUnit, spriteConfig) {
-  const fishingConfig = getFishingTaskDirectionConfig(currentUnit, spriteConfig);
-
-  if (fishingConfig?.frameSet) {
-    return fishingConfig.frameSet;
-  }
-
-  const direction = getRawUnitTaskDirection(currentUnit);
-
-  if (usesNorthUnitSprite(direction)) {
-    return "northFishingFrames";
-  }
-
-  if (usesSouthUnitSprite(direction)) {
-    return "southFishingFrames";
-  }
-
-  return "sideFishingFrames";
+function getUnitTaskSpriteSourceResolution(currentUnit, spriteConfig) {
+  return getFirstResolvedSpriteSource(
+    spriteConfig,
+    getUnitTaskSpriteSourceCandidates(currentUnit, spriteConfig),
+    getSpriteRenderDirection(currentUnit),
+  );
 }
 
 function getSpriteRenderSourceKey(currentUnit, spriteConfig) {
+  return getSpriteRenderSourceResolution(currentUnit, spriteConfig)?.sourceId || "";
+}
+
+function getSpriteRenderSourceResolution(currentUnit, spriteConfig) {
   if (!spriteConfig) {
-    return "";
+    return null;
   }
 
   if (!currentUnit) {
-    return getFirstSpriteSourceKey(spriteConfig, spriteTaskSourceCandidateSets.idle, { allowOverrides: true });
+    return getFirstResolvedSpriteSource(spriteConfig, spriteTaskSourceCandidateSets.idle, "W");
   }
 
   if (currentUnit.move) {
-    const direction = currentUnit.move.direction || currentUnit.facing || "west";
-    return getFirstSpriteSourceKey(
+    return getFirstResolvedSpriteSource(
       spriteConfig,
-      getDirectionalSpriteSourceCandidates("move", direction),
-      { allowOverrides: true },
+      getDirectionalSpriteSourceCandidates("move"),
+      getSpriteRenderDirection(currentUnit),
     );
   }
 
   if (isUnitWorking(currentUnit)) {
-    return getUnitTaskSpriteRenderSourceKey(currentUnit, spriteConfig);
+    return getUnitTaskSpriteSourceResolution(currentUnit, spriteConfig);
   }
 
-  const direction = getUnitDisplayDirection(currentUnit);
-  return getFirstSpriteSourceKey(
+  return getFirstResolvedSpriteSource(
     spriteConfig,
-    getDirectionalSpriteSourceCandidates("stationary", direction),
-    { allowOverrides: true },
+    getDirectionalSpriteSourceCandidates("stationary"),
+    getSpriteRenderDirection(currentUnit),
   );
 }
 
 function getSpriteRenderSpec(spriteConfig, currentUnit = null) {
   const baseOffsetX = spriteConfig?.offsetX ?? 0;
   const baseOffsetY = spriteConfig?.offsetY ?? 0;
-  const direction = getSpriteRenderDirection(currentUnit);
-  const action = getSpriteRenderAction(currentUnit);
-  const sourceKey = getSpriteRenderSourceKey(currentUnit, spriteConfig);
-  const directionOverride = spriteConfig?.directionRenderOverrides?.[direction] || {};
-  const sourceRenderOverride = sourceKey ? (spriteConfig?.sourceRenderOverrides?.[sourceKey] || {}) : {};
-  const sourceDirectionRenderOverride = sourceKey
-    ? (spriteConfig?.sourceDirectionRenderOverrides?.[sourceKey]?.[direction] || {})
-    : {};
-  const actionRenderOverride = action ? (spriteConfig?.actionRenderOverrides?.[action] || {}) : {};
-  const actionDirectionRenderOverride = action
-    ? (spriteConfig?.actionDirectionRenderOverrides?.[action]?.[direction] || {})
-    : {};
 
   return {
     width:
-      sourceDirectionRenderOverride.width
-      ?? actionDirectionRenderOverride.width
-      ?? directionOverride.width
-      ?? sourceRenderOverride.width
-      ?? actionRenderOverride.width
-      ?? spriteConfig?.width,
+      spriteConfig?.width,
     height:
-      sourceDirectionRenderOverride.height
-      ?? actionDirectionRenderOverride.height
-      ?? directionOverride.height
-      ?? sourceRenderOverride.height
-      ?? actionRenderOverride.height
-      ?? spriteConfig?.height,
+      spriteConfig?.height,
     anchorX:
-      sourceDirectionRenderOverride.anchorX
-      ?? actionDirectionRenderOverride.anchorX
-      ?? directionOverride.anchorX
-      ?? sourceRenderOverride.anchorX
-      ?? actionRenderOverride.anchorX
-      ?? spriteConfig?.anchorX,
+      spriteConfig?.anchorX,
     anchorY:
-      sourceDirectionRenderOverride.anchorY
-      ?? actionDirectionRenderOverride.anchorY
-      ?? directionOverride.anchorY
-      ?? sourceRenderOverride.anchorY
-      ?? actionRenderOverride.anchorY
-      ?? spriteConfig?.anchorY,
+      spriteConfig?.anchorY,
     groundOffset:
-      sourceDirectionRenderOverride.groundOffset
-      ?? actionDirectionRenderOverride.groundOffset
-      ?? directionOverride.groundOffset
-      ?? sourceRenderOverride.groundOffset
-      ?? actionRenderOverride.groundOffset
-      ?? spriteConfig?.groundOffset
+      spriteConfig?.groundOffset
       ?? 0.75,
     offsetX:
-      sourceDirectionRenderOverride.offsetX
-      ?? actionDirectionRenderOverride.offsetX
-      ?? directionOverride.offsetX
-      ?? sourceRenderOverride.offsetX
-      ?? actionRenderOverride.offsetX
-      ?? baseOffsetX,
+      baseOffsetX,
     offsetY:
-      sourceDirectionRenderOverride.offsetY
-      ?? actionDirectionRenderOverride.offsetY
-      ?? directionOverride.offsetY
-      ?? sourceRenderOverride.offsetY
-      ?? actionRenderOverride.offsetY
-      ?? baseOffsetY,
+      baseOffsetY,
   };
 }
 
@@ -11977,21 +11987,20 @@ function getUnitSpriteRenderSpec(currentUnit = null) {
 
 function shouldMirrorSpriteImage(
   imagePath,
-  direction,
   currentUnit = null,
   spriteConfig = getRenderedUnitSpriteConfig(currentUnit),
 ) {
-  const fishingConfig = getFishingTaskDirectionConfig(currentUnit, spriteConfig);
+  const sourceResolution = getSpriteRenderSourceResolution(currentUnit, spriteConfig);
 
-  if (fishingConfig && getFrameSetPaths(fishingConfig.frameSet, spriteConfig).includes(imagePath)) {
-    return Boolean(fishingConfig.mirror);
+  if (sourceResolution && sourceResolution.paths.includes(imagePath)) {
+    return Boolean(sourceResolution.mirror);
   }
 
-  return shouldMirrorUnitDirection(direction);
+  return false;
 }
 
-function shouldMirrorUnitImage(imagePath, direction, currentUnit = null) {
-  return shouldMirrorSpriteImage(imagePath, direction, currentUnit, getRenderedUnitSpriteConfig(currentUnit));
+function shouldMirrorUnitImage(imagePath, currentUnit = null) {
+  return shouldMirrorSpriteImage(imagePath, currentUnit, getRenderedUnitSpriteConfig(currentUnit));
 }
 
 function drawSpriteAtScreen(
@@ -12076,7 +12085,9 @@ function drawSpriteAtScreen(
 function drawUnitAtScreen(
   screen,
   drawContext = ctx,
-  imagePath = getRenderedUnitSpriteConfig()?.idleImage || "",
+  imagePath = getSpriteResolvedImagePath(
+    getFirstResolvedSpriteSource(getRenderedUnitSpriteConfig(), spriteTaskSourceCandidateSets.idle, "W"),
+  ),
   mirrorX = false,
   showShadow = true,
   currentUnit = null,

@@ -52,12 +52,18 @@
               "offsetY": -4
             },
             "vehicle": {
-              "idleImage": "../assets/vehicles/boat_d.png",
-              "northImage": "../assets/vehicles/boat_v.png",
-              "southImage": "../assets/vehicles/boat_v.png",
-              "moveFrames": ["../assets/vehicles/boat_h.png"],
-              "northMoveFrames": ["../assets/vehicles/boat_v.png"],
-              "southMoveFrames": ["../assets/vehicles/boat_v.png"],
+              "sources": {
+                "idle": {
+                  "W": "../assets/vehicles/boat_d.png",
+                  "N": "../assets/vehicles/boat_v.png",
+                  "S": "../assets/vehicles/boat_v.png"
+                },
+                "move": {
+                  "W": ["../assets/vehicles/boat_h.png"],
+                  "N": ["../assets/vehicles/boat_v.png"],
+                  "S": ["../assets/vehicles/boat_v.png"]
+                }
+              },
               "moveFrameSequence": [0],
               "anchorX": 27,
               "anchorY": 34
@@ -66,23 +72,35 @@
           "byUnitType": {
             "villager": {
               "unit": {
-                "idleImage": "../assets/units/unit_sprite.png",
-                "northImage": "../assets/units/unit_back_sprite.png",
-                "southImage": "../assets/units/unit_front_sprite.png",
-                "moveFrames": ["../assets/units/unit_sprite.png"],
-                "northMoveFrames": ["../assets/units/unit_back_sprite.png"],
-                "southMoveFrames": ["../assets/units/unit_front_sprite.png"],
+                "sources": {
+                  "idle": {
+                    "W": "../assets/units/unit_sprite.png",
+                    "N": "../assets/units/unit_back_sprite.png",
+                    "S": "../assets/units/unit_front_sprite.png"
+                  },
+                  "move": {
+                    "W": ["../assets/units/unit_sprite.png"],
+                    "N": ["../assets/units/unit_back_sprite.png"],
+                    "S": ["../assets/units/unit_front_sprite.png"]
+                  }
+                },
                 "moveFrameSequence": [0]
               }
             },
             "grandSchtroumpf": {
               "unit": {
-                "idleImage": "../assets/units/unit_grand_schtroumpf_sprite.png",
-                "northImage": "../assets/units/unit_grand_schtroumpf_back_sprite.png",
-                "southImage": "../assets/units/unit_grand_schtroumpf_front_sprite.png",
-                "moveFrames": ["../assets/units/unit_grand_schtroumpf_sprite.png"],
-                "northMoveFrames": ["../assets/units/unit_grand_schtroumpf_back_sprite.png"],
-                "southMoveFrames": ["../assets/units/unit_grand_schtroumpf_front_sprite.png"],
+                "sources": {
+                  "idle": {
+                    "W": "../assets/units/unit_grand_schtroumpf_sprite.png",
+                    "N": "../assets/units/unit_grand_schtroumpf_back_sprite.png",
+                    "S": "../assets/units/unit_grand_schtroumpf_front_sprite.png"
+                  },
+                  "move": {
+                    "W": ["../assets/units/unit_grand_schtroumpf_sprite.png"],
+                    "N": ["../assets/units/unit_grand_schtroumpf_back_sprite.png"],
+                    "S": ["../assets/units/unit_grand_schtroumpf_front_sprite.png"]
+                  }
+                },
                 "moveFrameSequence": [0]
               }
             }
@@ -140,98 +158,115 @@
         "mountedRenders": {
           "default": {
             "unit": {
-              "sourceDirectionRenderOverrides": {
-                "northFishingFrames": {
-                  "north": { "offsetX": 0, "offsetY": 0 }
-                },
-                "sideFishingFrames": {
-                  "west": { "offsetX": 0, "offsetY": 0 },
-                  "east": { "offsetX": 0, "offsetY": 0 },
-                  "northWest": { "offsetX": 0, "offsetY": 0 },
-                  "northEast": { "offsetX": 0, "offsetY": 0 },
-                  "southWest": { "offsetX": 0, "offsetY": 0 },
-                  "southEast": { "offsetX": 0, "offsetY": 0 }
-                },
-                "southFishingFrames": {
-                  "south": { "offsetX": 0, "offsetY": 0 }
-                }
-              },
-              "offsetX": -5,
-              "offsetY": 1,
-              "directionRenderOverrides": {
-                "north": { "offsetX": 0, "offsetY": 5 },
-                "south": { "offsetX": 0, "offsetY": 0 },
-                "west": { "offsetX": 15 },
-                "northWest": { "offsetX": 15 },
-                "southWest": { "offsetX": 15 }
-              }
+              "anchorX": 23,
+              "anchorY": 44
             },
             "vehicle": {
-              "actionDirectionRenderOverrides": {
-                "gatherFood": {
-                  "north": { "offsetX": 0, "offsetY": 20 },
-                  "west": { "offsetX": 20, "offsetY": 0 },
-                  "east": { "offsetX": -20, "offsetY": 0 },
-                  "northWest": { "offsetX": 20, "offsetY": 20 },
-                  "northEast": { "offsetX": -20, "offsetY": 20 },
-                  "southWest": { "offsetX": 20, "offsetY": -20 },
-                  "southEast": { "offsetX": -20, "offsetY": -20 },
-                  "south": { "offsetX": 0, "offsetY": -20 }
+              "sources": {
+                "idle": {
+                  "W": "../assets/vehicles/wb_mount_w.png",
+                  "E": "../assets/vehicles/wb_mount_e.png",
+                  "N": "../assets/vehicles/wb_mount_n.png",
+                  "S": "../assets/vehicles/wb_empty.png"
+                },
+                "move": {
+                  "W": ["../assets/vehicles/wb_mount_w.png"],
+                  "E": ["../assets/vehicles/wb_mount_e.png"],
+                  "N": ["../assets/vehicles/wb_mount_n.png"],
+                  "S": ["../assets/vehicles/wb_empty.png"]
+                },
+                "work": {
+                  "W": ["../assets/vehicles/wb_mount_work_w.png"],
+                  "E": ["../assets/vehicles/wb_mount_work_e.png"],
+                  "N": ["../assets/vehicles/wb_mount_work_n.png"],
+                  "S": ["../assets/vehicles/wb_mount_work_s.png"],
+                  "NW": ["../assets/vehicles/wb_mount_work_nw.png"],
+                  "NE": ["../assets/vehicles/wb_mount_work_ne.png"],
+                  "SW": ["../assets/vehicles/wb_mount_work_sw.png"],
+                  "SE": ["../assets/vehicles/wb_mount_work_se.png"]
                 }
               },
-              "actionDirectionRenderOverrides": {
-                "gatherMaterials": {
-                  "north": { "offsetX": 0, "offsetY": 20 },
-                  "west": { "offsetX": 20, "offsetY": 0 },
-                  "east": { "offsetX": -20, "offsetY": 0 },
-                  "northWest": { "offsetX": 20, "offsetY": 20 },
-                  "northEast": { "offsetX": -20, "offsetY": 20 },
-                  "southWest": { "offsetX": 20, "offsetY": -20 },
-                  "southEast": { "offsetX": -20, "offsetY": -20 },
-                  "south": { "offsetX": 0, "offsetY": -20 }
-                }
-              },
-              "directionRenderOverrides": {
-                "north": { "offsetX": -20, "offsetY": 0 }
-              },
-              "idleImage": "../assets/vehicles/wb_side.png",
-              "northImage": "../assets/vehicles/wb_back.png",
-              "southImage": "../assets/vehicles/wb_empty.png",
-              "moveFrames": ["../assets/vehicles/wb_side.png"],
-              "northMoveFrames": ["../assets/vehicles/wb_back.png"],
-              "southMoveFrames": ["../assets/vehicles/wb_empty.png"],
               "moveFrameSequence": [0],
-              "anchorX": 22,
-              "anchorY": 18
+              "anchorX": 42,
+              "anchorY": 38
             }
           },
           "byUnitType": {
             "villager": {
               "unit": {
-                "idleImage": "../assets/units/unit_sprite.png",
-                "northImage": "../assets/units/unit_back_sprite.png",
-                "southImage": "../assets/units/unit_front_wb.png",
-                "moveFrames": ["../assets/units/unit_sprite.png", "../assets/units/unit_step_sprite.png"],
-                "northMoveFrames": ["../assets/units/unit_back_step_sprite.png", "../assets/units/unit_back_step_sprite_2.png"],
-                "southMoveFrames": ["../assets/units/unit_front_step_wb.png", "../assets/units/unit_front_step_2_wb.png"],
+                "sources": {
+                  "idle": {
+                    "W": "../assets/units/unit_wb_w.png",
+                    "N": "../assets/units/unit_wb_n.png",
+                    "S": "../assets/units/unit_wb_s.png"
+                  },
+                  "move": {
+                    "W": [
+                      "../assets/units/unit_wb_w.png",
+                      "../assets/units/unit_wb_step_w.png"
+                    ],
+                    "N": [
+                      "../assets/units/unit_wb_step_n_1.png",
+                      "../assets/units/unit_wb_step_n_2.png"
+                    ],
+                    "S": [
+                      "../assets/units/unit_wb_step_s_1.png",
+                      "../assets/units/unit_wb_step_s_2.png"
+                    ]
+                  }
+                },
                 "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0]
               }
             },
             "grandSchtroumpf": {
               "unit": {
-                "idleImage": "../assets/units/unit_grand_schtroumpf_sprite.png",
-                "northImage": "../assets/units/unit_grand_schtroumpf_back_sprite.png",
-                "southImage": "../assets/units/unit_grand_schtroumpf_front_wb.png",
-                "moveFrames": ["../assets/units/unit_grand_schtroumpf_sprite.png", "../assets/units/unit_grand_schtroumpf_step_sprite.png"],
-                "northMoveFrames": ["../assets/units/unit_grand_schtroumpf_back_step_sprite.png", "../assets/units/unit_grand_schtroumpf_back_step_sprite_2.png"],
-                "southMoveFrames": ["../assets/units/unit_grand_schtroumpf_front_step_wb.png", "../assets/units/unit_grand_schtroumpf_front_step_2_wb.png"],
+                "sources": {
+                  "idle": {
+                    "W": "../assets/units/unit_gs_wb_w.png",
+                    "N": "../assets/units/unit_gs_wb_n.png",
+                    "S": "../assets/units/unit_gs_wb_s.png"
+                  },
+                  "move": {
+                    "W": [
+                      "../assets/units/unit_gs_wb_w.png",
+                      "../assets/units/unit_gs_wb_step_w.png"
+                    ],
+                    "N": [
+                      "../assets/units/unit_gs_wb_step_n_1.png",
+                      "../assets/units/unit_gs_wb_step_n_2.png"
+                    ],
+                    "S": [
+                      "../assets/units/unit_gs_wb_step_s_1.png",
+                      "../assets/units/unit_gs_wb_step_s_2.png"
+                    ]
+                  }
+                },
                 "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0]
               }
             },
             "lunettes": {
               "unit": {
-                "southImage": "../assets/units/lunettes_front_wb.png",
-                "southMoveFrames": ["../assets/units/lunettes_front_step_wb.png", "../assets/units/lunettes_front_step_2_wb.png"],
+                "sources": {
+                  "idle": {
+                    "W": "../assets/units/lunettes_wb_w.png",
+                    "N": "../assets/units/lunettes_wb_n.png",
+                    "S": "../assets/units/lunettes_wb_s.png"
+                  },
+                  "move": {
+                    "W": [
+                      "../assets/units/lunettes_wb_w.png",
+                      "../assets/units/lunettes_wb_step_w.png"
+                    ],
+                    "N": [
+                      "../assets/units/lunettes_wb_n.png",
+                      "../assets/units/lunettes_wb_step_n.png"
+                    ],
+                    "S": [
+                      "../assets/units/lunettes_wb_step_s_1.png",
+                      "../assets/units/lunettes_wb_step_s_2.png"
+                    ]
+                  }
+                },
                 "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0]
               }
             }

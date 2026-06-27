@@ -145,8 +145,6 @@ Supported fields inside each layer are the same as `spriteTypes.<spriteTypeId>` 
 
 Mounted `unit` and mounted `vehicle` layers now run through the same sprite resolution path. The only difference is fallback: the mounted `unit` layer inherits from the unit's normal sprite config, while the mounted `vehicle` layer only uses what is defined in its own layer config.
 
-Mounted sprite layers also accept `directionRenderOverrides`, using the same direction keys as unit sprite configs. This is the intended way to give east/west or north/south mounted renders different placement offsets.
-
 For the mounted `unit` layer, missing fields fall back to the unit's normal sprite config. This makes it possible to override only the mounted move frames or only the placement offsets.
 
 For the mounted `vehicle` layer, any sprite-style move animation is optional.
@@ -189,20 +187,30 @@ If a mounted vehicle should remain visible while ridden, define a mounted `vehic
         "mountedRenders": {
           "default": {
             "unit": {
-              "moveFrames": [
-                "../assets/units/boat_rider_01.png",
-                "../assets/units/boat_rider_02.png"
-              ],
+              "sources": {
+                "move": {
+                  "W": [
+                    "../assets/units/boat_rider_01.png",
+                    "../assets/units/boat_rider_02.png"
+                  ]
+                }
+              },
               "moveFrameSequence": [0, 1, 0, 1, 0],
               "offsetX": 0,
               "offsetY": -4
             },
             "vehicle": {
-              "idleImage": "../assets/vehicles/boat_mount_01.png",
-              "moveFrames": [
-                "../assets/vehicles/boat_mount_01.png",
-                "../assets/vehicles/boat_mount_02.png"
-              ],
+              "sources": {
+                "idle": {
+                  "W": "../assets/vehicles/boat_mount_01.png"
+                },
+                "move": {
+                  "W": [
+                    "../assets/vehicles/boat_mount_01.png",
+                    "../assets/vehicles/boat_mount_02.png"
+                  ]
+                }
+              },
               "moveFrameSequence": [0, 1, 0, 1, 0],
               "width": 44,
               "height": 28,
