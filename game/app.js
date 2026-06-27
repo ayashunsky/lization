@@ -2,6 +2,8 @@ import { createConstructiblesApi } from "./constructibles.js";
 import { createBookContentApi } from "./book-content.js";
 import { createBookRuntimeApi } from "./book-runtime.js";
 import { createEditorUiApi } from "./editor-ui.js";
+import { createSpriteRuntimeApi, spriteTaskSourceCandidateSets } from "./sprite-runtime.js";
+import { createTerrainRuntimeApi } from "./terrain-runtime.js";
 import {
   clamp,
   clampInteger,
@@ -373,7 +375,7 @@ const unitActionIdsByTaskType = Object.freeze(
     Object.values(unitActionSpecs).map((spec) => [spec.taskType, spec.id]),
   ),
 );
-let unitSpriteConfigs = createDefaultUnitSpriteConfigs();
+let unitSpriteConfigs = {};
 
 const map = {
   width: 42,
@@ -461,30 +463,6 @@ const terrain = {
     side: "#7b684d",
     detail: "#e0d2a1",
     stroke: "#68583f",
-  },
-};
-
-const transitionRules = [
-  {
-    baseType: "water",
-    neighborTypes: ["grass", "forest", "mountain"],
-    drawEdge: drawShoreEdge,
-    drawCorner: drawShoreCorner,
-  },
-];
-
-const shoreOverlays = {
-  edge: {
-    northWest: "assets/tiles/shore/shore_edge_nw.png",
-    northEast: "assets/tiles/shore/shore_edge_ne.png",
-    southEast: "assets/tiles/shore/shore_edge_se.png",
-    southWest: "assets/tiles/shore/shore_edge_sw.png",
-  },
-  corner: {
-    north: "assets/tiles/shore/shore_corner_n.png",
-    east: "assets/tiles/shore/shore_corner_e.png",
-    south: "assets/tiles/shore/shore_corner_s.png",
-    west: "assets/tiles/shore/shore_corner_w.png",
   },
 };
 
@@ -769,6 +747,93 @@ function setAttributeForElements(elements, name, value) {
     element.setAttribute(name, value);
   }
 }
+
+const {
+  getShoreOverlayPaths,
+  drawTileTerrain,
+  drawCellResourceOverlay,
+} = createTerrainRuntimeApi({
+  terrain,
+  baseTile,
+  tile,
+  ctx,
+  tileImages,
+  shoreOverlayImages,
+  resourceOverlayImages,
+  getCell,
+  getEdgeNeighbor,
+  getCornerNeighbor,
+  getTileEdges,
+  getTileCorners,
+  getTerrainVariant,
+  ensureCellVariant,
+  getFoodOverlayDisplaySpec,
+  hasFoodResource,
+  isCellVisibleToPlayer,
+  isoToScreen,
+  drawDiamondPath,
+});
+
+const {
+  normalizeUnitSpriteTypeConfig,
+  normalizeMountedRenderVariants,
+  getAllUnitSpriteConfigs,
+  getUnitSpriteConfig,
+  getUnitSpriteIcon,
+  getRenderedUnitSpriteConfig,
+  getMountedVehicleSpriteConfig,
+  getWorkingUnitFrameIndex,
+  getUnitInspectorSpriteImage,
+  getStationarySpriteImage,
+  getStationaryUnitImage,
+  getMovingSpriteImage,
+  getMovingUnitImage,
+  getUnitSpriteRenderSpec,
+  shouldMirrorSpriteImage,
+  shouldMirrorUnitImage,
+  drawSpriteAtScreen,
+  drawUnitAtScreen,
+  getSpriteAnimationImagePaths,
+  getMountedRenderLayerImagePaths,
+} = createSpriteRuntimeApi({
+  state: {
+    getCurrentUnit: () => unit,
+    getUnitSpriteConfigs: () => unitSpriteConfigs,
+  },
+  manifests: {
+    unitManifestPath,
+    vehicleManifestPath,
+  },
+  world: {
+    getDefaultUnitTypeId,
+    normalizeUnitTypeId,
+    getResolvedUnitConfig,
+    getUnitTypeId,
+    getMountedVehicle,
+    getConstructibleSpec,
+    getUnitDisplayDirection,
+    getBuildingAtCell,
+    getVehicleAtCell,
+    getCellMaterialResourceType,
+    getUnitTaskTargetCell,
+    getUnitTaskSpec,
+    getUnitTaskInspectorPreviewMode,
+    getMoveDirection,
+    getUnitMoveProgress,
+    getRawUnitTaskDirection,
+    isUnitWorking,
+    doesTaskUseTargetDirection,
+    getTaskActionId,
+  },
+  render: {
+    ctx,
+    tile,
+    zoomLevels,
+    getZoomIndex: () => zoomIndex,
+    unitImages,
+    getUnitGroundPoint,
+  },
+});
 
 const {
   createDefaultBookDocument,
@@ -1133,18 +1198,6 @@ function resolveVehicleAssetPath(path, manifestPath = vehicleManifestPath) {
   return new URL(path.trim(), new URL(manifestPath, window.location.href)).toString();
 }
 
-function resolveUnitAssetPath(path, manifestPath = unitManifestPath) {
-  if (typeof path !== "string" || !path.trim()) {
-    return null;
-  }
-
-  return new URL(path.trim(), new URL(manifestPath, window.location.href)).toString();
-}
-
-function createDefaultUnitSpriteConfigs() {
-  return {};
-}
-
 function createDefaultUnitRulesConfig() {
   return {
     default: {
@@ -1371,402 +1424,6 @@ function normalizeUnitRulesConfig(entry) {
   return normalized;
 }
 
-const spriteSourceIds = Object.freeze({
-  idle: "idle",
-  move: "move",
-  work: "work",
-  gatherFoodLand: "gatherFoodLand",
-  gatherFoodFish: "gatherFoodFish",
-  gatherMaterialsLumber: "gatherMaterialsLumber",
-  gatherMaterialsStone: "gatherMaterialsStone",
-  play: "play",
-  research: "research",
-});
-const spriteDirectionFallbacks = Object.freeze({
-  O: null,
-  N: Object.freeze({ to: "W", mirror: false }),
-  E: Object.freeze({ to: "W", mirror: true }),
-  S: Object.freeze({ to: "E", mirror: false }),
-  W: Object.freeze({ to: "O", mirror: false }),
-  NE: Object.freeze({ to: "E", mirror: false }),
-  NW: Object.freeze({ to: "W", mirror: false }),
-  SE: Object.freeze({ to: "E", mirror: false }),
-  SW: Object.freeze({ to: "W", mirror: false }),
-});
-const spriteDirectionAliases = Object.freeze({
-  o: "O",
-  origin: "O",
-  no_direction: "O",
-  n: "N",
-  north: "N",
-  e: "E",
-  east: "E",
-  s: "S",
-  south: "S",
-  w: "W",
-  west: "W",
-  ne: "NE",
-  northeast: "NE",
-  north_east: "NE",
-  northEast: "NE",
-  nw: "NW",
-  northwest: "NW",
-  north_west: "NW",
-  northWest: "NW",
-  se: "SE",
-  southeast: "SE",
-  south_east: "SE",
-  southEast: "SE",
-  sw: "SW",
-  southwest: "SW",
-  south_west: "SW",
-  southWest: "SW",
-});
-const spriteAnimationNumericFields = Object.freeze([
-  "workFrameDuration",
-  "width",
-  "height",
-  "anchorX",
-  "anchorY",
-  "groundOffset",
-  "moveDuration",
-]);
-const spriteDirectionalSourceCandidateSets = Object.freeze({
-  stationary: Object.freeze([spriteSourceIds.idle]),
-  move: Object.freeze([spriteSourceIds.move, spriteSourceIds.idle]),
-});
-const spriteTaskSourceCandidateSets = Object.freeze({
-  idle: Object.freeze([spriteSourceIds.idle]),
-  work: Object.freeze([spriteSourceIds.work, spriteSourceIds.idle]),
-  play: Object.freeze([spriteSourceIds.play, spriteSourceIds.work, spriteSourceIds.idle]),
-  research: Object.freeze([spriteSourceIds.research, spriteSourceIds.work, spriteSourceIds.idle]),
-});
-const spriteSourceCandidateDefaultContextId = "default";
-
-function normalizeSpriteDirectionId(direction) {
-  if (typeof direction !== "string") {
-    return "";
-  }
-
-  const trimmed = direction.trim();
-  if (!trimmed) {
-    return "";
-  }
-
-  const directUpper = trimmed.toUpperCase();
-  if (spriteDirectionFallbacks[directUpper] || directUpper === "O") {
-    return directUpper;
-  }
-
-  return spriteDirectionAliases[trimmed] || spriteDirectionAliases[trimmed.toLowerCase()] || "";
-}
-
-function getSpriteDirectionId(direction, fallback = "O") {
-  return normalizeSpriteDirectionId(direction) || fallback;
-}
-
-function normalizeSpriteSourceId(sourceId) {
-  if (typeof sourceId !== "string") {
-    return "";
-  }
-
-  const trimmed = sourceId.trim();
-  return trimmed || "";
-}
-
-function normalizeSpriteFramePaths(value, imageResolver, manifestPath) {
-  return Array.isArray(value)
-    ? value.map((path) => imageResolver(path, manifestPath)).filter(Boolean)
-    : undefined;
-}
-
-function normalizeSpriteSourceCandidateList(value) {
-  if (typeof value === "string") {
-    const normalizedSourceId = normalizeSpriteSourceId(value);
-    return normalizedSourceId ? [normalizedSourceId] : undefined;
-  }
-
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const normalized = value
-    .map((sourceId) => normalizeSpriteSourceId(sourceId))
-    .filter(Boolean);
-
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function normalizeSpriteSourceValue(
-  value,
-  kind,
-  imageResolver,
-  manifestPath,
-) {
-  if (kind === "image") {
-    const resolved = imageResolver(value, manifestPath);
-    return resolved ? { kind: "image", paths: [resolved] } : null;
-  }
-
-  const paths = normalizeSpriteFramePaths(value, imageResolver, manifestPath);
-  return paths && paths.length > 0
-    ? { kind: "frames", paths }
-    : null;
-}
-
-function normalizeSpriteDirectionSourceEntries(
-  entry,
-  imageResolver,
-  manifestPath,
-) {
-  if (!entry) {
-    return {};
-  }
-
-  const normalized = {};
-  const addDirectionEntry = (directionId, rawValue) => {
-    const normalizedDirectionId = getSpriteDirectionId(directionId, "");
-    const normalizedValue = normalizeSpriteSourceDirectionValue(rawValue, imageResolver, manifestPath);
-
-    if (!normalizedDirectionId || !normalizedValue) {
-      return;
-    }
-
-    normalized[normalizedDirectionId] = normalizedValue;
-  };
-
-  if (typeof entry === "string" || Array.isArray(entry)) {
-    addDirectionEntry("O", entry);
-    return normalized;
-  }
-
-  if (!entry || typeof entry !== "object") {
-    return normalized;
-  }
-
-  if (Object.prototype.hasOwnProperty.call(entry, "image") || Object.prototype.hasOwnProperty.call(entry, "frames")) {
-    addDirectionEntry("O", entry);
-    return normalized;
-  }
-
-  for (const [directionId, rawValue] of Object.entries(entry)) {
-    addDirectionEntry(directionId, rawValue);
-  }
-
-  return normalized;
-}
-
-function normalizeSpriteSourceDirectionValue(value, imageResolver, manifestPath) {
-  if (typeof value === "string") {
-    return normalizeSpriteSourceValue(value, "image", imageResolver, manifestPath);
-  }
-
-  if (Array.isArray(value)) {
-    return normalizeSpriteSourceValue(value, "frames", imageResolver, manifestPath);
-  }
-
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  if (typeof value.image === "string") {
-    return normalizeSpriteSourceValue(value.image, "image", imageResolver, manifestPath);
-  }
-
-  if (Array.isArray(value.frames)) {
-    return normalizeSpriteSourceValue(value.frames, "frames", imageResolver, manifestPath);
-  }
-
-  return null;
-}
-
-function normalizeSpriteSources(entry, imageResolver, manifestPath) {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-    return undefined;
-  }
-
-  const normalized = {};
-
-  for (const [sourceKey, directionEntries] of Object.entries(entry)) {
-    const normalizedSourceId = normalizeSpriteSourceId(sourceKey);
-    if (!normalizedSourceId) {
-      continue;
-    }
-
-    const normalizedDirections = normalizeSpriteDirectionSourceEntries(
-      directionEntries,
-      imageResolver,
-      manifestPath,
-    );
-
-    if (Object.keys(normalizedDirections).length === 0) {
-      continue;
-    }
-
-    normalized[normalizedSourceId] = normalizedDirections;
-  }
-
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
-}
-
-function normalizeSpriteAnimationConfig(
-  entry,
-  {
-    manifestPath = unitManifestPath,
-    imageResolver = resolveUnitAssetPath,
-    extraNumericFields = [],
-  } = {},
-) {
-  const spriteEntry = entry && typeof entry === "object" ? entry : {};
-  const normalized = {};
-  const numericFields = [...spriteAnimationNumericFields, ...extraNumericFields];
-  const normalizedSources = normalizeSpriteSources(spriteEntry.sources, imageResolver, manifestPath);
-
-  if (normalizedSources && Object.keys(normalizedSources).length > 0) {
-    normalized.sources = normalizedSources;
-  }
-
-  for (const field of numericFields) {
-    const value = Number(spriteEntry[field]);
-    if (Number.isFinite(value)) {
-      normalized[field] = value;
-    }
-  }
-
-  if (Array.isArray(spriteEntry.moveFrameSequence)) {
-    normalized.moveFrameSequence = spriteEntry.moveFrameSequence
-      .map((value) => Math.floor(Number(value)))
-      .filter((value) => Number.isFinite(value));
-  }
-
-  const actionContextSourceCandidates = normalizeActionContextSourceCandidates(spriteEntry.actionContextSourceCandidates);
-  if (actionContextSourceCandidates) {
-    normalized.actionContextSourceCandidates = actionContextSourceCandidates;
-  }
-
-  return normalized;
-}
-
-function normalizeNumericObject(entry) {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-    return undefined;
-  }
-
-  const normalized = {};
-
-  for (const [key, value] of Object.entries(entry)) {
-    const normalizedKey = typeof key === "string" ? key.trim() : "";
-    const normalizedValue = Number(value);
-
-    if (!normalizedKey || !Number.isFinite(normalizedValue)) {
-      continue;
-    }
-
-    normalized[normalizedKey] = normalizedValue;
-  }
-
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
-}
-
-function normalizeActionContextSourceCandidates(entry) {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-    return undefined;
-  }
-
-  const normalized = {};
-
-  for (const [actionKey, contextEntries] of Object.entries(entry)) {
-    const normalizedActionId = typeof actionKey === "string" ? actionKey.trim() : "";
-
-    if (!normalizedActionId || !contextEntries || typeof contextEntries !== "object" || Array.isArray(contextEntries)) {
-      continue;
-    }
-
-    const normalizedContexts = {};
-
-    for (const [contextKey, sourceCandidates] of Object.entries(contextEntries)) {
-      const normalizedContextKey = typeof contextKey === "string" ? contextKey.trim() : "";
-      const normalizedSourceCandidates = normalizeSpriteSourceCandidateList(sourceCandidates);
-
-      if (!normalizedContextKey || !normalizedSourceCandidates) {
-        continue;
-      }
-
-      normalizedContexts[normalizedContextKey] = normalizedSourceCandidates;
-    }
-
-    if (Object.keys(normalizedContexts).length > 0) {
-      normalized[normalizedActionId] = normalizedContexts;
-    }
-  }
-
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
-}
-
-function normalizeUnitSpriteTypeConfig(entry, manifestPath = unitManifestPath) {
-  return normalizeSpriteAnimationConfig(entry, {
-    manifestPath,
-    imageResolver: resolveUnitAssetPath,
-  });
-}
-
-function normalizeMountedSpriteLayerConfig(entry, manifestPath = vehicleManifestPath) {
-  return normalizeSpriteAnimationConfig(entry, {
-    manifestPath,
-    imageResolver: resolveVehicleAssetPath,
-    extraNumericFields: ["offsetX", "offsetY"],
-  });
-}
-
-function normalizeMountedRenderEntry(entry, manifestPath = vehicleManifestPath) {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-    return undefined;
-  }
-
-  const unit = normalizeMountedSpriteLayerConfig(entry.unit, manifestPath);
-  const vehicle = normalizeMountedSpriteLayerConfig(entry.vehicle, manifestPath);
-
-  if (Object.keys(unit).length === 0 && Object.keys(vehicle).length === 0) {
-    return undefined;
-  }
-
-  return {
-    ...(Object.keys(unit).length > 0 ? { unit } : {}),
-    ...(Object.keys(vehicle).length > 0 ? { vehicle } : {}),
-  };
-}
-
-function normalizeMountedRenderVariants(entry, manifestPath = vehicleManifestPath) {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-    return undefined;
-  }
-
-  const defaultRender = normalizeMountedRenderEntry(entry.default, manifestPath);
-  const rawByUnitType = entry.byUnitType && typeof entry.byUnitType === "object" && !Array.isArray(entry.byUnitType)
-    ? entry.byUnitType
-    : {};
-  const byUnitType = Object.fromEntries(
-    Object.entries(rawByUnitType)
-      .map(([unitTypeId, config]) => {
-        const normalizedUnitTypeId = typeof unitTypeId === "string" ? unitTypeId.trim() : "";
-        const normalizedConfig = normalizeMountedRenderEntry(config, manifestPath);
-        return normalizedUnitTypeId && normalizedConfig
-          ? [normalizedUnitTypeId, normalizedConfig]
-          : null;
-      })
-      .filter(Boolean),
-  );
-
-  if (!defaultRender && Object.keys(byUnitType).length === 0) {
-    return undefined;
-  }
-
-  return {
-    ...(defaultRender ? { default: defaultRender } : {}),
-    ...(Object.keys(byUnitType).length > 0 ? { byUnitType } : {}),
-  };
-}
-
 function normalizeUnitDefinitionsManifest(manifest, manifestPath = unitManifestPath) {
   const normalizedRules = createDefaultUnitRulesConfig();
   const defaultEntry = manifest?.default && typeof manifest.default === "object" ? manifest.default : {};
@@ -1798,7 +1455,7 @@ function normalizeUnitDefinitionsManifest(manifest, manifestPath = unitManifestP
   const rawSpriteTypes = manifest?.spriteTypes && typeof manifest.spriteTypes === "object" && !Array.isArray(manifest.spriteTypes)
     ? manifest.spriteTypes
     : {};
-  const normalizedSpriteTypes = createDefaultUnitSpriteConfigs();
+  const normalizedSpriteTypes = {};
 
   for (const [spriteTypeId, entry] of Object.entries(rawSpriteTypes)) {
     const normalizedSpriteTypeId = typeof spriteTypeId === "string" ? spriteTypeId.trim() : "";
@@ -4119,23 +3776,24 @@ function drawInspectorFoodOverlay(context, cell) {
     return;
   }
 
-  const overlayImagePath = getFoodOverlayImagePath(cell.foodType);
+  const overlaySpec = getFoodOverlayDisplaySpec(cell);
 
-  if (!overlayImagePath) {
+  if (!overlaySpec?.imagePath) {
     return;
   }
 
-  const image = resourceOverlayImages[overlayImagePath];
+  const image = resourceOverlayImages[overlaySpec.imagePath];
 
   if (!image?.complete || image.naturalWidth <= 0) {
     return;
   }
 
-  const renderSpec = getFoodOverlayRenderSpec(cell.foodType);
-  const drawWidth = baseTile.width * renderSpec.scale;
-  const drawHeight = baseTile.height * renderSpec.scale;
-  const baseY = baseTile.height * renderSpec.baseYFactor;
+  const drawWidth = baseTile.width * overlaySpec.scale;
+  const drawHeight = baseTile.height * overlaySpec.scale;
+  const baseY = baseTile.height * overlaySpec.baseYFactor;
 
+  context.save();
+  context.globalAlpha = overlaySpec.opacity;
   context.drawImage(
     image,
     baseTile.width / 2 - drawWidth / 2,
@@ -4143,6 +3801,7 @@ function drawInspectorFoodOverlay(context, cell) {
     drawWidth,
     drawHeight,
   );
+  context.restore();
 }
 
 function drawInspectorConstructibleOverlayForKind(kind, context, constructible) {
@@ -4671,30 +4330,103 @@ function getFoodTypeMaxAmount(foodType) {
   return Math.max(0, maxAmount);
 }
 
-function getFoodTypeRegrowth(foodType) {
-  const regrowth = Number(getFoodDefinition(foodType)?.regrowthPerTurn);
+function getFoodTypeRegrowthRate(foodType) {
+  const regrowthRate = Number(getFoodDefinition(foodType)?.regrowthRate);
 
-  if (!Number.isFinite(regrowth)) {
+  if (!Number.isFinite(regrowthRate)) {
     return 0;
   }
 
-  return Math.max(0, regrowth);
+  return Math.max(0, regrowthRate);
 }
 
-function getFoodOverlayImagePath(foodType) {
-  const overlayImage = getFoodDefinition(foodType)?.overlayImage;
-  return typeof overlayImage === "string" && overlayImage ? overlayImage : null;
-}
-
-function getFoodOverlayRenderSpec(foodType) {
+function getFoodOverlayStageDefinitions(foodType) {
   const definition = getFoodDefinition(foodType) || {};
-  const overlayScale = Number(definition.overlayScale);
-  const overlayBaseYFactor = Number(definition.overlayBaseYFactor);
+  const defaultScale = Number(definition.overlayScale);
+  const defaultBaseYFactor = Number(definition.overlayBaseYFactor);
+  const rawStages = Array.isArray(definition.overlayStages) ? definition.overlayStages : [];
+  const normalizedStages = rawStages
+    .map((stage) => {
+      if (!stage || typeof stage !== "object") {
+        return null;
+      }
 
-  return {
-    scale: Number.isFinite(overlayScale) && overlayScale > 0 ? overlayScale : 1,
-    baseYFactor: Number.isFinite(overlayBaseYFactor) ? overlayBaseYFactor : 1,
-  };
+      const imagePath = typeof stage.image === "string" && stage.image
+        ? stage.image
+        : (typeof stage.overlayImage === "string" && stage.overlayImage ? stage.overlayImage : null);
+
+      if (!imagePath) {
+        return null;
+      }
+
+      const minFillRatio = Number(stage.minFillRatio);
+      const scale = Number(stage.scale);
+      const baseYFactor = Number(stage.baseYFactor);
+      const opacity = Number(stage.opacity);
+
+      return {
+        imagePath,
+        minFillRatio: clampNumber(minFillRatio, 0, 1, 0),
+        scale: Number.isFinite(scale) && scale > 0
+          ? scale
+          : (Number.isFinite(defaultScale) && defaultScale > 0 ? defaultScale : 1),
+        baseYFactor: Number.isFinite(baseYFactor)
+          ? baseYFactor
+          : (Number.isFinite(defaultBaseYFactor) ? defaultBaseYFactor : 1),
+        opacity: clampNumber(opacity, 0, 1, 1),
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.minFillRatio - left.minFillRatio);
+
+  if (normalizedStages.length > 0) {
+    return normalizedStages;
+  }
+
+  const legacyOverlayImage = typeof definition.overlayImage === "string" && definition.overlayImage
+    ? definition.overlayImage
+    : null;
+
+  if (!legacyOverlayImage) {
+    return [];
+  }
+
+  return [
+    {
+      imagePath: legacyOverlayImage,
+      minFillRatio: 0,
+      scale: Number.isFinite(defaultScale) && defaultScale > 0 ? defaultScale : 1,
+      baseYFactor: Number.isFinite(defaultBaseYFactor) ? defaultBaseYFactor : 1,
+      opacity: 1,
+    },
+  ];
+}
+
+function getFoodOverlayDisplaySpec(cell) {
+  if (!cell?.foodType) {
+    return null;
+  }
+
+  const maxAmount = getCellFoodMaxAmount(cell);
+  if (maxAmount <= 0) {
+    return null;
+  }
+
+  const currentAmount = clampNumber(Number(cell.foodAmount), 0, maxAmount, 0);
+  if (currentAmount <= 0) {
+    return null;
+  }
+
+  const fillRatio = currentAmount / maxAmount;
+  const stages = getFoodOverlayStageDefinitions(cell.foodType);
+
+  for (const stage of stages) {
+    if (fillRatio >= stage.minFillRatio) {
+      return stage;
+    }
+  }
+
+  return stages[stages.length - 1] || null;
 }
 
 function getCellFoodMaxAmount(cell) {
@@ -5679,190 +5411,6 @@ function getResolvedUnitConfig(unitOrTypeId = getDefaultUnitTypeId()) {
 
 function getEffectiveUnitConfig(unitOrTypeId = getDefaultUnitTypeId(), context = getRuleContext()) {
   return applyUnitConfigModifiers(getResolvedUnitConfig(unitOrTypeId), context);
-}
-
-function mergeNestedSpriteValueObjects(baseEntries, overrideEntries) {
-  const merged = { ...(baseEntries || {}) };
-
-  for (const [key, value] of Object.entries(overrideEntries || {})) {
-    merged[key] =
-      value && typeof value === "object" && !Array.isArray(value)
-        ? {
-            ...((baseEntries && typeof baseEntries[key] === "object" && !Array.isArray(baseEntries[key]))
-              ? baseEntries[key]
-              : {}),
-            ...value,
-          }
-        : value;
-  }
-
-  return Object.keys(merged).length > 0 ? merged : undefined;
-}
-
-function mergeSpriteSourceCatalogs(baseSources, overrideSources) {
-  const merged = {};
-
-  for (const [sourceId, directions] of Object.entries(baseSources || {})) {
-    merged[sourceId] = { ...(directions || {}) };
-  }
-
-  for (const [sourceId, directions] of Object.entries(overrideSources || {})) {
-    merged[sourceId] = {
-      ...(merged[sourceId] || {}),
-      ...(directions || {}),
-    };
-  }
-
-  return Object.keys(merged).length > 0 ? merged : undefined;
-}
-
-function mergeSpriteConfigs(baseConfig, overrideConfig) {
-  const base = baseConfig && typeof baseConfig === "object" ? baseConfig : {};
-  const override = overrideConfig && typeof overrideConfig === "object" ? overrideConfig : {};
-
-  return {
-    ...base,
-    ...override,
-    sources: mergeSpriteSourceCatalogs(base.sources, override.sources),
-    actionContextSourceCandidates: mergeNestedSpriteValueObjects(
-      base.actionContextSourceCandidates,
-      override.actionContextSourceCandidates,
-    ),
-  };
-}
-
-function getAllUnitSpriteConfigs() {
-  return unitSpriteConfigs && typeof unitSpriteConfigs === "object" ? unitSpriteConfigs : {};
-}
-
-function getDefinedUnitSpriteTypeIds() {
-  return Object.keys(getAllUnitSpriteConfigs()).filter((spriteTypeId) => Boolean(spriteTypeId));
-}
-
-function getDefaultUnitSpriteTypeId() {
-  const resolvedDefaultConfig = getResolvedUnitConfig(getDefaultUnitTypeId());
-  const configured = typeof resolvedDefaultConfig.spriteTypeId === "string"
-    ? resolvedDefaultConfig.spriteTypeId.trim()
-    : "";
-
-  if (configured && getAllUnitSpriteConfigs()[configured]) {
-    return configured;
-  }
-
-  const [firstSpriteTypeId] = getDefinedUnitSpriteTypeIds();
-  return firstSpriteTypeId || "default";
-}
-
-function getUnitSpriteTypeId(unitOrTypeId = unit) {
-  const typeId =
-    typeof unitOrTypeId === "string"
-      ? normalizeUnitTypeId(unitOrTypeId)
-      : getUnitTypeId(unitOrTypeId);
-  const resolvedConfig = getResolvedUnitConfig(typeId);
-  const configured = typeof resolvedConfig.spriteTypeId === "string"
-    ? resolvedConfig.spriteTypeId.trim()
-    : "";
-
-  if (configured && getAllUnitSpriteConfigs()[configured]) {
-    return configured;
-  }
-
-  if (getAllUnitSpriteConfigs()[typeId]) {
-    return typeId;
-  }
-
-  return getDefaultUnitSpriteTypeId();
-}
-
-function getUnitSpriteConfig(unitOrTypeId = unit) {
-  const allSpriteConfigs = getAllUnitSpriteConfigs();
-  const defaultConfig = allSpriteConfigs[getDefaultUnitSpriteTypeId()] || Object.values(allSpriteConfigs)[0] || null;
-  const specificConfig = allSpriteConfigs[getUnitSpriteTypeId(unitOrTypeId)] || defaultConfig;
-
-  if (!defaultConfig || !specificConfig) {
-    return null;
-  }
-
-  return mergeSpriteConfigs(defaultConfig, specificConfig);
-}
-
-function getUnitSpriteIcon(unitOrTypeId = unit, spriteConfig = getUnitSpriteConfig(unitOrTypeId)) {
-  return getSpriteResolvedImagePath(
-    getFirstResolvedSpriteSource(spriteConfig, spriteDirectionalSourceCandidateSets.stationary, "W"),
-  );
-}
-
-function getMountedRenderConfig(currentUnit = unit) {
-  const mountedVehicle = getMountedVehicle(currentUnit);
-  const mountedRenders = getConstructibleSpec("vehicle", mountedVehicle?.type)?.mountedRenders;
-
-  if (!mountedVehicle || !mountedRenders) {
-    return null;
-  }
-
-  const defaultRender = mountedRenders.default || null;
-  const unitTypeRender = mountedRenders.byUnitType?.[getUnitTypeId(currentUnit)] || null;
-  const mergedUnit =
-    defaultRender?.unit || unitTypeRender?.unit
-      ? mergeSpriteConfigs(defaultRender?.unit || {}, unitTypeRender?.unit || {})
-      : null;
-  const mergedVehicle =
-    defaultRender?.vehicle || unitTypeRender?.vehicle
-      ? mergeSpriteConfigs(defaultRender?.vehicle || {}, unitTypeRender?.vehicle || {})
-      : null;
-
-  if (!mergedUnit && !mergedVehicle) {
-    return null;
-  }
-
-  return {
-    ...(mergedUnit ? { unit: mergedUnit } : {}),
-    ...(mergedVehicle ? { vehicle: mergedVehicle } : {}),
-  };
-}
-
-function getMountedSpriteLayerConfig(currentUnit = unit, layerKey = "unit") {
-  const mountedRenderConfig = getMountedRenderConfig(currentUnit);
-  return mountedRenderConfig?.[layerKey] || null;
-}
-
-function getMountedVehicleSpriteConfig(currentUnit = unit) {
-  return getRenderedSpriteConfig(currentUnit, { layerKey: "vehicle" });
-}
-
-function getRenderedSpriteConfig(
-  currentUnit = unit,
-  {
-    layerKey = "unit",
-    baseConfig = null,
-    suppressMountedLayer = false,
-  } = {},
-) {
-  const resolvedBaseConfig =
-    typeof baseConfig === "function"
-      ? (baseConfig(currentUnit) || null)
-      : (baseConfig || null);
-
-  if (suppressMountedLayer) {
-    return resolvedBaseConfig;
-  }
-
-  const mountedLayerConfig = getMountedSpriteLayerConfig(currentUnit, layerKey);
-  if (!mountedLayerConfig) {
-    return resolvedBaseConfig;
-  }
-
-  return resolvedBaseConfig
-    ? mergeSpriteConfigs(resolvedBaseConfig, mountedLayerConfig)
-    : mountedLayerConfig;
-}
-
-function getRenderedUnitSpriteConfig(currentUnit = unit) {
-  return getRenderedSpriteConfig(currentUnit, {
-    layerKey: "unit",
-    baseConfig: getUnitSpriteConfig,
-    suppressMountedLayer: currentUnit?.move?.mode === "dismount",
-  });
 }
 
 function serializeCell(cell) {
@@ -7398,17 +6946,6 @@ function hasWorkingUnits() {
   return getUnits().some((currentUnit) => isUnitWorking(currentUnit));
 }
 
-function getWorkingUnitFrameIndex(now = performance.now()) {
-  const spriteConfig = getUnitSpriteConfig();
-  const workFrames = getSpriteSourcePaths(spriteConfig, spriteSourceIds.work, "O");
-
-  if (!spriteConfig || workFrames.length <= 1) {
-    return 0;
-  }
-
-  return Math.floor(now / spriteConfig.workFrameDuration) % workFrames.length;
-}
-
 function canRenderAnimatedFrames() {
   return document.visibilityState !== "hidden";
 }
@@ -7441,70 +6978,6 @@ function getAnimationFrameInterval() {
   }
 
   return Number.POSITIVE_INFINITY;
-}
-
-function getSpriteDefinedSourceEntry(
-  spriteConfig,
-  sourceId,
-  directionId = "O",
-) {
-  return spriteConfig?.sources?.[sourceId]?.[directionId] || null;
-}
-
-function resolveSpriteSourceEntry(
-  spriteConfig,
-  sourceId,
-  requestedDirectionId = "O",
-) {
-  const normalizedDirectionId = getSpriteDirectionId(requestedDirectionId, "O");
-  let currentDirectionId = normalizedDirectionId;
-  let mirror = false;
-  const visited = new Set();
-
-  while (currentDirectionId && !visited.has(currentDirectionId)) {
-    visited.add(currentDirectionId);
-    const entry = getSpriteDefinedSourceEntry(spriteConfig, sourceId, currentDirectionId);
-
-    if (entry) {
-      return {
-        sourceId,
-        requestedDirectionId: normalizedDirectionId,
-        resolvedDirectionId: currentDirectionId,
-        mirror,
-        kind: entry.kind,
-        paths: entry.paths || [],
-      };
-    }
-
-    const fallback = spriteDirectionFallbacks[currentDirectionId];
-    if (!fallback) {
-      break;
-    }
-
-    mirror = fallback.mirror ? !mirror : mirror;
-    currentDirectionId = fallback.to || "";
-  }
-
-  return null;
-}
-
-function getSpriteSourcePaths(spriteConfig, sourceId, requestedDirectionId = "O") {
-  return resolveSpriteSourceEntry(spriteConfig, sourceId, requestedDirectionId)?.paths || [];
-}
-
-function getFirstResolvedSpriteSource(spriteConfig, sourceIds, requestedDirectionId = "O") {
-  for (const sourceId of sourceIds || []) {
-    if (!sourceId) {
-      continue;
-    }
-
-    const resolved = resolveSpriteSourceEntry(spriteConfig, sourceId, requestedDirectionId);
-    if (resolved && resolved.paths.length > 0) {
-      return resolved;
-    }
-  }
-
-  return null;
 }
 
 function shouldAnimateWorkingUnits() {
@@ -8406,13 +7879,14 @@ function regrowFoodResourcesForTurn() {
       }
 
       const maxAmount = getCellFoodMaxAmount(cell);
-      const regrowth = getFoodTypeRegrowth(cell.foodType);
+      const currentAmount = clampNumber(Number(cell.foodAmount), 0, maxAmount, 0);
+      const regrowthRate = getFoodTypeRegrowthRate(cell.foodType);
 
-      if (maxAmount <= 0 || regrowth <= 0) {
+      if (maxAmount <= 0 || currentAmount <= 0 || regrowthRate <= 0) {
         continue;
       }
 
-      const nextAmount = clamp(cell.foodAmount + regrowth, 0, maxAmount);
+      const nextAmount = clamp(currentAmount * (1 + regrowthRate), 0, maxAmount);
 
       if (nextAmount !== cell.foodAmount) {
         cell.foodAmount = nextAmount;
@@ -8933,8 +8407,8 @@ async function ensureVisualAssetsLoaded() {
 function getFoodOverlayImagePaths() {
   return [
     ...new Set(
-      Object.values(rules.resources?.foodTypes || {})
-        .map((definition) => definition?.overlayImage)
+      Object.keys(rules.resources?.foodTypes || {})
+        .flatMap((foodType) => getFoodOverlayStageDefinitions(foodType).map((stage) => stage.imagePath))
         .filter((imagePath) => typeof imagePath === "string" && imagePath),
     ),
   ];
@@ -8979,46 +8453,6 @@ function getStructureImagePaths(catalog) {
   }
 
   return paths;
-}
-
-function getSpriteAnimationImagePaths(spriteConfig) {
-  if (!spriteConfig || typeof spriteConfig !== "object") {
-    return [];
-  }
-
-  return [
-    ...new Set(
-      Object.values(spriteConfig.sources || {})
-        .flatMap((directionEntries) => Object.values(directionEntries || {}))
-        .flatMap((entry) => entry?.paths || [])
-        .filter(Boolean),
-    ),
-  ];
-}
-
-function getMountedRenderLayerImagePaths(catalog, layerKey) {
-  const paths = [];
-
-  for (const spec of Object.values(catalog || {})) {
-    const mountedRenders = spec?.mountedRenders || {};
-    const renderEntries = [
-      mountedRenders.default,
-      ...Object.values(mountedRenders.byUnitType || {}),
-    ].filter(Boolean);
-
-    for (const renderEntry of renderEntries) {
-      paths.push(...getSpriteAnimationImagePaths(renderEntry?.[layerKey]));
-    }
-  }
-
-  return [...new Set(paths)];
-}
-
-function getShoreOverlayPaths() {
-  return [
-    ...Object.values(shoreOverlays.edge),
-    ...Object.values(shoreOverlays.corner),
-  ];
 }
 
 function loadImage(imagePath, registry) {
@@ -11615,27 +11049,6 @@ function drawMountedVehicleAtScreen(
   );
 }
 
-function getAnimatedTaskFrameOffset(currentUnit) {
-  if (!currentUnit) {
-    return 0;
-  }
-
-  if (!Number.isInteger(currentUnit.animatedTaskFrameOffset)) {
-    currentUnit.animatedTaskFrameOffset = Math.random() < 0.5 ? 1 : 0;
-  }
-
-  return currentUnit.animatedTaskFrameOffset;
-}
-
-function isFishingTask(currentUnit) {
-  if (currentUnit?.task?.type !== "gatherFood") {
-    return false;
-  }
-
-  const targetCell = getUnitTaskTargetCell(currentUnit);
-  return targetCell?.foodType === "fish";
-}
-
 function getGatherTaskProgressText(task) {
   const gatherDurationTurns = getGatherTaskDurationTurns();
   const completedTurns = clampInteger(
@@ -11646,462 +11059,6 @@ function getGatherTaskProgressText(task) {
   );
 
   return `${completedTurns}/${gatherDurationTurns}`;
-}
-
-function getDirectionalSpriteSourceCandidates(variant) {
-  return spriteDirectionalSourceCandidateSets[variant] || [];
-}
-
-function getSpriteResolvedImagePath(sourceResolution, preferredFrameIndex = 0) {
-  if (!sourceResolution || sourceResolution.paths.length === 0) {
-    return "";
-  }
-
-  return sourceResolution.paths[preferredFrameIndex] || sourceResolution.paths[0] || "";
-}
-
-function pushUnitTaskSpriteContextId(contextIds, contextId) {
-  const normalizedContextId = typeof contextId === "string" ? contextId.trim() : "";
-
-  if (!normalizedContextId || contextIds.includes(normalizedContextId)) {
-    return;
-  }
-
-  contextIds.push(normalizedContextId);
-}
-
-function getUnitTaskTargetSpriteContextIds(currentUnit) {
-  const contextIds = [];
-  const task = currentUnit?.task;
-  const targetCell = getUnitTaskTargetCell(currentUnit);
-
-  if (typeof task?.subjectKind === "string" && task.subjectKind) {
-    pushUnitTaskSpriteContextId(contextIds, `subjectKind:${task.subjectKind}`);
-  }
-
-  if (typeof task?.subjectType === "string" && task.subjectType) {
-    pushUnitTaskSpriteContextId(contextIds, `subjectType:${task.subjectType}`);
-
-    if (typeof task?.subjectKind === "string" && task.subjectKind) {
-      pushUnitTaskSpriteContextId(contextIds, `${task.subjectKind}:${task.subjectType}`);
-    }
-  }
-
-  if (!targetCell) {
-    return contextIds;
-  }
-
-  const building = getBuildingAtCell(targetCell.x, targetCell.y);
-  if (building?.type) {
-    pushUnitTaskSpriteContextId(contextIds, "constructible:building");
-    pushUnitTaskSpriteContextId(contextIds, `building:${building.type}`);
-  }
-
-  const vehicle = getVehicleAtCell(targetCell.x, targetCell.y);
-  if (vehicle?.type) {
-    pushUnitTaskSpriteContextId(contextIds, "constructible:vehicle");
-    pushUnitTaskSpriteContextId(contextIds, `vehicle:${vehicle.type}`);
-  }
-
-  if (typeof targetCell.foodType === "string" && targetCell.foodType) {
-    pushUnitTaskSpriteContextId(contextIds, `food:${targetCell.foodType}`);
-  }
-
-  const materialType = getCellMaterialResourceType(targetCell);
-  if (materialType) {
-    pushUnitTaskSpriteContextId(contextIds, `material:${materialType}`);
-  }
-
-  if (typeof targetCell.type === "string" && targetCell.type) {
-    pushUnitTaskSpriteContextId(contextIds, `terrain:${targetCell.type}`);
-  }
-
-  return contextIds;
-}
-
-function getTaskActionContextSourceCandidates(currentUnit, spriteConfig) {
-  const actionId = getTaskActionId(currentUnit?.task);
-  const actionContextEntries = actionId
-    ? (spriteConfig?.actionContextSourceCandidates?.[actionId] || null)
-    : null;
-
-  if (!actionContextEntries) {
-    return [];
-  }
-
-  for (const contextId of getUnitTaskTargetSpriteContextIds(currentUnit)) {
-    const sourceCandidates = actionContextEntries[contextId];
-
-    if (Array.isArray(sourceCandidates) && sourceCandidates.length > 0) {
-      return sourceCandidates;
-    }
-  }
-
-  return actionContextEntries[spriteSourceCandidateDefaultContextId] || actionContextEntries["*"] || [];
-}
-
-function getUnitTaskSpriteSourceCandidates(currentUnit, spriteConfig) {
-  const configuredContextCandidates = getTaskActionContextSourceCandidates(currentUnit, spriteConfig);
-  if (configuredContextCandidates.length > 0) {
-    return configuredContextCandidates;
-  }
-
-  const spec = getUnitTaskSpec(currentUnit);
-
-  if (spec?.getTaskSpriteSourceCandidates) {
-    return spec.getTaskSpriteSourceCandidates(currentUnit, spriteConfig) || [];
-  }
-
-  if (spec?.countsAsWork) {
-    return spriteTaskSourceCandidateSets.work;
-  }
-
-  return spriteTaskSourceCandidateSets.idle;
-}
-
-function getAnimatedTaskSpriteImage(currentUnit, spriteConfig, frameIndex = 0) {
-  const sourceResolution = getUnitTaskSpriteSourceResolution(currentUnit, spriteConfig);
-  const frames = sourceResolution?.paths || [];
-  const offsetFrameIndex = frameIndex + getAnimatedTaskFrameOffset(currentUnit);
-
-  if (frames.length === 0) {
-    return getSpriteResolvedImagePath(
-      getFirstResolvedSpriteSource(spriteConfig, spriteTaskSourceCandidateSets.idle, "W"),
-    );
-  }
-
-  return frames[offsetFrameIndex % frames.length] || frames[0] || "";
-}
-
-function getAnimatedTaskUnitImage(currentUnit, frameIndex = 0) {
-  return getAnimatedTaskSpriteImage(currentUnit, getRenderedUnitSpriteConfig(currentUnit), frameIndex);
-}
-
-function getMovePreviewSpriteImage(currentUnit, spriteConfig) {
-  const task = currentUnit?.task;
-  const direction = currentUnit?.move?.direction || (
-    getUnitTaskInspectorPreviewMode(currentUnit) === "move"
-      ? getMoveDirection(currentUnit.x, currentUnit.y, task.toX, task.toY)
-      : (currentUnit?.facing || "west")
-  );
-  const sourceResolution = getFirstResolvedSpriteSource(
-    spriteConfig,
-    getDirectionalSpriteSourceCandidates("move"),
-    getSpriteDirectionId(direction, "W"),
-  );
-  return getSpriteResolvedImagePath(sourceResolution, 1);
-}
-
-function getMovePreviewUnitImage(currentUnit) {
-  return getMovePreviewSpriteImage(currentUnit, getRenderedUnitSpriteConfig(currentUnit));
-}
-
-function getUnitInspectorSpriteImage(currentUnit) {
-  if (!currentUnit) {
-    return "";
-  }
-
-  if (currentUnit.move || getUnitTaskInspectorPreviewMode(currentUnit) === "move") {
-    return getMovePreviewUnitImage(currentUnit);
-  }
-
-  if (getUnitTaskInspectorPreviewMode(currentUnit) === "animated") {
-    return getAnimatedTaskUnitImage(currentUnit, 0);
-  }
-
-  return getStationaryUnitImage(currentUnit, performance.now(), 0);
-}
-
-function getStationarySpriteImage(currentUnit, spriteConfig, now = performance.now(), explicitFrameIndex = null) {
-  if (isUnitWorking(currentUnit)) {
-    const frameIndex =
-      explicitFrameIndex === null ? getWorkingUnitFrameIndex(now) : explicitFrameIndex;
-
-    return getAnimatedTaskSpriteImage(currentUnit, spriteConfig, frameIndex);
-  }
-
-  const sourceResolution = getFirstResolvedSpriteSource(
-    spriteConfig,
-    getDirectionalSpriteSourceCandidates("stationary"),
-    getSpriteRenderDirection(currentUnit),
-  );
-  return getSpriteResolvedImagePath(sourceResolution);
-}
-
-function getStationaryUnitImage(currentUnit, now = performance.now(), explicitFrameIndex = null) {
-  return getStationarySpriteImage(
-    currentUnit,
-    getRenderedUnitSpriteConfig(currentUnit),
-    now,
-    explicitFrameIndex,
-  );
-}
-
-function getMovingSpriteImage(currentUnit, spriteConfig, direction = "west", now = performance.now()) {
-  const sourceResolution = getFirstResolvedSpriteSource(
-    spriteConfig,
-    getDirectionalSpriteSourceCandidates("move"),
-    getSpriteDirectionId(direction, "W"),
-  );
-  const moveFrames = sourceResolution?.paths || [];
-  const fallbackImage = getSpriteResolvedImagePath(sourceResolution);
-  const moveFrameSequence = Array.isArray(spriteConfig?.moveFrameSequence)
-    ? spriteConfig.moveFrameSequence
-    : [];
-
-  if (
-    !currentUnit?.move ||
-    moveFrames.length === 0 ||
-    !spriteConfig ||
-    moveFrameSequence.length === 0 ||
-    sourceResolution?.kind !== "frames"
-  ) {
-    return fallbackImage;
-  }
-
-  const progress = getUnitMoveProgress(currentUnit, now);
-  const phaseIndex = Math.min(
-    moveFrameSequence.length - 1,
-    Math.floor(progress * moveFrameSequence.length),
-  );
-  const frameIndex = moveFrameSequence[phaseIndex];
-
-  return moveFrames[frameIndex] || fallbackImage;
-}
-
-function getMovingUnitImage(currentUnit = unit, direction = "west", now = performance.now()) {
-  return getMovingSpriteImage(
-    currentUnit,
-    getRenderedUnitSpriteConfig(currentUnit),
-    direction,
-    now,
-  );
-}
-
-function getSpriteRenderDirection(currentUnit) {
-  if (!currentUnit) {
-    return "W";
-  }
-
-  if (currentUnit.move?.direction) {
-    return getSpriteDirectionId(currentUnit.move.direction, "W");
-  }
-
-  if (currentUnit.task) {
-    if (doesTaskUseTargetDirection(currentUnit.task)) {
-      return getSpriteDirectionId(getRawUnitTaskDirection(currentUnit), "O");
-    }
-
-    return getSpriteDirectionId(currentUnit.facing || "west", "W");
-  }
-
-  return getSpriteDirectionId(getUnitDisplayDirection(currentUnit), "W");
-}
-
-function getSpriteRenderAction(currentUnit) {
-  if (!currentUnit) {
-    return "";
-  }
-
-  if (currentUnit.move?.mode === "dismount") {
-    return unitActions.dismount;
-  }
-
-  if (currentUnit.move) {
-    return unitActions.walk;
-  }
-
-  if (!currentUnit.task) {
-    return "";
-  }
-
-  return getTaskActionId(currentUnit.task) || "";
-}
-
-function getUnitTaskSpriteSourceResolution(currentUnit, spriteConfig) {
-  return getFirstResolvedSpriteSource(
-    spriteConfig,
-    getUnitTaskSpriteSourceCandidates(currentUnit, spriteConfig),
-    getSpriteRenderDirection(currentUnit),
-  );
-}
-
-function getSpriteRenderSourceKey(currentUnit, spriteConfig) {
-  return getSpriteRenderSourceResolution(currentUnit, spriteConfig)?.sourceId || "";
-}
-
-function getSpriteRenderSourceResolution(currentUnit, spriteConfig) {
-  if (!spriteConfig) {
-    return null;
-  }
-
-  if (!currentUnit) {
-    return getFirstResolvedSpriteSource(spriteConfig, spriteTaskSourceCandidateSets.idle, "W");
-  }
-
-  if (currentUnit.move) {
-    return getFirstResolvedSpriteSource(
-      spriteConfig,
-      getDirectionalSpriteSourceCandidates("move"),
-      getSpriteRenderDirection(currentUnit),
-    );
-  }
-
-  if (isUnitWorking(currentUnit)) {
-    return getUnitTaskSpriteSourceResolution(currentUnit, spriteConfig);
-  }
-
-  return getFirstResolvedSpriteSource(
-    spriteConfig,
-    getDirectionalSpriteSourceCandidates("stationary"),
-    getSpriteRenderDirection(currentUnit),
-  );
-}
-
-function getSpriteRenderSpec(spriteConfig, currentUnit = null) {
-  const baseOffsetX = spriteConfig?.offsetX ?? 0;
-  const baseOffsetY = spriteConfig?.offsetY ?? 0;
-
-  return {
-    width:
-      spriteConfig?.width,
-    height:
-      spriteConfig?.height,
-    anchorX:
-      spriteConfig?.anchorX,
-    anchorY:
-      spriteConfig?.anchorY,
-    groundOffset:
-      spriteConfig?.groundOffset
-      ?? 0.75,
-    offsetX:
-      baseOffsetX,
-    offsetY:
-      baseOffsetY,
-  };
-}
-
-function getUnitSpriteRenderSpec(currentUnit = null) {
-  return getSpriteRenderSpec(getRenderedUnitSpriteConfig(currentUnit), currentUnit);
-}
-
-function shouldMirrorSpriteImage(
-  imagePath,
-  currentUnit = null,
-  spriteConfig = getRenderedUnitSpriteConfig(currentUnit),
-) {
-  const sourceResolution = getSpriteRenderSourceResolution(currentUnit, spriteConfig);
-
-  if (sourceResolution && sourceResolution.paths.includes(imagePath)) {
-    return Boolean(sourceResolution.mirror);
-  }
-
-  return false;
-}
-
-function shouldMirrorUnitImage(imagePath, currentUnit = null) {
-  return shouldMirrorSpriteImage(imagePath, currentUnit, getRenderedUnitSpriteConfig(currentUnit));
-}
-
-function drawSpriteAtScreen(
-  screen,
-  drawContext,
-  imagePath,
-  imageRegistry,
-  spriteConfig,
-  mirrorX = false,
-  showShadow = true,
-  currentUnit = null,
-) {
-  const image = imageRegistry[imagePath];
-  const renderSpec = getSpriteRenderSpec(spriteConfig, currentUnit);
-  const resolvedBaseWidth =
-    Number.isFinite(renderSpec.width) && renderSpec.width > 0
-      ? renderSpec.width
-      : (image?.complete && image.naturalWidth > 0 ? image.naturalWidth / 2 : 36);
-  const resolvedBaseHeight =
-    Number.isFinite(renderSpec.height) && renderSpec.height > 0
-      ? renderSpec.height
-      : (image?.complete && image.naturalHeight > 0 ? image.naturalHeight / 2 : 44);
-  const resolvedAnchorX =
-    Number.isFinite(renderSpec.anchorX)
-      ? renderSpec.anchorX
-      : (resolvedBaseWidth / 2);
-  const resolvedAnchorY =
-    Number.isFinite(renderSpec.anchorY)
-      ? renderSpec.anchorY
-      : resolvedBaseHeight;
-  const renderScreen = {
-    x: screen.x + (renderSpec.offsetX || 0) * zoomLevels[zoomIndex],
-    y: screen.y + (renderSpec.offsetY || 0) * zoomLevels[zoomIndex],
-  };
-  const drawWidth = resolvedBaseWidth * zoomLevels[zoomIndex];
-  const drawHeight = resolvedBaseHeight * zoomLevels[zoomIndex];
-  const drawX = renderScreen.x - resolvedAnchorX * zoomLevels[zoomIndex];
-  const ground = getUnitGroundPoint(renderScreen, renderSpec.groundOffset);
-  const groundY = ground.y;
-  const drawY = groundY - resolvedAnchorY * zoomLevels[zoomIndex];
-
-  drawContext.save();
-  if (showShadow) {
-    drawContext.fillStyle = "rgba(5, 8, 10, 0.28)";
-    drawContext.beginPath();
-    drawContext.ellipse(
-      renderScreen.x,
-      groundY + 2 * zoomLevels[zoomIndex],
-      tile.width * 0.15,
-      tile.height * 0.08,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    drawContext.fill();
-  }
-
-  if (image?.complete && image.naturalWidth > 0) {
-    if (mirrorX) {
-      drawContext.translate(drawX + drawWidth, drawY);
-      drawContext.scale(-1, 1);
-      drawContext.drawImage(image, 0, 0, drawWidth, drawHeight);
-    } else {
-      drawContext.drawImage(image, drawX, drawY, drawWidth, drawHeight);
-    }
-  } else {
-    drawContext.fillStyle = "#d7b45b";
-    drawContext.beginPath();
-    drawContext.arc(
-      renderScreen.x,
-      groundY - tile.height * 0.32,
-      tile.width * 0.12,
-      0,
-      Math.PI * 2,
-    );
-    drawContext.fill();
-  }
-
-  drawContext.restore();
-}
-
-function drawUnitAtScreen(
-  screen,
-  drawContext = ctx,
-  imagePath = getSpriteResolvedImagePath(
-    getFirstResolvedSpriteSource(getRenderedUnitSpriteConfig(), spriteTaskSourceCandidateSets.idle, "W"),
-  ),
-  mirrorX = false,
-  showShadow = true,
-  currentUnit = null,
-) {
-  return drawSpriteAtScreen(
-    screen,
-    drawContext,
-    imagePath,
-    unitImages,
-    getRenderedUnitSpriteConfig(currentUnit),
-    mirrorX,
-    showShadow,
-    currentUnit,
-  );
 }
 
 function easeInOut(t) {
@@ -12263,19 +11220,6 @@ function drawDiamondPath(cx, cy, lift = 0) {
   ctx.closePath();
 }
 
-function drawTileTerrain(cell) {
-  if (!isCellVisibleToPlayer(cell)) {
-    return;
-  }
-
-  const screen = isoToScreen(cell.x, cell.y);
-  const spec = terrain[cell.type];
-  const lift = 0;
-
-  drawTileBase(cell, screen, lift, spec);
-  drawTerrainTransitions(cell, screen, lift);
-}
-
 function drawTileOverlays(cell) {
   if (!isCellVisibleToPlayer(cell)) {
     return;
@@ -12332,25 +11276,6 @@ function drawTileOverlay(cell, style) {
   ctx.strokeStyle = style.strokeStyle;
   ctx.lineWidth = style.lineWidth;
   ctx.stroke();
-}
-
-function drawTileBase(cell, screen, lift, spec) {
-  const variantId = ensureCellVariant(cell);
-  const variant = getTerrainVariant(cell.type, variantId);
-  const image = variant ? tileImages[variant.image] : null;
-
-  if (image?.complete && image.naturalWidth > 0) {
-    ctx.drawImage(
-      image,
-      screen.x - tile.width / 2,
-      screen.y - lift,
-      tile.width,
-      tile.height + tile.edge,
-    );
-    return;
-  }
-
-  drawProceduralTile(cell, screen, lift, spec);
 }
 
 function getTileTopCenter(screen, lift = 0) {
@@ -12912,243 +11837,6 @@ function drawFogBorders(cell, screen, lift) {
   ctx.restore();
 }
 
-function drawProceduralTile(cell, screen, lift, spec) {
-  const left = screen.x - tile.width / 2;
-  const right = screen.x + tile.width / 2;
-  const midY = screen.y + tile.height / 2 - lift;
-  const bottomY = screen.y + tile.height + tile.edge;
-
-  ctx.beginPath();
-  ctx.moveTo(screen.x - tile.width / 2, midY);
-  ctx.lineTo(screen.x, screen.y + tile.height - lift);
-  ctx.lineTo(screen.x, bottomY);
-  ctx.lineTo(left, midY + tile.edge);
-  ctx.closePath();
-  ctx.fillStyle = shade(spec.side, -18);
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.moveTo(screen.x + tile.width / 2, midY);
-  ctx.lineTo(screen.x, screen.y + tile.height - lift);
-  ctx.lineTo(screen.x, bottomY);
-  ctx.lineTo(right, midY + tile.edge);
-  ctx.closePath();
-  ctx.fillStyle = spec.side;
-  ctx.fill();
-
-  drawDiamondPath(screen.x, screen.y, lift);
-  ctx.fillStyle = spec.top;
-  ctx.fill();
-  ctx.strokeStyle = spec.stroke;
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  drawTerrainDetails(cell, screen, lift, spec);
-}
-
-function drawTerrainDetails(cell, screen, lift, spec) {
-  const detailScale = tile.width / baseTile.width;
-  const cx = screen.x;
-  const cy = screen.y - lift;
-
-  if (cell.type === "water") {
-    ctx.strokeStyle = spec.detail;
-    ctx.lineWidth = Math.max(1, 1.4 * detailScale);
-    ctx.globalAlpha = 0.7;
-    drawWave(cx - 18 * detailScale, cy + 20 * detailScale, 16 * detailScale);
-    drawWave(cx + 4 * detailScale, cy + 29 * detailScale, 20 * detailScale);
-    ctx.globalAlpha = 1;
-    return;
-  }
-
-  if (cell.type === "forest") {
-    drawTree(cx - 16 * detailScale, cy + 28 * detailScale, detailScale);
-    drawTree(cx + 3 * detailScale, cy + 20 * detailScale, detailScale);
-    drawTree(cx + 17 * detailScale, cy + 32 * detailScale, detailScale);
-    return;
-  }
-
-  if (cell.type === "mountain") {
-    ctx.strokeStyle = spec.detail;
-    ctx.lineWidth = Math.max(1, 2 * detailScale);
-    ctx.beginPath();
-    ctx.moveTo(cx - 20 * detailScale, cy + 27 * detailScale);
-    ctx.quadraticCurveTo(
-      cx - 4 * detailScale,
-      cy + 15 * detailScale,
-      cx + 15 * detailScale,
-      cy + 27 * detailScale,
-    );
-    ctx.stroke();
-    ctx.lineWidth = Math.max(1, detailScale);
-    ctx.beginPath();
-    ctx.moveTo(cx - 12 * detailScale, cy + 36 * detailScale);
-    ctx.quadraticCurveTo(
-      cx + 5 * detailScale,
-      cy + 27 * detailScale,
-      cx + 25 * detailScale,
-      cy + 36 * detailScale,
-    );
-    ctx.stroke();
-    return;
-  }
-
-  ctx.strokeStyle = spec.detail;
-  ctx.lineWidth = Math.max(1, 1.5 * detailScale);
-  ctx.globalAlpha = 0.55;
-  ctx.beginPath();
-  ctx.moveTo(cx - 20 * detailScale, cy + 26 * detailScale);
-  ctx.lineTo(cx - 12 * detailScale, cy + 23 * detailScale);
-  ctx.moveTo(cx + 12 * detailScale, cy + 34 * detailScale);
-  ctx.lineTo(cx + 22 * detailScale, cy + 30 * detailScale);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-}
-
-function drawCellResourceOverlay(cell, screen, lift) {
-  if (!hasFoodResource(cell)) {
-    return;
-  }
-
-  const overlayImagePath = getFoodOverlayImagePath(cell.foodType);
-
-  if (overlayImagePath) {
-    if (drawFoodOverlayImage(cell.foodType, overlayImagePath, screen, lift)) {
-      return;
-    }
-  }
-
-  const scale = tile.width / baseTile.width;
-  const cx = screen.x;
-  const cy = screen.y - lift;
-
-  ctx.save();
-
-  if (cell.foodType === "grain") {
-    ctx.strokeStyle = "rgba(229, 209, 107, 0.95)";
-    ctx.lineWidth = Math.max(1, 1.4 * scale);
-    drawGrainOverlay(cx, cy, scale);
-    ctx.restore();
-    return;
-  }
-
-  if (cell.foodType === "berries") {
-    ctx.fillStyle = "rgba(188, 72, 94, 0.96)";
-    ctx.strokeStyle = "rgba(111, 40, 60, 0.72)";
-    ctx.lineWidth = Math.max(1, 0.8 * scale);
-    drawBerriesOverlay(cx, cy, scale);
-    ctx.restore();
-    return;
-  }
-
-  if (cell.foodType === "mushrooms") {
-    ctx.fillStyle = "rgba(210, 197, 170, 0.95)";
-    ctx.strokeStyle = "rgba(125, 94, 73, 0.74)";
-    ctx.lineWidth = Math.max(1, scale);
-    drawMushroomOverlay(cx, cy, scale);
-    ctx.restore();
-  }
-}
-
-function drawFoodOverlayImage(foodType, imagePath, screen, lift) {
-  const image = resourceOverlayImages[imagePath];
-
-  if (!image?.complete || image.naturalWidth <= 0) {
-    return false;
-  }
-
-  const renderSpec = getFoodOverlayRenderSpec(foodType);
-  const drawWidth = tile.width * renderSpec.scale;
-  const drawHeight = tile.height * renderSpec.scale;
-  const baseY = screen.y - lift + tile.height * renderSpec.baseYFactor;
-
-  ctx.drawImage(
-    image,
-    screen.x - drawWidth / 2,
-    baseY - drawHeight,
-    drawWidth,
-    drawHeight,
-  );
-  return true;
-}
-
-function drawGrainOverlay(cx, cy, scale) {
-  const stalks = [
-    { x: -11, y: 34, tipX: -14, tipY: 18 },
-    { x: -1, y: 36, tipX: -2, tipY: 16 },
-    { x: 10, y: 34, tipX: 12, tipY: 19 },
-  ];
-
-  for (const stalk of stalks) {
-    ctx.beginPath();
-    ctx.moveTo(cx + stalk.x * scale, cy + stalk.y * scale);
-    ctx.lineTo(cx + stalk.tipX * scale, cy + stalk.tipY * scale);
-    ctx.stroke();
-  }
-}
-
-function drawBerriesOverlay(cx, cy, scale) {
-  const berries = [
-    { x: -7, y: 26 },
-    { x: 0, y: 20 },
-    { x: 8, y: 27 },
-    { x: -1, y: 31 },
-  ];
-
-  for (const berry of berries) {
-    ctx.beginPath();
-    ctx.arc(cx + berry.x * scale, cy + berry.y * scale, 3.6 * scale, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  }
-}
-
-function drawMushroomOverlay(cx, cy, scale) {
-  const mushrooms = [
-    { x: -7, y: 28, w: 7, h: 4 },
-    { x: 6, y: 24, w: 8, h: 4.8 },
-  ];
-
-  for (const mushroom of mushrooms) {
-    ctx.beginPath();
-    ctx.ellipse(cx + mushroom.x * scale, cy + mushroom.y * scale, mushroom.w * scale, mushroom.h * scale, 0, Math.PI, 0, true);
-    ctx.stroke();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(cx + (mushroom.x - 1) * scale, cy + mushroom.y * scale);
-    ctx.lineTo(cx + (mushroom.x - 1) * scale, cy + (mushroom.y + 8) * scale);
-    ctx.moveTo(cx + (mushroom.x + 2) * scale, cy + mushroom.y * scale);
-    ctx.lineTo(cx + (mushroom.x + 2) * scale, cy + (mushroom.y + 8) * scale);
-    ctx.stroke();
-  }
-}
-
-function drawTerrainTransitions(cell, screen, lift) {
-  for (const rule of transitionRules) {
-    if (cell.type !== rule.baseType) continue;
-
-    const edges = getTileEdges(screen, lift);
-
-    for (const edge of edges) {
-      const neighbor = getEdgeNeighbor(cell, edge.direction);
-
-      if (!neighbor || !rule.neighborTypes.includes(neighbor.type)) continue;
-
-      if (rule.drawEdge) {
-        rule.drawEdge(edge, screen, lift);
-      }
-    }
-
-    if (rule.drawCorner) {
-      for (const corner of getTileCorners(screen, lift)) {
-        if (!shouldDrawCornerTransition(rule, cell, corner)) continue;
-
-        rule.drawCorner(corner, screen, lift);
-      }
-    }
-  }
-}
-
 function getTileEdges(screen, lift) {
   const top = { x: screen.x, y: screen.y - lift };
   const right = {
@@ -13241,121 +11929,6 @@ function getCell(x, y) {
   return map.cells[y]?.[x] || null;
 }
 
-function shouldDrawCornerTransition(rule, cell, corner) {
-  const cornerNeighbor = getCornerNeighbor(cell, corner.direction);
-
-  if (!cornerNeighbor || !rule.neighborTypes.includes(cornerNeighbor.type)) {
-    return false;
-  }
-
-  return corner.edgeDirections.every((edgeDirection) => {
-    const edgeNeighbor = getEdgeNeighbor(cell, edgeDirection);
-
-    return edgeNeighbor && edgeNeighbor.type === rule.baseType;
-  });
-}
-
-function drawShoreEdge(edge, screen, lift) {
-  if (drawShoreOverlay(shoreOverlays.edge[edge.direction], screen, lift)) return;
-
-  drawProceduralShoreEdge(edge, screen, lift);
-}
-
-function drawProceduralShoreEdge(edge, screen, lift) {
-  const scale = tile.width / baseTile.width;
-  const shoreWidth = 10 * scale;
-  const edgeMidpoint = {
-    x: (edge.start.x + edge.end.x) / 2,
-    y: (edge.start.y + edge.end.y) / 2,
-  };
-  const tileCenter = {
-    x: screen.x,
-    y: screen.y + tile.height / 2 - lift,
-  };
-  const inward = normalizeVector({
-    x: tileCenter.x - edgeMidpoint.x,
-    y: tileCenter.y - edgeMidpoint.y,
-  });
-  const innerStart = {
-    x: edge.start.x + inward.x * shoreWidth,
-    y: edge.start.y + inward.y * shoreWidth,
-  };
-  const innerEnd = {
-    x: edge.end.x + inward.x * shoreWidth,
-    y: edge.end.y + inward.y * shoreWidth,
-  };
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(edge.start.x, edge.start.y);
-  ctx.lineTo(edge.end.x, edge.end.y);
-  ctx.lineTo(innerEnd.x, innerEnd.y);
-  ctx.lineTo(innerStart.x, innerStart.y);
-  ctx.closePath();
-  ctx.fillStyle = "rgba(208, 190, 127, 0.9)";
-  ctx.fill();
-
-  ctx.strokeStyle = "rgba(245, 239, 198, 0.7)";
-  ctx.lineWidth = Math.max(1, 1.2 * scale);
-  ctx.beginPath();
-  ctx.moveTo(innerStart.x, innerStart.y);
-  ctx.lineTo(innerEnd.x, innerEnd.y);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawShoreCorner(corner, screen, lift) {
-  if (drawShoreOverlay(shoreOverlays.corner[corner.direction], screen, lift)) return;
-
-  drawProceduralShoreCorner(corner, screen, lift);
-}
-
-function drawShoreOverlay(imagePath, screen, lift) {
-  const image = shoreOverlayImages[imagePath];
-
-  if (!image?.complete || image.naturalWidth <= 0) return false;
-
-  ctx.drawImage(
-    image,
-    screen.x - tile.width / 2,
-    screen.y - lift,
-    tile.width,
-    tile.height + tile.edge,
-  );
-
-  return true;
-}
-
-function drawProceduralShoreCorner(corner, screen, lift) {
-  const scale = tile.width / baseTile.width;
-  const shoreLength = 15 * scale;
-  const shoreDepth = 10 * scale;
-  const tileCenter = {
-    x: screen.x,
-    y: screen.y + tile.height / 2 - lift,
-  };
-  const edgePointA = pointOnSegment(corner.point, corner.edgePoints[0], shoreLength);
-  const edgePointB = pointOnSegment(corner.point, corner.edgePoints[1], shoreLength);
-  const innerPoint = pointOnSegment(corner.point, tileCenter, shoreDepth);
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(corner.point.x, corner.point.y);
-  ctx.lineTo(edgePointA.x, edgePointA.y);
-  ctx.quadraticCurveTo(innerPoint.x, innerPoint.y, edgePointB.x, edgePointB.y);
-  ctx.closePath();
-  ctx.fillStyle = "rgba(208, 190, 127, 0.9)";
-  ctx.fill();
-
-  ctx.strokeStyle = "rgba(245, 239, 198, 0.7)";
-  ctx.lineWidth = Math.max(1, 1.2 * scale);
-  ctx.beginPath();
-  ctx.moveTo(edgePointA.x, edgePointA.y);
-  ctx.quadraticCurveTo(innerPoint.x, innerPoint.y, edgePointB.x, edgePointB.y);
-  ctx.stroke();
-  ctx.restore();
-}
-
 function pointOnSegment(start, end, distanceFromStart) {
   const direction = normalizeVector({
     x: end.x - start.x,
@@ -13375,35 +11948,6 @@ function normalizeVector(vector) {
     x: vector.x / length,
     y: vector.y / length,
   };
-}
-
-function drawWave(x, y, width) {
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.quadraticCurveTo(x + width * 0.25, y - 4, x + width * 0.5, y);
-  ctx.quadraticCurveTo(x + width * 0.75, y + 4, x + width, y);
-  ctx.stroke();
-}
-
-function drawTree(x, y, scale) {
-  ctx.fillStyle = "#2a5032";
-  ctx.beginPath();
-  ctx.moveTo(x, y - 12 * scale);
-  ctx.lineTo(x + 11 * scale, y + 9 * scale);
-  ctx.lineTo(x - 11 * scale, y + 9 * scale);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = "#5b4330";
-  ctx.fillRect(x - 2 * scale, y + 7 * scale, 4 * scale, 8 * scale);
-}
-
-function shade(hex, amount) {
-  const value = Number.parseInt(hex.slice(1), 16);
-  const r = clamp((value >> 16) + amount, 0, 255);
-  const g = clamp(((value >> 8) & 255) + amount, 0, 255);
-  const b = clamp((value & 255) + amount, 0, 255);
-  return `rgb(${r}, ${g}, ${b})`;
 }
 
 function lerp(a, b, t) {

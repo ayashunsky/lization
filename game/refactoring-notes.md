@@ -108,3 +108,11 @@
 4. Sprite manifests now support a direction-keyed `sources` catalog.
    - Runtime lookup now resolves `O/N/E/S/W/NE/NW/SE/SW` with a hard-coded fallback chain.
    - Checked-in unit and mounted-vehicle manifests have been migrated to `sources`.
+
+5. Sprite runtime has now been extracted from `app.js`.
+   - Sprite normalization, mounted-layer resolution, source lookup, and sprite drawing now live in `game/sprite-runtime.js`.
+   - Dead sprite helpers removed during the extraction: old inline override machinery was already gone, and the remaining unused sprite helpers were dropped instead of being carried into the module.
+
+6. Rule-evaluation unification is explicitly deferred for now.
+   - Current requirement/limit/modifier logic is acceptable at the present feature level.
+   - Revisit before adding materially richer rule conditions or broader tech/building/unit gating so the next rule expansion does not harden divergent schemas.
