@@ -66,6 +66,7 @@
             <p data-role="app-subtitle"></p>
           </div>
           <div class="readouts" aria-live="polite">
+            <button class="menu-button edit-research-button" data-action="open-editor-research" type="button"></button>
             <div class="zoom-controls">
               <button data-action="zoom-out" type="button">-</button>
               <span data-role="zoom-level"></span>
@@ -100,6 +101,14 @@
                   <p id="variantMenuTitle" class="tile-menu-title"></p>
                   <div id="variantMenuOptions" class="terrain-options" role="menu"></div>
                 </div>
+              </div>
+            </div>
+            <div class="edit-dropdown-group">
+              <button class="menu-button edit-dropdown-toggle" data-action="toggle-editor-dropdown" data-editor-dropdown="season" type="button" aria-expanded="false">
+                <span data-role="editor-season-label"></span>
+              </button>
+              <div class="edit-dropdown-menu" data-role="editor-dropdown-menu" data-editor-dropdown-menu="season" hidden>
+                <div id="seasonMenuOptions" class="terrain-options" role="menu"></div>
               </div>
             </div>
             <div class="edit-field-panel" data-role="editor-resource-panel" hidden>
@@ -205,7 +214,6 @@
             </div>
           </div>
         </div>
-        <button class="menu-button edit-research-button" data-action="open-editor-research" type="button"></button>
       </aside>
 
       <nav id="unitActionBar" class="unit-action-bar" aria-label="Unit actions" hidden>
@@ -226,6 +234,9 @@
         </button>
         <button class="unit-action-button" data-action="select-unit-action" data-unit-action="gatherFood" type="button">
           <span aria-hidden="true">❀</span>
+        </button>
+        <button class="unit-action-button" data-action="select-unit-action" data-unit-action="plant" type="button">
+          <span aria-hidden="true">✿</span>
         </button>
         <button class="unit-action-button" data-action="select-unit-action" data-unit-action="work" type="button">
           <span aria-hidden="true">⚒</span>
@@ -472,6 +483,7 @@
           <div class="slot-panel-actions">
             <button class="menu-button" data-action="confirm-slot-panel" type="button"></button>
             <button class="menu-button" data-action="import-slot-panel" type="button" hidden></button>
+            <button class="menu-button" data-action="delete-slot-panel" type="button" hidden></button>
             <button class="menu-button" data-action="cancel-slot-panel" type="button"></button>
           </div>
           <div class="slot-panel-list-wrap">

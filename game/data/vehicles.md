@@ -78,6 +78,21 @@ Rules:
   - this mounted `allowedActions` list
 - `dismount` is added automatically at runtime when a valid dismount tile exists
 
+## `rules.mounted.movementTerrains`
+
+Optional list of allowed mounted movement terrain/season rules.
+
+Supported entry forms:
+
+- `"grass"`: shorthand for this terrain in any season
+- `["water", "winter2"]`: one explicit `(terrain, season)` pair
+
+Rules:
+
+- movement is allowed only when the current cell matches at least one entry
+- season names must be one of: `summer`, `autumn`, `winter1`, `winter2`, `spring`
+- use explicit pairs when one terrain is allowed only in some seasons, for example boats on non-frozen water
+
 ## `rules.mounted.multipliers`
 
 Optional numeric multipliers applied while a unit is mounted on this vehicle.
@@ -174,7 +189,12 @@ If a mounted vehicle should remain visible while ridden, define a mounted `vehic
         "walkable": true,
         "mounted": {
           "allowedActions": ["walk"],
-          "movementTerrains": ["water"]
+          "movementTerrains": [
+            ["water", "summer"],
+            ["water", "autumn"],
+            ["water", "winter1"],
+            ["water", "spring"]
+          ]
         },
         "constructionCost": 120,
         "buildCost": {

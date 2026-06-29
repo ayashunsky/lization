@@ -14,6 +14,7 @@ export function createTerrainRuntimeApi(deps) {
     getCornerNeighbor,
     getTileEdges,
     getTileCorners,
+    getTerrainVariants,
     getTerrainVariant,
     ensureCellVariant,
     getFoodOverlayDisplaySpec,
@@ -54,6 +55,58 @@ export function createTerrainRuntimeApi(deps) {
     ];
   }
 
+  function getTerrainImagePaths() {
+    const imagePaths = [];
+
+    for (const [type] of Object.entries(terrain)) {
+      for (const variant of getTerrainVariants(type)) {
+        if (typeof variant?.image === "string" && variant.image) {
+          imagePaths.push(variant.image);
+        }
+
+        for (const seasonalImagePath of Object.values(variant?.seasonalImages || {})) {
+          if (typeof seasonalImagePath === "string" && seasonalImagePath) {
+            imagePaths.push(seasonalImagePath);
+          }
+        }
+      }
+    }
+
+    return [...new Set(imagePaths)];
+  }
+
+  function getCellSeason(cell) {
+    return typeof cell?.season === "string" && cell.season
+      ? cell.season
+      : "summer";
+  }
+
+  function getSeasonalVariantImagePath(variant, season) {
+    if (!variant || season === "summer") {
+      return null;
+    }
+
+    const imagePath = variant.seasonalImages?.[season];
+    return typeof imagePath === "string" && imagePath ? imagePath : null;
+  }
+
+  function getTerrainTileRenderSpec(cell) {
+    if (!cell) {
+      return null;
+    }
+
+    const variantId = ensureCellVariant(cell);
+    const variant = getTerrainVariant(cell.type, variantId);
+    const season = getCellSeason(cell);
+
+    return {
+      variant,
+      season,
+      baseImagePath: typeof variant?.image === "string" && variant.image ? variant.image : null,
+      seasonalImagePath: getSeasonalVariantImagePath(variant, season),
+    };
+  }
+
   function drawTileTerrain(cell) {
     if (!isCellVisibleToPlayer(cell)) {
       return;
@@ -68,9 +121,16 @@ export function createTerrainRuntimeApi(deps) {
   }
 
   function drawTileBase(cell, screen, lift, spec) {
-    const variantId = ensureCellVariant(cell);
-    const variant = getTerrainVariant(cell.type, variantId);
-    const image = variant ? tileImages[variant.image] : null;
+    const renderSpec = getTerrainTileRenderSpec(cell);
+    const seasonalImage = renderSpec?.seasonalImagePath
+      ? tileImages[renderSpec.seasonalImagePath]
+      : null;
+    const baseImage = renderSpec?.baseImagePath
+      ? tileImages[renderSpec.baseImagePath]
+      : null;
+    const image = seasonalImage?.complete && seasonalImage.naturalWidth > 0
+      ? seasonalImage
+      : baseImage;
 
     if (image?.complete && image.naturalWidth > 0) {
       ctx.drawImage(
@@ -186,40 +246,11 @@ export function createTerrainRuntimeApi(deps) {
 
     const overlaySpec = getFoodOverlayDisplaySpec(cell);
 
-    if (overlaySpec?.imagePath && drawFoodOverlayImage(overlaySpec, screen, lift)) {
+    if (!overlaySpec?.imagePath) {
       return;
     }
 
-    const scale = tile.width / baseTile.width;
-    const cx = screen.x;
-    const cy = screen.y - lift;
-
-    ctx.save();
-
-    if (cell.foodType === "grain") {
-      ctx.strokeStyle = "rgba(229, 209, 107, 0.95)";
-      ctx.lineWidth = Math.max(1, 1.4 * scale);
-      drawGrainOverlay(cx, cy, scale);
-      ctx.restore();
-      return;
-    }
-
-    if (cell.foodType === "berries") {
-      ctx.fillStyle = "rgba(188, 72, 94, 0.96)";
-      ctx.strokeStyle = "rgba(111, 40, 60, 0.72)";
-      ctx.lineWidth = Math.max(1, 0.8 * scale);
-      drawBerriesOverlay(cx, cy, scale);
-      ctx.restore();
-      return;
-    }
-
-    if (cell.foodType === "mushrooms") {
-      ctx.fillStyle = "rgba(210, 197, 170, 0.95)";
-      ctx.strokeStyle = "rgba(125, 94, 73, 0.74)";
-      ctx.lineWidth = Math.max(1, scale);
-      drawMushroomOverlay(cx, cy, scale);
-      ctx.restore();
-    }
+    drawFoodOverlayImage(overlaySpec, screen, lift);
   }
 
   function drawFoodOverlayImage(overlaySpec, screen, lift) {
@@ -244,66 +275,6 @@ export function createTerrainRuntimeApi(deps) {
     );
     ctx.restore();
     return true;
-  }
-
-  function drawGrainOverlay(cx, cy, scale) {
-    const stalks = [
-      { x: -11, y: 34, tipX: -14, tipY: 18 },
-      { x: -1, y: 36, tipX: -2, tipY: 16 },
-      { x: 10, y: 34, tipX: 12, tipY: 19 },
-    ];
-
-    for (const stalk of stalks) {
-      ctx.beginPath();
-      ctx.moveTo(cx + stalk.x * scale, cy + stalk.y * scale);
-      ctx.lineTo(cx + stalk.tipX * scale, cy + stalk.tipY * scale);
-      ctx.stroke();
-    }
-  }
-
-  function drawBerriesOverlay(cx, cy, scale) {
-    const berries = [
-      { x: -7, y: 26 },
-      { x: 0, y: 20 },
-      { x: 8, y: 27 },
-      { x: -1, y: 31 },
-    ];
-
-    for (const berry of berries) {
-      ctx.beginPath();
-      ctx.arc(cx + berry.x * scale, cy + berry.y * scale, 3.6 * scale, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    }
-  }
-
-  function drawMushroomOverlay(cx, cy, scale) {
-    const mushrooms = [
-      { x: -7, y: 28, w: 7, h: 4 },
-      { x: 6, y: 24, w: 8, h: 4.8 },
-    ];
-
-    for (const mushroom of mushrooms) {
-      ctx.beginPath();
-      ctx.ellipse(
-        cx + mushroom.x * scale,
-        cy + mushroom.y * scale,
-        mushroom.w * scale,
-        mushroom.h * scale,
-        0,
-        Math.PI,
-        0,
-        true,
-      );
-      ctx.stroke();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(cx + (mushroom.x - 1) * scale, cy + mushroom.y * scale);
-      ctx.lineTo(cx + (mushroom.x - 1) * scale, cy + (mushroom.y + 8) * scale);
-      ctx.moveTo(cx + (mushroom.x + 2) * scale, cy + mushroom.y * scale);
-      ctx.lineTo(cx + (mushroom.x + 2) * scale, cy + (mushroom.y + 8) * scale);
-      ctx.stroke();
-    }
   }
 
   function drawTerrainTransitions(cell, screen, lift) {
@@ -512,6 +483,8 @@ export function createTerrainRuntimeApi(deps) {
 
   return {
     getShoreOverlayPaths,
+    getTerrainImagePaths,
+    getTerrainTileRenderSpec,
     drawTileTerrain,
     drawCellResourceOverlay,
   };

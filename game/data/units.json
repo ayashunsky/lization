@@ -12,7 +12,10 @@
     "stamina": 2,
     "foodConsumptionPerTurn": 1,
     "researchPointsPerTurn": 0,
-    "allowedActions": ["walk", "play", "gatherFood", "gatherMaterials", "buildHouse", "demolish"],
+    "allowedActions": ["walk", "play", "gatherFood", "plant", "gatherMaterials", "buildHouse", "demolish"],
+    "plantedFoodCapacities": {
+      "grain": 14
+    },
     "workPointsPerTurn": {
       "buildHouse": 20,
       "demolish": 25,
@@ -60,7 +63,7 @@
       "stamina": 1,
       "foodConsumptionPerTurn": 1,
       "researchPointsPerTurn": 0,
-      "allowedActions": ["walk", "play", "gatherFood", "gatherMaterials", "buildHouse", "demolish"],
+      "allowedActions": ["walk", "play", "gatherFood", "plant", "gatherMaterials", "buildHouse", "demolish"],
       "workPointsPerTurn": {
         "buildHouse": 5,
         "demolish": 5,
@@ -152,14 +155,14 @@
     "villager": {
       "sources": {
         "idle": {
-          "W": "../assets/units/unit_sprite.png",
+          "W": "../assets/units/unit.png",
           "N": "../assets/units/unit_back_sprite.png",
           "S": "../assets/units/unit_front_sprite.png"
         },
         "move": {
           "W": [
-            "../assets/units/unit_sprite.png",
-            "../assets/units/unit_step_sprite.png"
+            "../assets/units/unit.png",
+            "../assets/units/unit_step.png"
           ],
           "N": [
             "../assets/units/unit_back_step_sprite.png",
@@ -172,8 +175,8 @@
         },
         "work": {
           "O": [
-            "../assets/units/unit_work_sprite.png",
-            "../assets/units/unit_work_sprite_1.png"
+            "../assets/units/unit_work.png",
+            "../assets/units/unit_work_1.png"
           ]
         },
         "gatherFoodLand": {
@@ -204,8 +207,8 @@
         },
         "gatherMaterialsLumber": {
           "O": [
-            "../assets/units/unit_lumber_sprite.png",
-            "../assets/units/unit_lumber_sprite_1.png"
+            "../assets/units/unit_lumber.png",
+            "../assets/units/unit_lumber_1.png"
           ]
         },
         "gatherMaterialsStone": {

@@ -1,4 +1,38 @@
 window.APP_RULES = {
+  calendar: {
+    seasonTransitions: [
+      {
+        id: "autumn",
+        targetSeason: "autumn",
+        start: { month: 8, day: 22 },
+        end: { month: 10, day: 21 },
+      },
+      {
+        id: "winter1",
+        targetSeason: "winter1",
+        start: { month: 10, day: 22 },
+        end: { month: 11, day: 21 },
+      },
+      {
+        id: "winter2",
+        targetSeason: "winter2",
+        start: { month: 11, day: 22 },
+        end: { month: 12, day: 21 },
+      },
+      {
+        id: "spring",
+        targetSeason: "spring",
+        start: { month: 2, day: 22 },
+        end: { month: 4, day: 21 },
+      },
+      {
+        id: "summer",
+        targetSeason: "summer",
+        start: { month: 4, day: 22 },
+        end: { month: 5, day: 21 },
+      },
+    ],
+  },
   units: {
     default: {
       typeId: "villager",

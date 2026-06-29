@@ -531,9 +531,13 @@ p {
 }
 
 .edit-research-button {
-  width: 100%;
+  width: auto;
   min-height: 34px;
   justify-content: center;
+}
+
+.edit-inspector .edit-research-button {
+  width: 100%;
 }
 
 .edit-inspector .tile-menu {
@@ -1939,6 +1943,7 @@ p {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
 }
 

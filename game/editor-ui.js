@@ -62,6 +62,7 @@ export function createEditorUiApi({
     getTerrainVariant,
     ensureCellVariant,
     getTerrainVariants,
+    getDefinedCellSeasons,
     hasFoodResource,
     getBuildingAtCell,
     getVehicleAtCell,
@@ -94,6 +95,7 @@ export function createEditorUiApi({
     setEditStateDirty,
     syncCellResourcesWithVariant,
     applyTerrainSelection,
+    applyEditorSeasonSelection,
     applyEditorFoodSelection,
     applyEditorBuildingSelection,
     applyEditorVehicleSelection,
@@ -120,6 +122,7 @@ export function createEditorUiApi({
     tileMenuTitle,
     terrainMenuOptions,
     variantMenuOptions,
+    seasonMenuOptions,
     foodMenuOptions,
     buildingMenuOptions,
     vehicleMenuOptions,
@@ -129,6 +132,7 @@ export function createEditorUiApi({
     editorDropdownMenuElements,
     editorTerrainLabelElements,
     editorVisualLabelElements,
+    editorSeasonLabelElements,
     editorFoodLabelElements,
     editorBuildingLabelElements,
     editorVehicleLabelElements,
@@ -299,6 +303,14 @@ export function createEditorUiApi({
     return getResourceLabel(cell.foodType);
   }
 
+  function getSeasonLabel(seasonId) {
+    return strings.seasons?.[seasonId] || seasonId || getEditorLabel("none");
+  }
+
+  function getEditorSeasonLabel(cell) {
+    return getSeasonLabel(cell?.season || "summer");
+  }
+
   function getEditorBuildingLabel(cell) {
     const building = cell ? getBuildingAtCell(cell.x, cell.y) : null;
     return building ? getBuildingLabel(building.type) : getEditorLabel("none");
@@ -432,6 +444,40 @@ export function createEditorUiApi({
           selected: selectedFoodType === foodType,
           disabled: controlDisabled,
           icon: "✿",
+        }),
+      );
+    }
+  }
+
+  function rebuildSeasonMenuOptions(displayCell) {
+    if (!seasonMenuOptions) {
+      return;
+    }
+
+    seasonMenuOptions.replaceChildren();
+
+    if (!displayCell) {
+      return;
+    }
+
+    const selectedSeason = displayCell.season || "summer";
+    const controlDisabled = !getActiveCell();
+    const seasonOptionIcons = {
+      summer: "S",
+      autumn: "A",
+      winter1: "W1",
+      winter2: "W2",
+      spring: "P",
+    };
+
+    for (const seasonId of getDefinedCellSeasons()) {
+      seasonMenuOptions.append(
+        createEditorTextOptionButton({
+          label: getSeasonLabel(seasonId),
+          value: seasonId,
+          selected: selectedSeason === seasonId,
+          disabled: controlDisabled,
+          icon: seasonOptionIcons[seasonId] || "•",
         }),
       );
     }
@@ -947,6 +993,7 @@ export function createEditorUiApi({
       resetTileReadout();
       updateTerrainMenuSelection(null);
       variantMenuOptions?.replaceChildren();
+      rebuildSeasonMenuOptions(null);
       rebuildFoodMenuOptions(null);
       rebuildBuildingMenuOptions(null);
       rebuildVehicleMenuOptions(null);
@@ -954,6 +1001,7 @@ export function createEditorUiApi({
       rebuildUnitActionMenuOptions(null);
       setTextContent(editorTerrainLabelElements, formatEditorDropdownLabel("terrain", getEditorLabel("none")));
       setTextContent(editorVisualLabelElements, formatEditorDropdownLabel("visual", getEditorLabel("none")));
+      setTextContent(editorSeasonLabelElements, formatEditorDropdownLabel("season", getEditorLabel("none")));
       setTextContent(editorFoodLabelElements, formatEditorDropdownLabel("food", getEditorLabel("none")));
       setTextContent(editorBuildingLabelElements, formatEditorDropdownLabel("building", getEditorLabel("none")));
       setTextContent(editorVehicleLabelElements, formatEditorDropdownLabel("vehicle", getEditorLabel("none")));
@@ -1006,6 +1054,7 @@ export function createEditorUiApi({
     setTileReadout(displayCell);
     updateTerrainMenuSelection(displayCell.type);
     updateVariantMenu(displayCell);
+    rebuildSeasonMenuOptions(displayCell);
     rebuildFoodMenuOptions(displayCell);
     rebuildBuildingMenuOptions(displayCell);
     rebuildVehicleMenuOptions(displayCell);
@@ -1016,6 +1065,7 @@ export function createEditorUiApi({
       editorVisualLabelElements,
       formatEditorDropdownLabel("visual", getTerrainVariant(displayCell.type, ensureCellVariant(displayCell))?.label || getEditorLabel("none")),
     );
+    setTextContent(editorSeasonLabelElements, formatEditorDropdownLabel("season", getEditorSeasonLabel(displayCell)));
     setTextContent(editorFoodLabelElements, formatEditorDropdownLabel("food", getEditorFoodLabel(displayCell)));
     setTextContent(editorBuildingLabelElements, formatEditorDropdownLabel("building", getEditorBuildingLabel(displayCell)));
     setTextContent(editorVehicleLabelElements, formatEditorDropdownLabel("vehicle", getEditorVehicleLabel(displayCell)));
@@ -1052,6 +1102,8 @@ export function createEditorUiApi({
       if (dropdownId === "terrain") {
         disabled = !canEditTerrainSelection(activeCell);
       } else if (dropdownId === "visual") {
+        disabled = !activeCell;
+      } else if (dropdownId === "season") {
         disabled = !activeCell;
       } else if (dropdownId === "food") {
         disabled = !canEditFoodSelection(activeCell);
@@ -1250,6 +1302,18 @@ export function createEditorUiApi({
       }
 
       applyEditorFoodSelection(button.dataset.value || "");
+    });
+
+    seasonMenuOptions?.addEventListener("click", (event) => {
+      const button = event.target instanceof Element
+        ? event.target.closest(".terrain-option")
+        : null;
+
+      if (!button) {
+        return;
+      }
+
+      applyEditorSeasonSelection(button.dataset.value || "");
     });
 
     buildingMenuOptions?.addEventListener("click", (event) => {

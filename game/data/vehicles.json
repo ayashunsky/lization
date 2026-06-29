@@ -25,7 +25,7 @@
         "foundationActionAvailable": true,
         "mounted": {
           "allowedActions": ["walk", "gatherFood"],
-          "movementTerrains": ["water"],
+          "movementTerrains": [["water", "summer"], ["water", "autumn"], ["water", "winter1"], ["water", "spring"]],
           "multipliers": {
             "workPointsPerTurn": {
               "gatherFood": 2
@@ -74,12 +74,12 @@
               "unit": {
                 "sources": {
                   "idle": {
-                    "W": "../assets/units/unit_sprite.png",
+                    "W": "../assets/units/unit.png",
                     "N": "../assets/units/unit_back_sprite.png",
                     "S": "../assets/units/unit_front_sprite.png"
                   },
                   "move": {
-                    "W": ["../assets/units/unit_sprite.png"],
+                    "W": ["../assets/units/unit.png"],
                     "N": ["../assets/units/unit_back_sprite.png"],
                     "S": ["../assets/units/unit_front_sprite.png"]
                   }
@@ -133,7 +133,7 @@
         "foundationActionAvailable": true,
         "mounted": {
           "allowedActions": ["walk", "gatherFood", "gatherMaterials"],
-          "movementTerrains": ["grass"],
+          "movementTerrains": [["grass", "summer"], ["grass", "autumn"], ["grass", "winter1"], ["grass", "winter2"], ["grass", "spring"], ["water", "winter2"]],
           "multipliers": {
             "moveCost": 2,
             "workPointsPerTurn": {
@@ -249,7 +249,7 @@
                 "sources": {
                   "idle": {
                     "W": "../assets/units/lunettes_wb_w.png",
-                    "N": "../assets/units/lunettes_wb_n.png",
+                    "N": "../assets/units/unit_wb_n.png",
                     "S": "../assets/units/lunettes_wb_s.png"
                   },
                   "move": {
@@ -258,8 +258,8 @@
                       "../assets/units/lunettes_wb_step_w.png"
                     ],
                     "N": [
-                      "../assets/units/lunettes_wb_n.png",
-                      "../assets/units/lunettes_wb_step_n.png"
+                      "../assets/units/unit_wb_step_n_1.png",
+                      "../assets/units/unit_wb_step_n_2.png"
                     ],
                     "S": [
                       "../assets/units/lunettes_wb_step_s_1.png",

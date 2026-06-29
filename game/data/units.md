@@ -45,6 +45,7 @@ Supported fields:
 - `foodConsumptionPerTurn`
 - `researchPointsPerTurn`
 - `allowedActions`
+- `plantedFoodCapacities`
 - `workPointsPerTurn`
 - `availability`
 - `actionRequirements`
@@ -64,7 +65,10 @@ Example:
   "stamina": 2,
   "foodConsumptionPerTurn": 1,
   "researchPointsPerTurn": 0,
-  "allowedActions": ["walk", "play", "gatherFood"],
+  "allowedActions": ["walk", "play", "gatherFood", "plant"],
+  "plantedFoodCapacities": {
+    "grain": 14
+  },
   "actionRequirements": {
     "buildHouse": {
       "requiredTechs": ["house_construction"]
@@ -92,6 +96,7 @@ Supported fields:
 - `foodConsumptionPerTurn`
 - `researchPointsPerTurn`
 - `allowedActions`
+- `plantedFoodCapacities`
 - `workPointsPerTurn`
 - `availability`
 - `actionRequirements`
@@ -157,6 +162,7 @@ Supported `set` fields:
 - `foodConsumptionPerTurn`
 - `researchPointsPerTurn`
 - `allowedActions`
+- `plantedFoodCapacities`
 - `workPointsPerTurn`
 - `actionRequirements`
 
@@ -184,6 +190,20 @@ Notes:
 - modifiers are applied in order
 - `addActions` and `removeActions` act on the currently resolved action list
 - these modifiers affect gameplay config, not task implementation
+
+## `plantedFoodCapacities`
+
+Optional per-food-type capacities used when the `plant` action creates a new food resource on an empty tile.
+
+Example:
+
+```json
+"plantedFoodCapacities": {
+  "grain": 14
+}
+```
+
+If a unit plants onto an existing matching food resource, the existing tile `foodCapacity` is kept as-is.
 
 ## `spawnRules`
 

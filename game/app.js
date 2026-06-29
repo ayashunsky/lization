@@ -56,6 +56,7 @@ const variantMenuTitle = document.querySelector("#variantMenuTitle");
 const terrainMenuOptions = document.querySelector("#terrainMenuOptions");
 const variantMenu = document.querySelector("#variantMenu");
 const variantMenuOptions = document.querySelector("#variantMenuOptions");
+const seasonMenuOptions = document.querySelector("#seasonMenuOptions");
 const foodMenuOptions = document.querySelector("#foodMenuOptions");
 const buildingMenuOptions = document.querySelector("#buildingMenuOptions");
 const vehicleMenuOptions = document.querySelector("#vehicleMenuOptions");
@@ -65,6 +66,7 @@ const editorDropdownToggleButtons = [...document.querySelectorAll('[data-action=
 const editorDropdownMenuElements = [...document.querySelectorAll('[data-role="editor-dropdown-menu"]')];
 const editorTerrainLabelElements = [...document.querySelectorAll('[data-role="editor-terrain-label"]')];
 const editorVisualLabelElements = [...document.querySelectorAll('[data-role="editor-visual-label"]')];
+const editorSeasonLabelElements = [...document.querySelectorAll('[data-role="editor-season-label"]')];
 const editorFoodLabelElements = [...document.querySelectorAll('[data-role="editor-food-label"]')];
 const editorBuildingLabelElements = [...document.querySelectorAll('[data-role="editor-building-label"]')];
 const editorVehicleLabelElements = [...document.querySelectorAll('[data-role="editor-vehicle-label"]')];
@@ -108,6 +110,7 @@ const cancelSlotPanelButtons = [...document.querySelectorAll('[data-action="canc
 const closeSlotPanelIconButtons = [...document.querySelectorAll('[data-action="close-slot-panel"]')];
 const confirmSlotPanelButtons = [...document.querySelectorAll('[data-action="confirm-slot-panel"]')];
 const importSlotPanelButtons = [...document.querySelectorAll('[data-action="import-slot-panel"]')];
+const deleteSlotPanelButtons = [...document.querySelectorAll('[data-action="delete-slot-panel"]')];
 const zoomOutButtons = [...document.querySelectorAll('[data-action="zoom-out"]')];
 const zoomInButtons = [...document.querySelectorAll('[data-action="zoom-in"]')];
 const zoomLevelReadouts = [...document.querySelectorAll('[data-role="zoom-level"]')];
@@ -212,6 +215,7 @@ const unitActions = {
   play: "play",
   research: "research",
   gatherFood: "gatherFood",
+  plant: "plant",
   gatherMaterials: "gatherMaterials",
   buildHouse: "buildHouse",
   demolish: "demolish",
@@ -219,6 +223,15 @@ const unitActions = {
 const unitUiActions = Object.freeze({
   work: "work",
 });
+const cellSeasons = Object.freeze([
+  "summer",
+  "autumn",
+  "winter1",
+  "winter2",
+  "spring",
+]);
+const defaultCellSeason = "summer";
+const seasonTransitionDefinitions = normalizeSeasonTransitionDefinitions(rules.calendar?.seasonTransitions);
 const editorSupportedUnitActions = Object.freeze([
   unitActions.play,
   unitActions.research,
@@ -316,6 +329,23 @@ const unitActionSpecs = Object.freeze({
     queueTask: (options) => queueGatherFoodUnitAction(options),
     getInspectorProgressText: (currentUnit) => getGatherTaskProgressText(currentUnit?.task),
   }),
+  [unitActions.plant]: Object.freeze({
+    id: unitActions.plant,
+    taskType: "plant",
+    countsAsWork: true,
+    usesTargetTaskDirection: true,
+    usesTargetGroundPoint: true,
+    createTask: ({ destinationCell } = {}) => destinationCell ? {
+      type: "plant",
+      toX: destinationCell.x,
+      toY: destinationCell.y,
+    } : null,
+    serializeTask: (task) => serializeTargetedUnitTask(task, "plant"),
+    preserveTask: (task) => serializeTargetedUnitTask(task, "plant"),
+    normalizeTask: (task, options) => normalizePlantUnitTask(task, options),
+    resolveTask: (currentUnit) => resolvePlantTask(currentUnit),
+    queueTask: (options) => queuePlantUnitAction(options),
+  }),
   [unitActions.gatherMaterials]: Object.freeze({
     id: unitActions.gatherMaterials,
     taskType: "gatherMaterials",
@@ -396,13 +426,21 @@ const terrain = {
         id: "water_01",
         label: strings.terrainVariants.water_01,
         image: "assets/tiles/water_01.png",
-        weight: 1,
+        weight: 1,        
+        seasonalImages: {
+          winter2: "assets/tiles/water_01_winter2.png",
+          spring: "assets/tiles/water_01_spring.png",
+        },
       },
       {
         id: "water_02",
         label: strings.terrainVariants.water_02,
         image: "assets/tiles/water_02.png",
         weight: 9,
+        seasonalImages: {
+          winter2: "assets/tiles/water_02_winter2.png",
+          spring: "assets/tiles/water_02_spring.png",
+        },
       },
     ],
     top: "#3d8bb4",
@@ -414,8 +452,22 @@ const terrain = {
     label: strings.terrain.grass,
     image: "assets/tiles/grass_01.png",
     variants: [
-      { id: "grass_01", label: strings.terrainVariants.grass_01, image: "assets/tiles/grass_01.png" },
-      { id: "grass_02", label: strings.terrainVariants.grass_02, image: "assets/tiles/grass_02.png" },
+      { id: "grass_01", label: strings.terrainVariants.grass_01, image: "assets/tiles/grass_01.png",
+        seasonalImages: {
+          autumn: "assets/tiles/grass_01_winter1.png",
+          winter1: "assets/tiles/grass_01_winter1.png",
+          winter2: "assets/tiles/grass_01_winter2.png",
+          spring: "assets/tiles/grass_01_spring.png",
+        },
+      },
+      { id: "grass_02", label: strings.terrainVariants.grass_02, image: "assets/tiles/grass_02.png",
+         seasonalImages: {
+          autumn: "assets/tiles/grass_02_winter1.png",
+          winter1: "assets/tiles/grass_02_winter1.png",
+          winter2: "assets/tiles/grass_02_winter2.png",
+          spring: "assets/tiles/grass_02_spring.png",
+        },
+      },
     ],
     top: "#77a85b",
     side: "#4e7a42",
@@ -429,12 +481,25 @@ const terrain = {
       {
         id: "forest_01",
         label: strings.terrainVariants.forest_01,
-        image: "assets/tiles/forest_01.png",
+        image: "assets/tiles/forest_01_new.png",
+        seasonalImages: {
+          autumn: "assets/tiles/forest_01_new_autumn.png",
+          winter1: "assets/tiles/forest_01_new_winter1.png",
+          winter2: "assets/tiles/forest_01_new_winter2.png",
+          spring: "assets/tiles/forest_01_new_spring.png",
+        },
+
       },
       {
         id: "forest_02",
         label: strings.terrainVariants.forest_02,
-        image: "assets/tiles/forest_02.png",
+        image: "assets/tiles/forest_02_new.png",
+        seasonalImages: {
+          autumn: "assets/tiles/forest_02_new_autumn.png",
+          winter1: "assets/tiles/forest_02_new_winter1.png",
+          winter2: "assets/tiles/forest_02_new_winter2.png",
+          spring: "assets/tiles/forest_02_new_spring.png",
+        },
       },
     ],
     top: "#4d8a54",
@@ -451,12 +516,18 @@ const terrain = {
         label: strings.terrainVariants.mountain_01,
         image: "assets/tiles/hill_01.png",
         weight: 1,
+        seasonalImages: {
+          winter2: "assets/tiles/hill_01_winter2.png",
+        },
       },
       {
         id: "mountain_02",
         label: strings.terrainVariants.mountain_02,
         image: "assets/tiles/hill_02.png",
         weight: 9,
+        seasonalImages: {
+          winter2: "assets/tiles/hill_02_winter2.png",
+        },
       },
     ],
     top: "#a79569",
@@ -491,6 +562,7 @@ let staticUnitsLayerDirty = true;
 let currentDpr = 1;
 let currentTurn = 1;
 let autoAdvanceTurns = true;
+let seasonConversionState = null;
 let autoAdvanceQueued = false;
 let autoAdvanceFrameId = 0;
 const playPhases = {
@@ -546,6 +618,17 @@ const storageKeys = {
   },
   audioSettings: "schtroumpfilization:audio-settings:v1",
 };
+const compactSerializedCellFieldIndex = Object.freeze({
+  type: 0,
+  variant: 1,
+  season: 2,
+  visited: 3,
+  visitsCount: 4,
+  materialAmount: 5,
+  foodType: 6,
+  foodCapacity: 7,
+  foodAmount: 8,
+});
 const currentFileNames = {
   edit: null,
   play: null,
@@ -634,6 +717,7 @@ let researchState = createDefaultResearchState();
 let editStateDirty = false;
 let editorResearchReturnFocusButton = null;
 let pendingBookResearchAssignmentUnitId = null;
+let lastSaveStorageErrorSignature = null;
 
 const {
   normalizeConstructibleKind,
@@ -750,6 +834,8 @@ function setAttributeForElements(elements, name, value) {
 
 const {
   getShoreOverlayPaths,
+  getTerrainImagePaths,
+  getTerrainTileRenderSpec,
   drawTileTerrain,
   drawCellResourceOverlay,
 } = createTerrainRuntimeApi({
@@ -765,6 +851,7 @@ const {
   getCornerNeighbor,
   getTileEdges,
   getTileCorners,
+  getTerrainVariants,
   getTerrainVariant,
   ensureCellVariant,
   getFoodOverlayDisplaySpec,
@@ -1065,6 +1152,7 @@ const {
       tileMenuTitle,
       terrainMenuOptions,
       variantMenuOptions,
+      seasonMenuOptions,
       foodMenuOptions,
       buildingMenuOptions,
       vehicleMenuOptions,
@@ -1074,6 +1162,7 @@ const {
       editorDropdownMenuElements,
       editorTerrainLabelElements,
       editorVisualLabelElements,
+      editorSeasonLabelElements,
       editorFoodLabelElements,
       editorBuildingLabelElements,
       editorVehicleLabelElements,
@@ -1134,6 +1223,7 @@ const {
     getTerrainVariant,
     ensureCellVariant,
     getTerrainVariants,
+    getDefinedCellSeasons: () => cellSeasons,
     hasFoodResource,
     getBuildingAtCell,
     getVehicleAtCell,
@@ -1166,6 +1256,7 @@ const {
     setEditStateDirty,
     syncCellResourcesWithVariant,
     applyTerrainSelection,
+    applyEditorSeasonSelection,
     applyEditorFoodSelection,
     applyEditorBuildingSelection,
     applyEditorVehicleSelection,
@@ -1228,6 +1319,69 @@ function normalizeLocalizedLabelsMap(value) {
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+function normalizeCellSeason(season) {
+  if (typeof season !== "string") {
+    return defaultCellSeason;
+  }
+
+  const normalizedSeason = season.trim();
+
+  return cellSeasons.includes(normalizedSeason)
+    ? normalizedSeason
+    : defaultCellSeason;
+}
+
+function normalizeSeasonTransitionDatePart(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const month = Number(value.month);
+  const day = Number(value.day);
+
+  if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(day) || day < 1 || day > 31) {
+    return null;
+  }
+
+  return { month, day };
+}
+
+function normalizeSeasonTransitionDefinitions(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  const normalizedTransitions = [];
+  const seenIds = new Set();
+
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      continue;
+    }
+
+    const targetSeason = typeof entry.targetSeason === "string" && cellSeasons.includes(entry.targetSeason.trim())
+      ? entry.targetSeason.trim()
+      : null;
+    const start = normalizeSeasonTransitionDatePart(entry.start);
+    const end = normalizeSeasonTransitionDatePart(entry.end);
+
+    if (!targetSeason || !start || !end) {
+      continue;
+    }
+
+    const id = typeof entry.id === "string" && entry.id.trim() ? entry.id.trim() : targetSeason;
+
+    if (seenIds.has(id)) {
+      continue;
+    }
+
+    seenIds.add(id);
+    normalizedTransitions.push({ id, targetSeason, start, end });
+  }
+
+  return normalizedTransitions;
+}
+
 function resolveLocalizedLabel(labels, fallback = "", languageId = currentLanguage) {
   const normalizedLanguageId = typeof languageId === "string" && languageId.trim()
     ? languageId.trim()
@@ -1252,19 +1406,61 @@ function normalizeUnitActionList(actions) {
     : undefined;
 }
 
+function normalizeVehicleMountedMovementRuleEntry(entry) {
+  if (typeof entry === "string") {
+    const terrain = entry.trim();
+    return terrain ? { terrain, season: null } : null;
+  }
+
+  if (!Array.isArray(entry)) {
+    return null;
+  }
+
+  const terrain = typeof entry[0] === "string" ? entry[0].trim() : "";
+  const season = typeof entry[1] === "string" ? entry[1].trim() : "";
+
+  if (!terrain || !season || !cellSeasons.includes(season)) {
+    return null;
+  }
+
+  return { terrain, season };
+}
+
+function normalizeVehicleMountedMovementRulesConfig(entries) {
+  if (!Array.isArray(entries)) {
+    return undefined;
+  }
+
+  const normalizedRules = [];
+  const seenKeys = new Set();
+
+  for (const entry of entries) {
+    const normalizedRule = normalizeVehicleMountedMovementRuleEntry(entry);
+
+    if (!normalizedRule) {
+      continue;
+    }
+
+    const key = `${normalizedRule.terrain}:${normalizedRule.season || "*"}`;
+
+    if (seenKeys.has(key)) {
+      continue;
+    }
+
+    seenKeys.add(key);
+    normalizedRules.push(normalizedRule);
+  }
+
+  return normalizedRules.length > 0 ? normalizedRules : undefined;
+}
+
 function normalizeVehicleMountedRulesConfig(entry) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
     return undefined;
   }
 
   const allowedActions = normalizeUnitActionList(entry.allowedActions);
-  const movementTerrains = Array.isArray(entry.movementTerrains)
-    ? [...new Set(
-      entry.movementTerrains
-        .map((terrainType) => (typeof terrainType === "string" ? terrainType.trim() : ""))
-        .filter(Boolean),
-    )]
-    : undefined;
+  const movementTerrains = normalizeVehicleMountedMovementRulesConfig(entry.movementTerrains);
   const multipliersEntry = entry.multipliers && typeof entry.multipliers === "object" && !Array.isArray(entry.multipliers)
     ? entry.multipliers
     : null;
@@ -1301,6 +1497,26 @@ function normalizeUnitWorkPointsConfig(workPoints) {
         const normalizedValue = Number(value);
         return normalizedTaskType && Number.isFinite(normalizedValue)
           ? [normalizedTaskType, normalizedValue]
+          : null;
+      })
+      .filter(Boolean),
+  );
+
+  return Object.keys(entries).length > 0 ? entries : undefined;
+}
+
+function normalizeUnitPlantedFoodCapacitiesConfig(capacities) {
+  if (!capacities || typeof capacities !== "object" || Array.isArray(capacities)) {
+    return undefined;
+  }
+
+  const entries = Object.fromEntries(
+    Object.entries(capacities)
+      .map(([foodType, value]) => {
+        const normalizedFoodType = typeof foodType === "string" ? foodType.trim() : "";
+        const normalizedValue = Number(value);
+        return normalizedFoodType && Number.isFinite(normalizedValue)
+          ? [normalizedFoodType, Math.max(0, normalizedValue)]
           : null;
       })
       .filter(Boolean),
@@ -1357,6 +1573,7 @@ function normalizeUnitRulesConfig(entry) {
   const researchPointsPerTurn = Number(unitEntry.researchPointsPerTurn);
   const allowedActions = normalizeUnitActionList(unitEntry.allowedActions);
   const workPointsPerTurn = normalizeUnitWorkPointsConfig(unitEntry.workPointsPerTurn);
+  const plantedFoodCapacities = normalizeUnitPlantedFoodCapacitiesConfig(unitEntry.plantedFoodCapacities);
   const availability = normalizeRuleRequirements(unitEntry.availability);
   const rawActionRequirements =
     unitEntry.actionRequirements && typeof unitEntry.actionRequirements === "object" && !Array.isArray(unitEntry.actionRequirements)
@@ -1407,6 +1624,10 @@ function normalizeUnitRulesConfig(entry) {
 
   if (workPointsPerTurn) {
     normalized.workPointsPerTurn = workPointsPerTurn;
+  }
+
+  if (plantedFoodCapacities) {
+    normalized.plantedFoodCapacities = plantedFoodCapacities;
   }
 
   if (Object.keys(availability).length > 0) {
@@ -2486,6 +2707,65 @@ function getJulianTurnDate(turnNumber) {
   return getJulianCalendarDateFromDayNumber(julianTurnEpochJdn + elapsedDays);
 }
 
+function getTurnNumberForJulianDate(year, month, day) {
+  return Math.max(1, getJulianDayNumber(year, month, day) - julianTurnEpochJdn + 1);
+}
+
+function compareMonthDay(left, right) {
+  if (!left || !right) {
+    return 0;
+  }
+
+  if (left.month !== right.month) {
+    return left.month - right.month;
+  }
+
+  return left.day - right.day;
+}
+
+function isMonthDayWithinRange(date, start, end) {
+  const startsBeforeEnd = compareMonthDay(start, end) <= 0;
+
+  if (startsBeforeEnd) {
+    return compareMonthDay(date, start) >= 0 && compareMonthDay(date, end) <= 0;
+  }
+
+  return compareMonthDay(date, start) >= 0 || compareMonthDay(date, end) <= 0;
+}
+
+function getSeasonTransitionEndYearForDate(date, transition) {
+  if (!date || !transition) {
+    return null;
+  }
+
+  return compareMonthDay(transition.start, transition.end) <= 0
+    ? date.year
+    : (compareMonthDay(date, transition.start) >= 0 ? date.year + 1 : date.year);
+}
+
+function getActiveSeasonTransitionForTurn(turnNumber = currentTurn) {
+  const date = getJulianTurnDate(turnNumber);
+
+  for (const transition of seasonTransitionDefinitions) {
+    if (!isMonthDayWithinRange(date, transition.start, transition.end)) {
+      continue;
+    }
+
+    const endYear = getSeasonTransitionEndYearForDate(date, transition);
+
+    if (!Number.isInteger(endYear)) {
+      continue;
+    }
+
+    return {
+      ...transition,
+      endTurn: getTurnNumberForJulianDate(endYear, transition.end.month, transition.end.day),
+    };
+  }
+
+  return null;
+}
+
 function formatJulianTurnDate(turnNumber) {
   const date = getJulianTurnDate(turnNumber);
   const monthLabels = strings.calendar?.julianMonthsShort;
@@ -3079,6 +3359,7 @@ function getSelectableUnitActions(currentUnit = unit, context = getRuleContext()
     unitActions.play,
     unitActions.research,
     unitActions.gatherFood,
+    unitActions.plant,
     unitUiActions.work,
     unitActions.demolish,
   ];
@@ -3161,6 +3442,10 @@ function canUnitUseAction(currentUnit = unit, action, context = getRuleContext()
     return false;
   }
 
+  if (normalizedAction === unitActions.plant && getUnitPlantedFoodCapacity("grain", currentUnit, context) <= 0) {
+    return false;
+  }
+
   return matchesRequirements(getUnitActionRequirements(currentUnit, normalizedAction, context), context);
 }
 
@@ -3194,6 +3479,7 @@ function isCellTargetUnitAction(action) {
     action === unitActions.dismount ||
     action === unitActions.layFoundation ||
     action === unitActions.gatherFood ||
+    action === unitActions.plant ||
     action === unitUiActions.work ||
     action === unitActions.gatherMaterials ||
     action === unitActions.buildHouse ||
@@ -3220,6 +3506,10 @@ function getUnitActionLabel(action) {
 
   if (action === unitActions.gatherFood) {
     return strings.actions.gatherFood;
+  }
+
+  if (action === unitActions.plant) {
+    return strings.actions.plant;
   }
 
   if (action === unitUiActions.work) {
@@ -3334,6 +3624,7 @@ function applyStaticText() {
   setTextContent(slotListTitles, strings.saveSlots.existingSlots);
   setTextContent(confirmSlotPanelButtons, strings.actions.save);
   setTextContent(importSlotPanelButtons, strings.actions.importFile);
+  setTextContent(deleteSlotPanelButtons, strings.actions.delete);
   setTextContent(cancelSlotPanelButtons, strings.actions.cancel);
   setAttributeForElements(closeSlotPanelIconButtons, "aria-label", strings.actions.close);
   if (saveSlotEmpty) {
@@ -3651,7 +3942,10 @@ function getTileInspectorInfoEntries(cell) {
   const building = getBuildingAtCell(cell.x, cell.y);
   const vehicle = getVehicleAtCell(cell.x, cell.y);
   const materialType = getCellMaterialResourceType(cell);
-  const pathProgressEligible = cell.type === "grass" && getCellVisitsCount(cell) >= getCellPathPreviewVisitsThreshold(cell);
+  const pathProgressEligible =
+    cell.type === "grass"
+    && !doesSeasonSuppressPathEffects(cell)
+    && getCellVisitsCount(cell) >= getCellPathPreviewVisitsThreshold(cell);
 
   if (building) {
     const completeness = Math.round(getBuildingCompleteness(building) * 100);
@@ -3679,7 +3973,7 @@ function getTileInspectorInfoEntries(cell) {
       });
     }
 
-    if (hasFoodResource(cell)) {
+    if (hasFoodResource(cell) && !doesSeasonHideLandFoodVisuals(cell)) {
       entries.push({
         kind: "food",
         cell,
@@ -3732,9 +4026,16 @@ function drawInspectorTileBase(context, cell) {
   }
 
   const canvas = context.canvas;
-  const variantId = ensureCellVariant(cell);
-  const variant = getTerrainVariant(cell.type, variantId);
-  const image = variant ? tileImages[variant.image] : null;
+  const renderSpec = getTerrainTileRenderSpec(cell);
+  const seasonalImage = renderSpec?.seasonalImagePath
+    ? tileImages[renderSpec.seasonalImagePath]
+    : null;
+  const baseImage = renderSpec?.baseImagePath
+    ? tileImages[renderSpec.baseImagePath]
+    : null;
+  const image = seasonalImage?.complete && seasonalImage.naturalWidth > 0
+    ? seasonalImage
+    : baseImage;
 
   if (image?.complete && image.naturalWidth > 0) {
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -4123,6 +4424,46 @@ function getPathMoveCost() {
   return Math.max(0, clampNumber(rules.movement?.paths?.moveCost, 0, 999, 0.7));
 }
 
+function getCellSeason(cell) {
+  return normalizeCellSeason(cell?.season);
+}
+
+function isLandCell(cell) {
+  return Boolean(cell) && cell.type !== "water";
+}
+
+function isWinter2SeasonCell(cell) {
+  return getCellSeason(cell) === "winter2";
+}
+
+function doesSeasonDisableLandFoodRegrowth(cell) {
+  return isLandCell(cell) && ["autumn", "winter1", "winter2"].includes(getCellSeason(cell));
+}
+
+function doesSeasonHideLandFoodVisuals(cell) {
+  return isLandCell(cell) && isWinter2SeasonCell(cell);
+}
+
+function doesSeasonSuppressPathEffects(cell) {
+  return Boolean(cell) && cell.type === "grass" && isWinter2SeasonCell(cell);
+}
+
+function isSeasonallyWalkableWaterCell(cell) {
+  return Boolean(cell) && cell.type === "water" && isWinter2SeasonCell(cell);
+}
+
+function doesMovementRuleListAllowCell(movementTerrains, cell) {
+  if (!cell) {
+    return false;
+  }
+
+  const cellSeason = getCellSeason(cell);
+
+  return Array.isArray(movementTerrains) && movementTerrains.some((entry) =>
+    entry?.terrain === cell.type && (!entry.season || entry.season === cellSeason)
+  );
+}
+
 function getCellPathWellKnownVisitsThreshold(cell) {
   return getPathWellKnownVisitsThreshold();
 }
@@ -4152,6 +4493,10 @@ function getPathStateBetween(fromCell, toCell) {
     return null;
   }
 
+  if (doesSeasonSuppressPathEffects(fromCell) || doesSeasonSuppressPathEffects(toCell)) {
+    return null;
+  }
+
   if (isWellKnownPathCell(fromCell) && isWellKnownPathCell(toCell)) {
     return "full";
   }
@@ -4169,6 +4514,10 @@ function hasFullPathBetween(fromCell, toCell) {
 
 function getTerrainMoveCost(cell, fromCell = null) {
   if (!cell) return Number.POSITIVE_INFINITY;
+
+  if (isSeasonallyWalkableWaterCell(cell)) {
+    return 1;
+  }
 
   if (fromCell && hasFullPathBetween(fromCell, cell)) {
     return getPathMoveCost();
@@ -4208,6 +4557,20 @@ function getMountedWorkPointsMultiplier(taskType, currentUnit = unit, context = 
 
   if (!Number.isFinite(configured)) {
     return 1;
+  }
+
+  return Math.max(0, configured);
+}
+
+function getUnitPlantedFoodCapacity(foodType, currentUnit = unit, context = getRuleContext()) {
+  if (typeof foodType !== "string" || !foodType.trim()) {
+    return 0;
+  }
+
+  const configured = Number(getEffectiveUnitConfig(currentUnit, context).plantedFoodCapacities?.[foodType]);
+
+  if (!Number.isFinite(configured)) {
+    return Math.max(0, getFoodTypeMaxAmount(foodType));
   }
 
   return Math.max(0, configured);
@@ -4407,6 +4770,10 @@ function getFoodOverlayDisplaySpec(cell) {
     return null;
   }
 
+  if (doesSeasonHideLandFoodVisuals(cell)) {
+    return null;
+  }
+
   const maxAmount = getCellFoodMaxAmount(cell);
   if (maxAmount <= 0) {
     return null;
@@ -4454,7 +4821,7 @@ function hasFoodResource(cell) {
 }
 
 function hasGatherableFoodResource(cell) {
-  return hasFoodResource(cell) && cell.foodAmount > 0;
+  return hasFoodResource(cell) && !doesSeasonHideLandFoodVisuals(cell) && cell.foodAmount > 0;
 }
 
 function hasMaterialResource(cell) {
@@ -5088,6 +5455,23 @@ function renderSaveSlotList() {
 
     saveSlotList.append(button);
   }
+
+  updateSaveSlotPanelActionStates(saveEntries);
+}
+
+function hasSaveSlotEntry(fileName, entries = getSaveSlotEntries()) {
+  const normalizedName = sanitizeFileName(fileName);
+  return Boolean(normalizedName) && entries.some((entry) => entry.name === normalizedName);
+}
+
+function updateSaveSlotPanelActionStates(saveEntries = getSaveSlotEntries()) {
+  const selectedName = sanitizeFileName(slotPanelState?.value || saveSlotInput?.value || "");
+  const canDelete = Boolean(slotPanelState && slotPanelState.mode === "export" && hasSaveSlotEntry(selectedName, saveEntries));
+
+  for (const button of deleteSlotPanelButtons) {
+    button.hidden = slotPanelState?.mode !== "export";
+    button.disabled = !canDelete;
+  }
 }
 
 function updateSaveSlotPanel() {
@@ -5110,6 +5494,58 @@ function updateSaveSlotPanel() {
 
   saveSlotInput.value = slotPanelState.value || "";
   renderSaveSlotList();
+}
+
+function clearCurrentFileNameReferences(fileName) {
+  const normalizedName = sanitizeFileName(fileName);
+
+  if (!normalizedName) {
+    return;
+  }
+
+  for (const mode of Object.keys(currentFileNames)) {
+    if (getCurrentFileName(mode) === normalizedName) {
+      writeCurrentFileName(mode, null);
+    }
+  }
+}
+
+function deleteSaveFile(fileName) {
+  const normalizedName = sanitizeFileName(fileName);
+
+  if (!normalizedName) {
+    window.alert(strings.messages.missingSaveName);
+    return false;
+  }
+
+  if (!hasSaveSlotEntry(normalizedName)) {
+    window.alert(strings.messages.saveNotFound(normalizedName));
+    return false;
+  }
+
+  if (!window.confirm(strings.messages.deleteSaveConfirm(normalizedName))) {
+    return false;
+  }
+
+  try {
+    window.localStorage.removeItem(getSaveFileKey(normalizedName));
+    clearCurrentFileNameReferences(normalizedName);
+
+    if (slotPanelState?.value === normalizedName) {
+      slotPanelState.value = "";
+      if (saveSlotInput) {
+        saveSlotInput.value = "";
+      }
+    }
+
+    renderSaveSlotList();
+    updatePersistenceControls();
+    return true;
+  } catch (error) {
+    console.warn(`Could not delete file ${normalizedName}.`, error);
+    window.alert(strings.messages.deleteSaveFailed(normalizedName));
+    return false;
+  }
 }
 
 function openSaveSlotPanel(mode, { targetMode = interactionMode, initialValue = null } = {}) {
@@ -5282,6 +5718,7 @@ function cloneUnitConfigForEvaluation(config) {
       )
       : undefined,
     workPointsPerTurn: base.workPointsPerTurn ? { ...base.workPointsPerTurn } : undefined,
+    plantedFoodCapacities: base.plantedFoodCapacities ? { ...base.plantedFoodCapacities } : undefined,
     modifiers: Array.isArray(base.modifiers) ? [...base.modifiers] : undefined,
   };
 }
@@ -5322,6 +5759,13 @@ function applyUnitConfigModifiers(config, context = getRuleContext()) {
         resolved.workPointsPerTurn = {
           ...(resolved.workPointsPerTurn || {}),
           ...set.workPointsPerTurn,
+        };
+      }
+
+      if (set.plantedFoodCapacities && typeof set.plantedFoodCapacities === "object") {
+        resolved.plantedFoodCapacities = {
+          ...(resolved.plantedFoodCapacities || {}),
+          ...set.plantedFoodCapacities,
         };
       }
 
@@ -5402,6 +5846,10 @@ function getResolvedUnitConfig(unitOrTypeId = getDefaultUnitTypeId()) {
       ...(defaultConfig.workPointsPerTurn || {}),
       ...(typeConfig.workPointsPerTurn || {}),
     },
+    plantedFoodCapacities: {
+      ...(defaultConfig.plantedFoodCapacities || {}),
+      ...(typeConfig.plantedFoodCapacities || {}),
+    },
     modifiers: [
       ...(Array.isArray(defaultConfig.modifiers) ? defaultConfig.modifiers : []),
       ...(Array.isArray(typeConfig.modifiers) ? typeConfig.modifiers : []),
@@ -5414,16 +5862,17 @@ function getEffectiveUnitConfig(unitOrTypeId = getDefaultUnitTypeId(), context =
 }
 
 function serializeCell(cell) {
-  return {
-    type: cell.type,
-    variant: ensureCellVariant(cell),
-    visited: Boolean(cell.visited),
-    visitsCount: Math.max(0, clampInteger(cell.visitsCount, 0, getCellPathWellKnownVisitsThreshold(cell), 0)),
-    materialAmount: clampNonNegativeNumber(cell.materialAmount, 999999, 0),
-    foodType: typeof cell.foodType === "string" && cell.foodType ? cell.foodType : null,
-    foodCapacity: getCellFoodMaxAmount(cell),
-    foodAmount: clampNonNegativeNumber(cell.foodAmount, 999999, 0),
-  };
+  return [
+    cell.type,
+    ensureCellVariant(cell),
+    normalizeCellSeason(cell.season),
+    Boolean(cell.visited) ? 1 : 0,
+    Math.max(0, clampInteger(cell.visitsCount, 0, getCellPathWellKnownVisitsThreshold(cell), 0)),
+    clampNonNegativeNumber(cell.materialAmount, 999999, 0),
+    typeof cell.foodType === "string" && cell.foodType ? cell.foodType : "",
+    getCellFoodMaxAmount(cell),
+    clampNonNegativeNumber(cell.foodAmount, 999999, 0),
+  ];
 }
 
 function serializeSimpleUnitTask(taskType) {
@@ -5581,40 +6030,77 @@ function serializeCurrentState() {
   };
 }
 
-function writeSaveFile(fileName, state) {
+function isQuotaExceededError(error) {
+  return Boolean(
+    error &&
+    (
+      error.name === "QuotaExceededError"
+      || error.code === 22
+      || error.code === 1014
+    ),
+  );
+}
+
+function getSaveStorageErrorMessage(fileName, error) {
+  return isQuotaExceededError(error)
+    ? strings.messages.saveQuotaExceeded(fileName)
+    : strings.messages.saveWriteFailed(fileName);
+}
+
+function reportSaveStorageWriteError(fileName, error, alertMode = "always") {
+  const message = getSaveStorageErrorMessage(fileName, error);
+  const signature = `${sanitizeFileName(fileName)}|${message}`;
+
+  console.warn(`Could not save file ${fileName}.`, error);
+
+  if (alertMode === "never") {
+    return;
+  }
+
+  if (alertMode === "once" && lastSaveStorageErrorSignature === signature) {
+    return;
+  }
+
+  lastSaveStorageErrorSignature = signature;
+  window.alert(message);
+}
+
+function writeSaveFile(fileName, state, { alertMode = "always" } = {}) {
   const storageKey = getSaveFileKey(fileName);
 
   if (!storageKey) return false;
 
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(state));
+    lastSaveStorageErrorSignature = null;
     return true;
   } catch (error) {
-    console.warn(`Could not save file ${fileName}.`, error);
+    reportSaveStorageWriteError(fileName, error, alertMode);
     return false;
   }
 }
 
-function writeRawSaveFile(fileName, rawContents) {
+function writeRawSaveFile(fileName, rawContents, { alertMode = "always" } = {}) {
   const storageKey = getSaveFileKey(fileName);
 
   if (!storageKey || typeof rawContents !== "string") return false;
 
   try {
     window.localStorage.setItem(storageKey, rawContents);
+    lastSaveStorageErrorSignature = null;
     return true;
   } catch (error) {
-    console.warn(`Could not write raw save file ${fileName}.`, error);
+    reportSaveStorageWriteError(fileName, error, alertMode);
     return false;
   }
 }
 
-function saveStateToFile(fileName, mode = interactionMode) {
+function saveStateToFile(fileName, mode = interactionMode, { alertMode = "always" } = {}) {
   const normalizedName = sanitizeFileName(fileName);
 
   if (!normalizedName) return false;
 
-  const didSave = writeSaveFile(normalizedName, serializeCurrentState());
+  const didSave = writeSaveFile(normalizedName, serializeCurrentState(), { alertMode });
 
   if (!didSave) return false;
 
@@ -5807,7 +6293,7 @@ async function importSaveIntoSlot(fileName) {
     return false;
   }
 
-  if (!writeRawSaveFile(normalizedName, JSON.stringify(parsed, null, 2))) {
+  if (!writeRawSaveFile(normalizedName, JSON.stringify(parsed))) {
     return false;
   }
 
@@ -6066,8 +6552,8 @@ function markCellVisitedByUnit(cell, { invalidate = true } = {}) {
     changed = true;
   }
 
-  if (cell.type === "grass") {
-      const nextVisitsCount = Math.min(
+  if (cell.type === "grass" && !doesSeasonSuppressPathEffects(cell)) {
+    const nextVisitsCount = Math.min(
       getCellPathWellKnownVisitsThreshold(cell),
       getCellVisitsCount(cell) + 1,
     );
@@ -6202,6 +6688,243 @@ function createDefaultState(mode) {
   return createGeneratedState(mode, buildGeneratedMapCells);
 }
 
+function applySeasonStateToCell(cell) {
+  if (!cell || !cell.foodType || !isLandCell(cell) || !isWinter2SeasonCell(cell)) {
+    return false;
+  }
+
+  const nextFoodAmount = clampNumber(1, 0, getCellFoodMaxAmount(cell), 0);
+
+  if (nextFoodAmount === cell.foodAmount) {
+    return false;
+  }
+
+  cell.foodAmount = nextFoodAmount;
+  return true;
+}
+
+function shuffleArrayInPlace(items) {
+  if (!Array.isArray(items)) {
+    return items;
+  }
+
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    const current = items[index];
+    items[index] = items[swapIndex];
+    items[swapIndex] = current;
+  }
+
+  return items;
+}
+
+function createSeasonConversionPendingCells(targetSeason) {
+  const pendingCells = [];
+
+  for (const row of map.cells) {
+    for (const cell of row) {
+      if (getCellSeason(cell) !== targetSeason) {
+        pendingCells.push(cell);
+      }
+    }
+  }
+
+  return pendingCells;
+}
+
+function createSeasonConversionState(transition, { includeCurrentTurn = true } = {}) {
+  if (!transition) {
+    return null;
+  }
+
+  const pendingCells = shuffleArrayInPlace(createSeasonConversionPendingCells(transition.targetSeason));
+  const remainingTurns = Math.max(
+    0,
+    transition.endTurn - currentTurn + (includeCurrentTurn ? 1 : 0),
+  );
+
+  return {
+    id: transition.id,
+    targetSeason: transition.targetSeason,
+    endTurn: transition.endTurn,
+    tilesPerTurn:
+      pendingCells.length > 0 && remainingTurns > 0
+        ? Math.max(1, Math.ceil(pendingCells.length / remainingTurns))
+        : 0,
+    pendingCells,
+  };
+}
+
+function syncSeasonConversionState({ includeCurrentTurn = true, rebuild = false } = {}) {
+  const activeTransition = getActiveSeasonTransitionForTurn(currentTurn);
+
+  if (!activeTransition) {
+    seasonConversionState = null;
+    return null;
+  }
+
+  if (
+    rebuild ||
+    !seasonConversionState ||
+    seasonConversionState.id !== activeTransition.id ||
+    seasonConversionState.targetSeason !== activeTransition.targetSeason ||
+    seasonConversionState.endTurn !== activeTransition.endTurn
+  ) {
+    seasonConversionState = createSeasonConversionState(activeTransition, { includeCurrentTurn });
+  }
+
+  return seasonConversionState;
+}
+
+function shouldRemoveVehicleAfterSeasonConversion(vehicle, cell, context = getRuleContext()) {
+  if (!vehicle || !cell || cell.type !== "water") {
+    return false;
+  }
+
+  if (isWinter2SeasonCell(cell)) {
+    return false;
+  }
+
+  return !canVehicleTraverseCell(vehicle, cell, context);
+}
+
+function relocateUnitAfterSeasonConversion(currentUnit) {
+  if (!currentUnit) {
+    return false;
+  }
+
+  const currentCell = getCell(currentUnit.x, currentUnit.y);
+
+  if (canUnitEnter(currentCell, currentUnit)) {
+    return false;
+  }
+
+  const fallbackCell = findNearestPassableCell(currentUnit.x, currentUnit.y, currentUnit);
+
+  if (!fallbackCell) {
+    return false;
+  }
+
+  const previousX = currentUnit.x;
+  const previousY = currentUnit.y;
+  currentUnit.x = fallbackCell.x;
+  currentUnit.y = fallbackCell.y;
+  currentUnit.turnRoute = null;
+  currentUnit.lastStepFromX = null;
+  currentUnit.lastStepFromY = null;
+  currentUnit.move = null;
+  updateUnitOccupancyEntry(currentUnit, previousX, previousY);
+  markCellVisitedByUnit(fallbackCell, { invalidate: false });
+
+  const mountedVehicle = getMountedVehicle(currentUnit);
+
+  if (mountedVehicle) {
+    mountedVehicle.x = currentUnit.x;
+    mountedVehicle.y = currentUnit.y;
+  }
+
+  return true;
+}
+
+function applySeasonConversionFallout(context = getRuleContext()) {
+  let didChange = false;
+  const removedVehicleIds = new Set();
+
+  for (const vehicle of vehicles) {
+    const cell = getCell(vehicle.x, vehicle.y);
+
+    if (shouldRemoveVehicleAfterSeasonConversion(vehicle, cell, context)) {
+      removedVehicleIds.add(vehicle.id);
+    }
+  }
+
+  if (removedVehicleIds.size > 0) {
+    vehicles = vehicles.filter((vehicle) => !removedVehicleIds.has(vehicle.id));
+
+    for (const currentUnit of getUnits()) {
+      if (!removedVehicleIds.has(currentUnit?.mountedVehicleId)) {
+        continue;
+      }
+
+      currentUnit.mountedVehicleId = null;
+      currentUnit.turnRoute = null;
+      currentUnit.lastStepFromX = null;
+      currentUnit.lastStepFromY = null;
+      currentUnit.move = null;
+    }
+
+    didChange = true;
+  }
+
+  for (const currentUnit of getUnits()) {
+    if (relocateUnitAfterSeasonConversion(currentUnit)) {
+      didChange = true;
+    }
+  }
+
+  if (didChange) {
+    reconcileMountedVehicleStateLinks(vehicles, units);
+    syncActiveUnit();
+  }
+
+  return didChange;
+}
+
+function applySeasonConversionForCurrentTurn() {
+  const state = syncSeasonConversionState({ includeCurrentTurn: true });
+
+  if (!state || state.tilesPerTurn <= 0 || state.pendingCells.length === 0) {
+    return false;
+  }
+
+  let convertedCount = 0;
+
+  while (convertedCount < state.tilesPerTurn && state.pendingCells.length > 0) {
+    const cell = state.pendingCells.shift();
+
+    if (!cell || getCellSeason(cell) === state.targetSeason) {
+      continue;
+    }
+
+    cell.season = state.targetSeason;
+    applySeasonStateToCell(cell);
+    convertedCount += 1;
+  }
+
+  if (convertedCount <= 0) {
+    return false;
+  }
+
+  applySeasonConversionFallout();
+  invalidateStaticLayer();
+  invalidateStaticUnitsLayer();
+  return true;
+}
+
+function normalizeSerializedCellRecord(sourceCell) {
+  if (Array.isArray(sourceCell)) {
+    return {
+      type: sourceCell[compactSerializedCellFieldIndex.type],
+      variant: sourceCell[compactSerializedCellFieldIndex.variant],
+      season: sourceCell[compactSerializedCellFieldIndex.season],
+      visited:
+        sourceCell[compactSerializedCellFieldIndex.visited] === true
+        || sourceCell[compactSerializedCellFieldIndex.visited] === 1,
+      visitsCount: sourceCell[compactSerializedCellFieldIndex.visitsCount],
+      materialAmount: sourceCell[compactSerializedCellFieldIndex.materialAmount],
+      foodType:
+        typeof sourceCell[compactSerializedCellFieldIndex.foodType] === "string"
+        && sourceCell[compactSerializedCellFieldIndex.foodType]
+          ? sourceCell[compactSerializedCellFieldIndex.foodType]
+          : null,
+      foodCapacity: sourceCell[compactSerializedCellFieldIndex.foodCapacity],
+      foodAmount: sourceCell[compactSerializedCellFieldIndex.foodAmount],
+    };
+  }
+
+  return sourceCell && typeof sourceCell === "object" ? sourceCell : null;
+}
+
 function normalizeMapState(rawMap) {
   const width = clampInteger(rawMap?.width, 1, 512, defaultMapConfig.width);
   const height = clampInteger(rawMap?.height, 1, 512, defaultMapConfig.height);
@@ -6219,7 +6942,7 @@ function normalizeMapState(rawMap) {
     }
 
     for (let x = 0; x < width; x += 1) {
-      const sourceCell = sourceRow[x];
+      const sourceCell = normalizeSerializedCellRecord(sourceRow[x]);
 
       if (!sourceCell || !terrain[sourceCell.type]) {
         throw new Error("Missing map cell.");
@@ -6227,6 +6950,7 @@ function normalizeMapState(rawMap) {
 
       const cell = generatedCells[y][x];
       cell.type = sourceCell.type;
+      cell.season = normalizeCellSeason(sourceCell.season);
       if (typeof sourceCell.visited !== "boolean") {
         throw new Error("Missing explored state in map cell.");
       }
@@ -6260,6 +6984,7 @@ function normalizeMapState(rawMap) {
       if (cell.foodAmount > foodCapacity) {
         cell.foodAmount = foodCapacity;
       }
+      applySeasonStateToCell(cell);
 
       if (cell.foodType && !getFoodDefinition(cell.foodType)) {
         throw new Error("Unsupported food type in map cell.");
@@ -6415,6 +7140,22 @@ function normalizeGatherMaterialsUnitTask(task, { currentX, currentY } = {}) {
   }
 
   return serializeGatherUnitTask({ ...task, toX, toY }, "gatherMaterials");
+}
+
+function normalizePlantUnitTask(task, { currentX, currentY, currentUnit } = {}) {
+  const destination = getNormalizedUnitTaskDestination(task, currentX, currentY);
+
+  if (!destination) {
+    return null;
+  }
+
+  const { toX, toY, destinationCell } = destination;
+
+  if (!canPlantAtCell(destinationCell, currentUnit || unit)) {
+    return null;
+  }
+
+  return serializeTargetedUnitTask({ toX, toY }, "plant");
 }
 
 function normalizeBuildHouseUnitTask(task, { currentX, currentY } = {}) {
@@ -6771,6 +7512,7 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   syncActiveUnit();
   selectedUnitAction = null;
   currentTurn = Math.max(1, clampInteger(nextState.turn, 1, 999999, 1));
+  syncSeasonConversionState({ includeCurrentTurn: false, rebuild: true });
   autoAdvanceTurns =
     typeof nextState.autoAdvanceTurns === "boolean" ? nextState.autoAdvanceTurns : true;
   situationMessageViewIndex = situationMessages.length > 0 ? situationMessages.length - 1 : -1;
@@ -6854,7 +7596,7 @@ function saveState(mode = interactionMode) {
 }
 
 function autosavePlayState() {
-  return saveStateToFile(autosaveSlotName, interactionModes.play);
+  return saveStateToFile(autosaveSlotName, interactionModes.play, { alertMode: "once" });
 }
 
 function getUnits() {
@@ -7269,6 +8011,13 @@ function queueGatherFoodUnitAction({ currentUnit = getSelectedUnit(), destinatio
   return assignUnitTask(createUnitTaskForAction(unitActions.gatherFood, { destinationCell }), currentUnit);
 }
 
+function queuePlantUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
+  if (!currentUnit || currentUnit.move || !canPlantAtCell(destinationCell, currentUnit)) return false;
+  if (!canUnitUseAction(currentUnit, unitActions.plant)) return false;
+
+  return assignUnitTask(createUnitTaskForAction(unitActions.plant, { destinationCell }), currentUnit);
+}
+
 function queueGatherMaterialsUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
   if (!currentUnit || currentUnit.move || !canGatherMaterialsFromCell(destinationCell, currentUnit)) return false;
   if (!canUnitUseAction(currentUnit, unitActions.gatherMaterials)) return false;
@@ -7405,6 +8154,10 @@ function queueUnitGatherFoodTask(destinationCell, currentUnit = getSelectedUnit(
   return queueUnitAction(unitActions.gatherFood, { currentUnit, destinationCell });
 }
 
+function queueUnitPlantTask(destinationCell, currentUnit = getSelectedUnit()) {
+  return queueUnitAction(unitActions.plant, { currentUnit, destinationCell });
+}
+
 function queueUnitGatherMaterialsTask(destinationCell, currentUnit = getSelectedUnit()) {
   return queueUnitAction(unitActions.gatherMaterials, { currentUnit, destinationCell });
 }
@@ -7523,6 +8276,41 @@ function resolveGatherFoodTask(currentUnit) {
   } else {
     invalidateStaticLayer();
   }
+}
+
+function resolvePlantTask(currentUnit) {
+  const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
+
+  if (!canPlantAtCell(targetCell, currentUnit)) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+
+  const plantedFoodType = "grain";
+  const plantedFoodCapacity = getUnitPlantedFoodCapacity(plantedFoodType, currentUnit);
+
+  if (!spendFromStockpile("food", 1) || plantedFoodCapacity <= 0) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+
+  if (!targetCell.foodType) {
+    targetCell.foodType = plantedFoodType;
+    targetCell.foodCapacity = plantedFoodCapacity;
+    targetCell.foodAmount = 0;
+  }
+
+  targetCell.foodAmount = clamp(
+    clampNonNegativeNumber(targetCell.foodAmount, 999999, 0) + 1,
+    0,
+    getCellFoodMaxAmount(targetCell),
+  );
+  applySeasonStateToCell(targetCell);
+  targetCell.visited = true;
+  turnReplayHadWork = true;
+  currentUnit.stamina = 0;
+  invalidateStaticLayer();
+  clearCompletedTask(currentUnit);
 }
 
 function resolveGatherMaterialsTask(currentUnit) {
@@ -7882,7 +8670,7 @@ function regrowFoodResourcesForTurn() {
       const currentAmount = clampNumber(Number(cell.foodAmount), 0, maxAmount, 0);
       const regrowthRate = getFoodTypeRegrowthRate(cell.foodType);
 
-      if (maxAmount <= 0 || currentAmount <= 0 || regrowthRate <= 0) {
+      if (maxAmount <= 0 || currentAmount <= 0 || regrowthRate <= 0 || doesSeasonDisableLandFoodRegrowth(cell)) {
         continue;
       }
 
@@ -8296,6 +9084,7 @@ function advanceTurn() {
 
   clearPendingAutoAdvance();
   currentTurn += 1;
+  applySeasonConversionForCurrentTurn();
   updateBuildingsForTurn();
   resolveTurn();
   beginTurnReplay();
@@ -8340,10 +9129,8 @@ function maybeAutoAdvanceTurn() {
 function loadTileImages() {
   const pendingLoads = [];
 
-  for (const [type, spec] of Object.entries(terrain)) {
-    for (const variant of getTerrainVariants(type)) {
-      pendingLoads.push(loadImage(variant.image, tileImages));
-    }
+  for (const imagePath of getTerrainImagePaths()) {
+    pendingLoads.push(loadImage(imagePath, tileImages));
   }
 
   for (const imagePath of getBuildingImagePaths()) {
@@ -8599,6 +9386,7 @@ function createCell(x, y, type) {
     y,
     type,
     variant: chooseTerrainVariant(type),
+    season: defaultCellSeason,
     visited: false,
     visitsCount: 0,
     foodCapacity: 0,
@@ -8796,14 +9584,20 @@ function getCellScreenPositionForUnitRendering(cell) {
   };
 }
 
+function getVehicleMountedMovementTerrains(vehicle, context = getRuleContext()) {
+  return getEffectiveConstructibleRules("vehicle", vehicle?.type, context)?.mounted?.movementTerrains;
+}
+
+function canVehicleTraverseCell(vehicle, cell, context = getRuleContext()) {
+  return doesMovementRuleListAllowCell(getVehicleMountedMovementTerrains(vehicle, context), cell);
+}
+
 function canMountedUnitTraverseTerrain(currentUnit, cell) {
   if (!cell || !currentUnit) {
     return false;
   }
 
-  const movementTerrains = getMountedVehicleRules(currentUnit)?.movementTerrains;
-
-  return Array.isArray(movementTerrains) && movementTerrains.includes(cell.type);
+  return doesMovementRuleListAllowCell(getMountedVehicleRules(currentUnit)?.movementTerrains, cell);
 }
 
 function getUnitCellPassabilityState(
@@ -8865,7 +9659,7 @@ function getUnitCellPassabilityState(
   } else if (effectiveMountedVehicleId) {
     terrainOrStructurePassable = false;
   } else {
-    terrainOrStructurePassable = cell.type !== "water";
+    terrainOrStructurePassable = cell.type !== "water" || isSeasonallyWalkableWaterCell(cell);
   }
 
   const occupiedByOtherUnit = occupiedKeys instanceof Set
@@ -9480,7 +10274,7 @@ function startNewGeneratedState(mode, buildCells = buildGeneratedMapCells) {
   applyStateSnapshot(createGeneratedState(mode, buildCells), mode);
 
   if (mode === interactionModes.play) {
-    saveStateToFile(autosaveSlotName, interactionModes.play);
+    saveStateToFile(autosaveSlotName, interactionModes.play, { alertMode: "once" });
     return true;
   }
 
@@ -9542,6 +10336,10 @@ function getUnitTargetCells() {
     return getGatherFoodCells(selectedUnit);
   }
 
+  if (action === unitActions.plant) {
+    return getPlantCells(selectedUnit);
+  }
+
   if (action === unitActions.gatherMaterials) {
     return getGatherMaterialsCells(selectedUnit);
   }
@@ -9578,6 +10376,13 @@ function getUnitTargetStyle() {
     return {
       fill: "rgba(204, 156, 84, 0.18)",
       stroke: "rgba(243, 207, 127, 0.72)",
+    };
+  }
+
+  if (action === unitActions.plant) {
+    return {
+      fill: "rgba(134, 184, 95, 0.2)",
+      stroke: "rgba(197, 234, 145, 0.8)",
     };
   }
 
@@ -9821,6 +10626,39 @@ function canGatherFoodFromCell(cell, currentUnit = unit) {
   return hasGatherableFoodResource(cell) && areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y);
 }
 
+function canPlantAtCell(cell, currentUnit = unit) {
+  if (!cell || !currentUnit) {
+    return false;
+  }
+
+  if (!areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y)) {
+    return false;
+  }
+
+  if (cell.type !== "grass") {
+    return false;
+  }
+
+  if (isWinter2SeasonCell(cell)) {
+    return false;
+  }
+
+  if (getBuildingAtCell(cell.x, cell.y) || getVehicleAtCell(cell.x, cell.y) || getUnitAtCell(cell.x, cell.y)) {
+    return false;
+  }
+
+  if (!hasSufficientQuantity(getCurrentStockpileAmount("food"), 1)) {
+    return false;
+  }
+
+  if (!cell.foodType) {
+    return getUnitPlantedFoodCapacity("grain", currentUnit) > 0;
+  }
+
+  return cell.foodType === "grain"
+    && clampNonNegativeNumber(cell.foodAmount, 999999, 0) + quantityEpsilon < getCellFoodMaxAmount(cell);
+}
+
 function canGatherMaterialsFromCell(cell, currentUnit = unit) {
   if (!cell || !currentUnit) return false;
 
@@ -9834,6 +10672,15 @@ function getGatherFoodCells(currentUnit = unit) {
   const candidates = originCell ? getAdjacentCells(originCell) : [];
 
   return candidates.filter((cell) => canGatherFoodFromCell(cell, currentUnit));
+}
+
+function getPlantCells(currentUnit = unit) {
+  if (!currentUnit) return [];
+
+  const originCell = getCell(currentUnit.x, currentUnit.y);
+  const candidates = originCell ? getAdjacentCells(originCell) : [];
+
+  return candidates.filter((cell) => canPlantAtCell(cell, currentUnit));
 }
 
 function getGatherMaterialsCells(currentUnit = unit) {
@@ -10143,6 +10990,12 @@ function handlePlayModeClick(cell) {
 
     if (action === unitActions.gatherFood) {
       if (queueUnitGatherFoodTask(cell, selectedUnit)) {
+        return;
+      }
+    }
+
+    if (action === unitActions.plant) {
+      if (queueUnitPlantTask(cell, selectedUnit)) {
         return;
       }
     }
@@ -12644,6 +13497,21 @@ function applyTerrainSelection(type) {
   });
 }
 
+function applyEditorSeasonSelection(season) {
+  if (!activeCell) {
+    return;
+  }
+
+  const previousSnapshot = JSON.stringify(serializeCell(activeCell));
+  activeCell.season = normalizeCellSeason(season);
+  applySeasonStateToCell(activeCell);
+  refreshAfterEditorMutation({
+    invalidateWorld: true,
+    didChange: JSON.stringify(serializeCell(activeCell)) !== previousSnapshot,
+    closeDropdowns: true,
+  });
+}
+
 function applyEditorFoodSelection(foodType) {
   if (!activeCell || !canEditFoodSelection(activeCell)) {
     return;
@@ -12666,6 +13534,8 @@ function applyEditorFoodSelection(foodType) {
     activeCell.foodCapacity = getFoodTypeMaxAmount(foodType);
     activeCell.foodAmount = activeCell.foodCapacity;
   }
+
+  applySeasonStateToCell(activeCell);
 
   refreshAfterEditorMutation({
     invalidateWorld: true,
@@ -12718,6 +13588,7 @@ function applyEditorFoodCurrentValue() {
 
   const previousValue = clampNonNegativeNumber(activeCell.foodAmount, 999999, 0);
   activeCell.foodAmount = getEditorNumberInputValue(editorFoodCurrentInput, activeCell.foodAmount, 0, getCellFoodMaxAmount(activeCell));
+  applySeasonStateToCell(activeCell);
 
   refreshAfterEditorMutation({
     invalidateWorld: true,
@@ -12734,6 +13605,7 @@ function applyEditorFoodTotalValue() {
   const previousAmount = clampNonNegativeNumber(activeCell.foodAmount, 999999, 0);
   activeCell.foodCapacity = getEditorNumberInputValue(editorFoodTotalInput, getCellFoodMaxAmount(activeCell), 0);
   activeCell.foodAmount = clampNumber(activeCell.foodAmount, 0, getCellFoodMaxAmount(activeCell), 0);
+  applySeasonStateToCell(activeCell);
 
   refreshAfterEditorMutation({
     invalidateWorld: true,
@@ -13183,6 +14055,12 @@ for (const button of confirmSlotPanelButtons) {
 for (const button of importSlotPanelButtons) {
   button.addEventListener("click", () => {
     void importSaveIntoSlot(saveSlotInput?.value || slotPanelState?.value || "");
+  });
+}
+
+for (const button of deleteSlotPanelButtons) {
+  button.addEventListener("click", () => {
+    void deleteSaveFile(saveSlotInput?.value || slotPanelState?.value || "");
   });
 }
 
