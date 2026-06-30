@@ -11,9 +11,18 @@ import {
   clampNonNegativeNumber,
 } from "./number-utils.js";
 
+const viewport = document.querySelector(".viewport");
+const canvasStack = document.querySelector(".map-canvas-stack");
 const canvas = document.querySelector("#mapCanvas");
 const ctx = canvas.getContext("2d");
-const viewport = document.querySelector(".viewport");
+const interactionCanvas = document.querySelector("#mapInteractionCanvas");
+const interactionCtx = interactionCanvas.getContext("2d");
+const unitsCanvas = document.querySelector("#mapUnitsCanvas");
+const unitsCanvasAlt = document.querySelector("#mapUnitsCanvasAlt");
+const actorsCanvas = document.querySelector("#mapActorsCanvas");
+const actorsCtx = actorsCanvas.getContext("2d");
+const overlayCanvas = document.querySelector("#mapOverlayCanvas");
+const overlayCtx = overlayCanvas.getContext("2d");
 const appShell = document.querySelector(".app-shell");
 const topBarsContainer = document.querySelector(".top-bars");
 const mainMenuOverlay = document.querySelector("#mainMenuOverlay");
@@ -169,9 +178,7 @@ const mainMenuItems = {
   edit: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="edit"]'),
   importExport: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="import-export"]'),
 };
-const staticLayerCanvas = document.createElement("canvas");
-const staticLayerCtx = staticLayerCanvas.getContext("2d");
-const staticUnitsLayerCanvases = [document.createElement("canvas"), document.createElement("canvas")];
+const staticUnitsLayerCanvases = [unitsCanvas, unitsCanvasAlt];
 const staticUnitsLayerContexts = staticUnitsLayerCanvases.map((layerCanvas) => layerCanvas.getContext("2d"));
 const backgroundMusic = new Audio("assets/audio/music.mp3");
 const introMusic = new Audio("assets/audio/intro.mp3");
@@ -559,6 +566,10 @@ let scheduledAnimationIntervalMs = 0;
 let lastAnimationFrameAt = 0;
 let staticLayerDirty = true;
 let staticUnitsLayerDirty = true;
+let visibleStaticUnitsFrameIndex = null;
+let interactionLayerHadContent = false;
+let actorsLayerHadContent = false;
+let overlayLayerHadContent = false;
 let currentDpr = 1;
 let currentTurn = 1;
 let autoAdvanceTurns = true;
@@ -10166,7 +10177,9 @@ function updateInteractionModeUi() {
   }
 
   setTextContent(appSubtitleElements, getAppSubtitleText());
-  canvas.dataset.mode = interactionMode || "";
+  const mode = interactionMode || "";
+  canvas.dataset.mode = mode;
+  overlayCanvas.dataset.mode = mode;
   updateEditInspector();
   updatePlayOverlayLayout();
 
@@ -11325,8 +11338,7 @@ function getStationaryUnits() {
   return getUnits().filter(
     (currentUnit) =>
       currentUnit &&
-      !currentUnit.move &&
-      (interactionMode === interactionModes.edit || !currentUnit.selected),
+      !currentUnit.move,
   );
 }
 
@@ -11347,7 +11359,7 @@ function compareConstructiblesByDrawOrder(kind, a, b) {
   return a.x - b.x;
 }
 
-function drawUnitTargets() {
+function drawUnitTargets(drawContext = ctx) {
   if (interactionMode !== interactionModes.play || !getSelectedUnit()) {
     return;
   }
@@ -11356,12 +11368,12 @@ function drawUnitTargets() {
 
   for (const cell of getUnitTargetCells()) {
     const screen = isoToScreen(cell.x, cell.y);
-    drawDiamondPath(screen.x, screen.y);
-    ctx.fillStyle = style.fill;
-    ctx.fill();
-    ctx.strokeStyle = style.stroke;
-    ctx.lineWidth = Number.isFinite(style.lineWidth) ? style.lineWidth : 1.6;
-    ctx.stroke();
+    drawDiamondPath(screen.x, screen.y, 0, drawContext);
+    drawContext.fillStyle = style.fill;
+    drawContext.fill();
+    drawContext.strokeStyle = style.stroke;
+    drawContext.lineWidth = Number.isFinite(style.lineWidth) ? style.lineWidth : 1.6;
+    drawContext.stroke();
   }
 }
 
@@ -11418,23 +11430,23 @@ function canShowBuildHouseCostHint(cell, currentUnit = getSelectedUnit()) {
   return Boolean(getConstructionHintBuildingType(currentUnit, cell));
 }
 
-function drawRoundedRectPath(x, y, width, height, radius) {
+function drawRoundedRectPath(x, y, width, height, radius, drawContext = ctx) {
   const clampedRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
 
-  ctx.beginPath();
-  ctx.moveTo(x + clampedRadius, y);
-  ctx.lineTo(x + width - clampedRadius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + clampedRadius);
-  ctx.lineTo(x + width, y + height - clampedRadius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - clampedRadius, y + height);
-  ctx.lineTo(x + clampedRadius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - clampedRadius);
-  ctx.lineTo(x, y + clampedRadius);
-  ctx.quadraticCurveTo(x, y, x + clampedRadius, y);
-  ctx.closePath();
+  drawContext.beginPath();
+  drawContext.moveTo(x + clampedRadius, y);
+  drawContext.lineTo(x + width - clampedRadius, y);
+  drawContext.quadraticCurveTo(x + width, y, x + width, y + clampedRadius);
+  drawContext.lineTo(x + width, y + height - clampedRadius);
+  drawContext.quadraticCurveTo(x + width, y + height, x + width - clampedRadius, y + height);
+  drawContext.lineTo(x + clampedRadius, y + height);
+  drawContext.quadraticCurveTo(x, y + height, x, y + height - clampedRadius);
+  drawContext.lineTo(x, y + clampedRadius);
+  drawContext.quadraticCurveTo(x, y, x + clampedRadius, y);
+  drawContext.closePath();
 }
 
-function drawBuildHouseCostHint() {
+function drawBuildHouseCostHint(drawContext = ctx) {
   if (!canShowBuildHouseCostHint(playHoverCell)) {
     return;
   }
@@ -11483,14 +11495,14 @@ function drawBuildHouseCostHint() {
   const lumberSize = getContainedSize(lumberImage, resourceBoxSize.width, resourceBoxSize.height);
   const iconRowHeight = Math.max(subjectBoxSize.height, resourceBoxSize.height, symbolFontSize);
 
-  ctx.save();
-  ctx.font = `${quantityFontSize}px "Oldania ADF Std", Georgia, serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  drawContext.save();
+  drawContext.font = `${quantityFontSize}px "Oldania ADF Std", Georgia, serif`;
+  drawContext.textAlign = "center";
+  drawContext.textBaseline = "middle";
   const quantityMetrics = costStatus.entries.map((entry) => ({
     text: formatDisplayedQuantity(entry.required),
     color: entry.affordable ? "rgba(247, 231, 181, 0.96)" : "rgba(255, 126, 122, 0.98)",
-    width: ctx.measureText(formatDisplayedQuantity(entry.required)).width,
+    width: drawContext.measureText(formatDisplayedQuantity(entry.required)).width,
   }));
   const resourceBlockWidth = Math.max(
     resourceBoxSize.width,
@@ -11511,23 +11523,23 @@ function drawBuildHouseCostHint() {
   const boxX = clamp(
     Math.round(screen.x - boxWidth / 2),
     8,
-    Math.max(8, ctx.canvas.width - boxWidth - 8),
+    Math.max(8, drawContext.canvas.width - boxWidth - 8),
   );
   const boxY = clamp(
     Math.round(screen.y - boxHeight - 5),
     8,
-    Math.max(8, ctx.canvas.height - boxHeight - 8),
+    Math.max(8, drawContext.canvas.height - boxHeight - 8),
   );
   const contentStartX = boxX + paddingX;
   const iconCenterY = boxY + paddingY + iconRowHeight / 2;
   const quantityY = boxY + paddingY + iconRowHeight + rowGap + quantityFontSize / 2;
 
-  drawRoundedRectPath(boxX, boxY, boxWidth, boxHeight, Math.max(8, Math.round(10 * zoomLevels[zoomIndex])));
-  ctx.fillStyle = "rgba(18, 17, 14, 0.88)";
-  ctx.fill();
-  ctx.strokeStyle = costStatus.affordable ? "rgba(244, 220, 149, 0.72)" : "rgba(236, 125, 118, 0.82)";
-  ctx.lineWidth = 1.4;
-  ctx.stroke();
+  drawRoundedRectPath(boxX, boxY, boxWidth, boxHeight, Math.max(8, Math.round(10 * zoomLevels[zoomIndex])), drawContext);
+  drawContext.fillStyle = "rgba(18, 17, 14, 0.88)";
+  drawContext.fill();
+  drawContext.strokeStyle = costStatus.affordable ? "rgba(244, 220, 149, 0.72)" : "rgba(236, 125, 118, 0.82)";
+  drawContext.lineWidth = 1.4;
+  drawContext.stroke();
 
   const drawHintImage = (
     image,
@@ -11550,16 +11562,16 @@ function drawBuildHouseCostHint() {
         ? y + height - resolvedDrawHeight
         : y + (height - resolvedDrawHeight) / 2;
 
-      ctx.drawImage(image, drawX, drawY, resolvedDrawWidth, resolvedDrawHeight);
+      drawContext.drawImage(image, drawX, drawY, resolvedDrawWidth, resolvedDrawHeight);
       return;
     }
 
     if (fallbackText) {
-      ctx.save();
-      ctx.font = `${symbolFontSize}px "Oldania ADF Std", Georgia, serif`;
-      ctx.fillStyle = "rgba(247, 231, 181, 0.96)";
-      ctx.fillText(fallbackText, x + width / 2, y + height / 2);
-      ctx.restore();
+      drawContext.save();
+      drawContext.font = `${symbolFontSize}px "Oldania ADF Std", Georgia, serif`;
+      drawContext.fillStyle = "rgba(247, 231, 181, 0.96)";
+      drawContext.fillText(fallbackText, x + width / 2, y + height / 2);
+      drawContext.restore();
     }
   };
 
@@ -11580,12 +11592,12 @@ function drawBuildHouseCostHint() {
   );
   cursorX += subjectBoxSize.width + iconGap;
 
-  ctx.save();
-  ctx.font = `${symbolFontSize}px "Oldania ADF Std", Georgia, serif`;
-  ctx.fillStyle = "rgba(247, 231, 181, 0.96)";
-  ctx.fillText("=", cursorX + symbolWidth / 2, iconCenterY);
-  ctx.fillText("+", cursorX + symbolWidth / 2 + symbolWidth + iconGap + resourceBlockWidth + iconGap + symbolWidth / 2, iconCenterY);
-  ctx.restore();
+  drawContext.save();
+  drawContext.font = `${symbolFontSize}px "Oldania ADF Std", Georgia, serif`;
+  drawContext.fillStyle = "rgba(247, 231, 181, 0.96)";
+  drawContext.fillText("=", cursorX + symbolWidth / 2, iconCenterY);
+  drawContext.fillText("+", cursorX + symbolWidth / 2 + symbolWidth + iconGap + resourceBlockWidth + iconGap + symbolWidth / 2, iconCenterY);
+  drawContext.restore();
 
   cursorX += symbolWidth + iconGap;
 
@@ -11602,8 +11614,8 @@ function drawBuildHouseCostHint() {
       drawHeight: stoneSize.height,
     },
   );
-  ctx.fillStyle = quantityMetrics[0].color;
-  ctx.fillText(quantityMetrics[0].text, firstResourceCenterX, quantityY);
+  drawContext.fillStyle = quantityMetrics[0].color;
+  drawContext.fillText(quantityMetrics[0].text, firstResourceCenterX, quantityY);
 
   cursorX += resourceBlockWidth + iconGap + symbolWidth + iconGap;
 
@@ -11620,13 +11632,13 @@ function drawBuildHouseCostHint() {
       drawHeight: lumberSize.height,
     },
   );
-  ctx.fillStyle = quantityMetrics[1].color;
-  ctx.fillText(quantityMetrics[1].text, secondResourceCenterX, quantityY);
+  drawContext.fillStyle = quantityMetrics[1].color;
+  drawContext.fillText(quantityMetrics[1].text, secondResourceCenterX, quantityY);
 
-  ctx.restore();
+  drawContext.restore();
 }
 
-function drawInspectedPlayCellMarker() {
+function drawInspectedPlayCellMarker(drawContext = ctx) {
   if (!isPlayTileInspectionActive()) {
     return;
   }
@@ -11639,15 +11651,15 @@ function drawInspectedPlayCellMarker() {
 
   const screen = isoToScreen(inspectedCell.x, inspectedCell.y);
 
-  ctx.save();
-  drawDiamondPath(screen.x, screen.y);
-  ctx.strokeStyle = "rgb(102, 171, 255)";
-  ctx.lineWidth = Math.max(2, 2.4 * zoomLevels[zoomIndex]);
-  ctx.stroke();
-  ctx.restore();
+  drawContext.save();
+  drawDiamondPath(screen.x, screen.y, 0, drawContext);
+  drawContext.strokeStyle = "rgb(102, 171, 255)";
+  drawContext.lineWidth = Math.max(2, 2.4 * zoomLevels[zoomIndex]);
+  drawContext.stroke();
+  drawContext.restore();
 }
 
-function drawUnitMoveTaskLines(now = performance.now()) {
+function drawUnitMoveTaskLines(now = performance.now(), drawContext = ctx) {
   if (interactionMode !== interactionModes.play) {
     return;
   }
@@ -11672,10 +11684,10 @@ function drawUnitMoveTaskLines(now = performance.now()) {
     return;
   }
 
-  ctx.save();
-  ctx.setLineDash([8, 6]);
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+  drawContext.save();
+  drawContext.setLineDash([8, 6]);
+  drawContext.lineCap = "round";
+  drawContext.lineJoin = "round";
 
   for (const currentUnit of movingUnits) {
     const moveTarget = isReplayPhase()
@@ -11700,25 +11712,25 @@ function drawUnitMoveTaskLines(now = performance.now()) {
       y: toScreen.y + tile.height * 0.52,
     };
 
-    ctx.strokeStyle = "rgba(18, 22, 20, 0.45)";
-    ctx.lineWidth = Math.max(2.5, 3 * zoomLevels[zoomIndex]);
-    ctx.beginPath();
-    ctx.moveTo(fromGround.x, fromGround.y);
-    ctx.lineTo(toPoint.x, toPoint.y);
-    ctx.stroke();
+    drawContext.strokeStyle = "rgba(18, 22, 20, 0.45)";
+    drawContext.lineWidth = Math.max(2.5, 3 * zoomLevels[zoomIndex]);
+    drawContext.beginPath();
+    drawContext.moveTo(fromGround.x, fromGround.y);
+    drawContext.lineTo(toPoint.x, toPoint.y);
+    drawContext.stroke();
 
-    ctx.strokeStyle = "rgba(239, 224, 170, 0.8)";
-    ctx.lineWidth = Math.max(1.2, 1.5 * zoomLevels[zoomIndex]);
-    ctx.beginPath();
-    ctx.moveTo(fromGround.x, fromGround.y);
-    ctx.lineTo(toPoint.x, toPoint.y);
-    ctx.stroke();
+    drawContext.strokeStyle = "rgba(239, 224, 170, 0.8)";
+    drawContext.lineWidth = Math.max(1.2, 1.5 * zoomLevels[zoomIndex]);
+    drawContext.beginPath();
+    drawContext.moveTo(fromGround.x, fromGround.y);
+    drawContext.lineTo(toPoint.x, toPoint.y);
+    drawContext.stroke();
   }
 
-  ctx.restore();
+  drawContext.restore();
 }
 
-function drawSelectedUnitMarker() {
+function drawSelectedUnitMarker(drawContext = ctx) {
   const selectedUnit = getSelectedUnit();
 
   if (interactionMode !== interactionModes.play || !selectedUnit) return;
@@ -11734,10 +11746,10 @@ function drawSelectedUnitMarker() {
   const radiusY = tile.height * (0.112 + pulse * 0.02);
   const fillAlpha = 0.5 + pulse * 0.22;
 
-  ctx.save();
-  ctx.fillStyle = `rgba(68, 98, 178, ${fillAlpha})`;
-  ctx.beginPath();
-  ctx.ellipse(
+  drawContext.save();
+  drawContext.fillStyle = `rgba(68, 98, 178, ${fillAlpha})`;
+  drawContext.beginPath();
+  drawContext.ellipse(
     screen.x,
     centerY,
     radiusX,
@@ -11746,12 +11758,12 @@ function drawSelectedUnitMarker() {
     0,
     Math.PI * 2,
   );
-  ctx.fill();
+  drawContext.fill();
 
-  ctx.strokeStyle = "rgb(102, 171, 255)";
-  ctx.lineWidth = Math.max(1.5, 2 * zoomLevels[zoomIndex]);
-  ctx.beginPath();
-  ctx.ellipse(
+  drawContext.strokeStyle = "rgb(102, 171, 255)";
+  drawContext.lineWidth = Math.max(1.5, 2 * zoomLevels[zoomIndex]);
+  drawContext.beginPath();
+  drawContext.ellipse(
     screen.x,
     centerY,
     radiusX,
@@ -11760,12 +11772,12 @@ function drawSelectedUnitMarker() {
     0,
     Math.PI * 2,
   );
-  ctx.stroke();
+  drawContext.stroke();
 
-  ctx.restore();
+  drawContext.restore();
 }
 
-function drawMovingUnit(now = performance.now()) {
+function drawMovingUnit(now = performance.now(), drawContext = ctx) {
   if (interactionMode !== interactionModes.play) return;
 
   const movingUnit = getMovingUnit();
@@ -11786,45 +11798,20 @@ function drawMovingUnit(now = performance.now()) {
     const mountedVehicle = getMountedVehicle(movingUnit);
 
     if (mountedVehicle) {
-      drawConstructibleForKind("vehicle", mountedVehicle);
+      drawConstructibleForKind("vehicle", mountedVehicle, drawContext);
     } else {
-      drawMountedVehicleAtScreen(dismountVehicleScreen, movingUnit, ctx, { now });
+      drawMountedVehicleAtScreen(dismountVehicleScreen, movingUnit, drawContext, { now });
     }
   } else {
-    drawMountedVehicleAtScreen(screen, movingUnit, ctx, { now });
+    drawMountedVehicleAtScreen(screen, movingUnit, drawContext, { now });
   }
   drawUnitAtScreen(
     screen,
-    ctx,
+    drawContext,
     imagePath,
     shouldMirrorUnitImage(imagePath, movingUnit),
     !movingUnit.selected,
     movingUnit,
-  );
-}
-
-function drawSelectedStationaryUnit(now = performance.now()) {
-  const selectedUnit = getSelectedUnit();
-
-  if (interactionMode !== interactionModes.play || !selectedUnit || selectedUnit.move) {
-    return;
-  }
-
-  const imagePath = getStationaryUnitImage(selectedUnit, now);
-  const screen = getStationaryUnitDrawScreenPosition(selectedUnit, imagePath, now);
-
-  if (!screen) {
-    return;
-  }
-
-  drawMountedVehicleAtScreen(screen, selectedUnit, ctx, { now });
-  drawUnitAtScreen(
-    screen,
-    ctx,
-    imagePath,
-    shouldMirrorUnitImage(imagePath, selectedUnit),
-    false,
-    selectedUnit,
   );
 }
 
@@ -11958,6 +11945,22 @@ function updatePlayOverlayLayout() {
   }
 }
 
+function resizeVisibleCanvasLayer(layerCanvas, layerContext, canvasSize, dpr) {
+  layerCanvas.style.width = `${canvasSize.width}px`;
+  layerCanvas.style.height = `${canvasSize.height}px`;
+  layerCanvas.width = Math.round(canvasSize.width * dpr);
+  layerCanvas.height = Math.round(canvasSize.height * dpr);
+  layerContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function setCanvasLayerVisible(layerCanvas, isVisible) {
+  if (!layerCanvas) {
+    return;
+  }
+
+  layerCanvas.classList.toggle("map-layer-hidden", !isVisible);
+}
+
 function layoutCanvas({ preserveCenter = false } = {}) {
   const dpr = window.devicePixelRatio || 1;
   const center = preserveCenter ? getViewportCenterRatio() : null;
@@ -11969,12 +11972,28 @@ function layoutCanvas({ preserveCenter = false } = {}) {
   const leftInset = Math.max(canvasPadding, (canvasSize.width - mapPixelSize.width) / 2);
   const topInset = Math.max(canvasPadding, (canvasSize.height - mapPixelSize.height) / 2);
 
-  canvas.style.width = `${canvasSize.width}px`;
-  canvas.style.height = `${canvasSize.height}px`;
-  canvas.width = Math.round(canvasSize.width * dpr);
-  canvas.height = Math.round(canvasSize.height * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (canvasStack) {
+    canvasStack.style.width = `${canvasSize.width}px`;
+    canvasStack.style.height = `${canvasSize.height}px`;
+  }
+
+  resizeVisibleCanvasLayer(canvas, ctx, canvasSize, dpr);
+  resizeVisibleCanvasLayer(interactionCanvas, interactionCtx, canvasSize, dpr);
+  for (let index = 0; index < staticUnitsLayerCanvases.length; index += 1) {
+    resizeVisibleCanvasLayer(
+      staticUnitsLayerCanvases[index],
+      staticUnitsLayerContexts[index],
+      canvasSize,
+      dpr,
+    );
+  }
+  resizeVisibleCanvasLayer(actorsCanvas, actorsCtx, canvasSize, dpr);
+  resizeVisibleCanvasLayer(overlayCanvas, overlayCtx, canvasSize, dpr);
   currentDpr = dpr;
+  visibleStaticUnitsFrameIndex = null;
+  interactionLayerHadContent = false;
+  actorsLayerHadContent = false;
+  overlayLayerHadContent = false;
 
   origin = {
     x: leftInset + tile.width / 2,
@@ -12060,17 +12079,17 @@ function isoToScreen(x, y) {
   };
 }
 
-function drawDiamondPath(cx, cy, lift = 0) {
+function drawDiamondPath(cx, cy, lift = 0, drawContext = ctx) {
   const halfW = tile.width / 2;
   const halfH = tile.height / 2;
   const topY = cy - lift;
 
-  ctx.beginPath();
-  ctx.moveTo(cx, topY);
-  ctx.lineTo(cx + halfW, topY + halfH);
-  ctx.lineTo(cx, topY + tile.height);
-  ctx.lineTo(cx - halfW, topY + halfH);
-  ctx.closePath();
+  drawContext.beginPath();
+  drawContext.moveTo(cx, topY);
+  drawContext.lineTo(cx + halfW, topY + halfH);
+  drawContext.lineTo(cx, topY + tile.height);
+  drawContext.lineTo(cx - halfW, topY + halfH);
+  drawContext.closePath();
 }
 
 function drawTileOverlays(cell) {
@@ -12098,7 +12117,7 @@ function recordTileHitArea(cell, screen, lift) {
   });
 }
 
-function drawInteractiveTileOverlays() {
+function drawInteractiveTileOverlays(drawContext = ctx) {
   if (!isEditMode()) return;
 
   if (hoverCell) {
@@ -12106,7 +12125,7 @@ function drawInteractiveTileOverlays() {
       fillStyle: "rgba(255, 239, 158, 0.28)",
       strokeStyle: "#ffe886",
       lineWidth: 2,
-    });
+    }, drawContext);
   }
 
   if (activeCell) {
@@ -12114,21 +12133,21 @@ function drawInteractiveTileOverlays() {
       fillStyle: "rgba(215, 180, 91, 0.16)",
       strokeStyle: "#d7b45b",
       lineWidth: 2.5,
-    });
+    }, drawContext);
   }
 }
 
-function drawTileOverlay(cell, style) {
+function drawTileOverlay(cell, style, drawContext = ctx) {
   if (!cell) return;
 
   const screen = isoToScreen(cell.x, cell.y);
 
-  drawDiamondPath(screen.x, screen.y);
-  ctx.fillStyle = style.fillStyle;
-  ctx.fill();
-  ctx.strokeStyle = style.strokeStyle;
-  ctx.lineWidth = style.lineWidth;
-  ctx.stroke();
+  drawDiamondPath(screen.x, screen.y, 0, drawContext);
+  drawContext.fillStyle = style.fillStyle;
+  drawContext.fill();
+  drawContext.strokeStyle = style.strokeStyle;
+  drawContext.lineWidth = style.lineWidth;
+  drawContext.stroke();
 }
 
 function getTileTopCenter(screen, lift = 0) {
@@ -12813,16 +12832,7 @@ function invalidateStaticLayer() {
 
 function invalidateStaticUnitsLayer() {
   staticUnitsLayerDirty = true;
-}
-
-function ensureStaticLayerSize() {
-  if (staticLayerCanvas.width === canvas.width && staticLayerCanvas.height === canvas.height) {
-    return;
-  }
-
-  staticLayerCanvas.width = canvas.width;
-  staticLayerCanvas.height = canvas.height;
-  staticLayerDirty = true;
+  visibleStaticUnitsFrameIndex = null;
 }
 
 function ensureStaticUnitsLayerSize() {
@@ -12840,17 +12850,20 @@ function ensureStaticUnitsLayerSize() {
   }
 
   staticUnitsLayerDirty = true;
+  visibleStaticUnitsFrameIndex = null;
 }
 
-function clearMainCanvas() {
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.restore();
+function clearCanvasContext(drawContext) {
+  const targetCanvas = drawContext.canvas;
+
+  drawContext.save();
+  drawContext.setTransform(1, 0, 0, 1, 0, 0);
+  drawContext.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+  drawContext.restore();
 }
 
 function renderStaticLayerToMain() {
-  clearMainCanvas();
+  clearCanvasContext(ctx);
   drawList = [];
 
   for (let y = 0; y < map.height; y += 1) {
@@ -12869,13 +12882,6 @@ function renderStaticLayerToMain() {
 
   drawVisibleConstructibles("building", buildings);
   drawVisibleConstructibles("vehicle", vehicles);
-}
-
-function cacheStaticLayer() {
-  ensureStaticLayerSize();
-  staticLayerCtx.setTransform(1, 0, 0, 1, 0, 0);
-  staticLayerCtx.clearRect(0, 0, staticLayerCanvas.width, staticLayerCanvas.height);
-  staticLayerCtx.drawImage(canvas, 0, 0);
   staticLayerDirty = false;
 }
 
@@ -12895,59 +12901,131 @@ function renderStaticUnitsLayer() {
   staticUnitsLayerDirty = false;
 }
 
-function restoreStaticLayerToMain() {
-  clearMainCanvas();
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(staticLayerCanvas, 0, 0);
-  ctx.restore();
-}
+function syncVisibleStaticUnitsLayer(frameIndex = 0) {
+  const normalizedFrameIndex =
+    ((frameIndex % staticUnitsLayerCanvases.length) + staticUnitsLayerCanvases.length) %
+    staticUnitsLayerCanvases.length;
 
-function restoreStaticUnitsLayerToMain(frameIndex = 0) {
-  const layerCanvas = staticUnitsLayerCanvases[frameIndex % staticUnitsLayerCanvases.length];
-
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(layerCanvas, 0, 0);
-  ctx.restore();
-}
-
-function drawDynamicLayer(now = performance.now()) {
-  drawInteractiveTileOverlays();
-
-  if (interactionMode === interactionModes.play) {
-    drawInspectedPlayCellMarker();
-    drawUnitMoveTaskLines(now);
-    restoreStaticUnitsLayerToMain(getWorkingUnitFrameIndex(now));
-    drawSelectedUnitMarker();
-    drawSelectedStationaryUnit(now);
-    drawMovingUnit(now);
-    drawUnitTargets();
-    drawBuildHouseCostHint();
+  if (visibleStaticUnitsFrameIndex === normalizedFrameIndex) {
     return;
   }
 
-  if (interactionMode === interactionModes.edit) {
-    restoreStaticUnitsLayerToMain(0);
+  staticUnitsLayerCanvases.forEach((layerCanvas, index) => {
+    setCanvasLayerVisible(layerCanvas, index === normalizedFrameIndex);
+  });
+  visibleStaticUnitsFrameIndex = normalizedFrameIndex;
+}
+
+function hasVisibleUnitMoveTaskLines() {
+  if (interactionMode !== interactionModes.play) {
+    return false;
   }
+
+  return getUnits().some((currentUnit) => {
+    if (!currentUnit) {
+      return false;
+    }
+
+    const moveTarget = isReplayPhase()
+      ? turnReplayMoveTargets.get(currentUnit.id) || null
+      : (isTaskAction(currentUnit.task, unitActions.walk) ? currentUnit.task : null);
+
+    return Boolean(
+      moveTarget &&
+      (moveTarget.toX !== currentUnit.x || moveTarget.toY !== currentUnit.y || currentUnit.move),
+    );
+  });
+}
+
+function hasInteractionLayerContent() {
+  if (interactionMode === interactionModes.edit) {
+    return Boolean(hoverCell || activeCell);
+  }
+
+  if (interactionMode === interactionModes.play) {
+    return Boolean(
+      isPlayTileInspectionActive() ||
+      getSelectedUnit() ||
+      hasVisibleUnitMoveTaskLines(),
+    );
+  }
+
+  return false;
+}
+
+function drawInteractionLayer(now = performance.now()) {
+  const hasContent = hasInteractionLayerContent();
+
+  if (!hasContent) {
+    if (interactionLayerHadContent) {
+      clearCanvasContext(interactionCtx);
+      interactionLayerHadContent = false;
+    }
+    return;
+  }
+
+  clearCanvasContext(interactionCtx);
+  drawInteractiveTileOverlays(interactionCtx);
+
+  if (interactionMode === interactionModes.play) {
+    drawInspectedPlayCellMarker(interactionCtx);
+    drawUnitMoveTaskLines(now, interactionCtx);
+    drawSelectedUnitMarker(interactionCtx);
+    drawUnitTargets(interactionCtx);
+  }
+
+  interactionLayerHadContent = true;
+}
+
+function drawActorsLayer(now = performance.now()) {
+  const hasContent = interactionMode === interactionModes.play && Boolean(getMovingUnit());
+
+  if (!hasContent) {
+    if (actorsLayerHadContent) {
+      clearCanvasContext(actorsCtx);
+      actorsLayerHadContent = false;
+    }
+    return;
+  }
+
+  clearCanvasContext(actorsCtx);
+  drawMovingUnit(now, actorsCtx);
+  actorsLayerHadContent = true;
+}
+
+function drawOverlayLayer() {
+  const hasContent = canShowBuildHouseCostHint(playHoverCell);
+
+  if (!hasContent) {
+    if (overlayLayerHadContent) {
+      clearCanvasContext(overlayCtx);
+      overlayLayerHadContent = false;
+    }
+    return;
+  }
+
+  clearCanvasContext(overlayCtx);
+  drawBuildHouseCostHint(overlayCtx);
+  overlayLayerHadContent = true;
 }
 
 function draw(now = performance.now()) {
-  ensureStaticLayerSize();
   ensureStaticUnitsLayerSize();
 
   if (staticLayerDirty) {
     renderStaticLayerToMain();
-    cacheStaticLayer();
-  } else {
-    restoreStaticLayerToMain();
   }
 
   if (staticUnitsLayerDirty) {
     renderStaticUnitsLayer();
   }
 
-  drawDynamicLayer(now);
+  syncVisibleStaticUnitsLayer(
+    interactionMode === interactionModes.play ? getWorkingUnitFrameIndex(now) : 0,
+  );
+  drawInteractionLayer(now);
+  drawActorsLayer(now);
+  drawOverlayLayer();
 }
 
 function pointInPolygon(point, polygon) {
@@ -12969,7 +13047,7 @@ function pointInPolygon(point, polygon) {
 }
 
 function pickTile(clientX, clientY) {
-  const rect = canvas.getBoundingClientRect();
+  const rect = overlayCanvas.getBoundingClientRect();
   const point = {
     x: clientX - rect.left,
     y: clientY - rect.top,
@@ -13451,7 +13529,7 @@ function handlePlayCanvasLeave() {
   draw();
 }
 
-canvas.addEventListener("mousemove", (event) => {
+overlayCanvas.addEventListener("mousemove", (event) => {
   if (isPlayMode()) {
     handlePlayCanvasMove(event);
     return;
@@ -13462,7 +13540,7 @@ canvas.addEventListener("mousemove", (event) => {
   handleEditCanvasMove(event);
 });
 
-canvas.addEventListener("click", (event) => {
+overlayCanvas.addEventListener("click", (event) => {
   const clickedCell = pickTile(event.clientX, event.clientY);
 
   if (isPlayMode()) {
@@ -13475,7 +13553,7 @@ canvas.addEventListener("click", (event) => {
   handleEditCanvasClick(event, clickedCell);
 });
 
-canvas.addEventListener("mouseleave", () => {
+overlayCanvas.addEventListener("mouseleave", () => {
   if (isPlayMode()) {
     handlePlayCanvasLeave();
     return;
@@ -13668,7 +13746,7 @@ document.addEventListener("pointerdown", (event) => {
     return;
   }
 
-  if (!activeCell || (editInspector && editInspector.contains(event.target)) || event.target === canvas) {
+  if (!activeCell || (editInspector && editInspector.contains(event.target)) || canvasStack?.contains(event.target)) {
     return;
   }
 

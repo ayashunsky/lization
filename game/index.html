@@ -77,7 +77,14 @@
       </div>
 
       <section class="viewport">
-        <canvas id="mapCanvas"></canvas>
+        <div class="map-canvas-stack">
+          <canvas id="mapCanvas"></canvas>
+          <canvas id="mapInteractionCanvas"></canvas>
+          <canvas id="mapUnitsCanvas"></canvas>
+          <canvas id="mapUnitsCanvasAlt"></canvas>
+          <canvas id="mapActorsCanvas"></canvas>
+          <canvas id="mapOverlayCanvas"></canvas>
+        </div>
       </section>
 
       <aside id="editInspector" class="edit-inspector" hidden>

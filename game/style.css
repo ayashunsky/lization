@@ -467,12 +467,45 @@ p {
   scrollbar-color: var(--line) #151817;
 }
 
-#mapCanvas {
+.map-canvas-stack {
+  position: relative;
+}
+
+#mapCanvas,
+#mapInteractionCanvas,
+#mapUnitsCanvas,
+#mapUnitsCanvasAlt,
+#mapActorsCanvas,
+#mapOverlayCanvas {
   display: block;
+}
+
+#mapCanvas,
+#mapInteractionCanvas,
+#mapUnitsCanvas,
+#mapUnitsCanvasAlt,
+#mapActorsCanvas {
+  pointer-events: none;
+}
+
+#mapInteractionCanvas,
+#mapUnitsCanvas,
+#mapUnitsCanvasAlt,
+#mapActorsCanvas,
+#mapOverlayCanvas {
+  position: absolute;
+  inset: 0;
+}
+
+.map-layer-hidden {
+  visibility: hidden;
+}
+
+#mapOverlayCanvas {
   cursor: crosshair;
 }
 
-#mapCanvas[data-mode="play"] {
+#mapOverlayCanvas[data-mode="play"] {
   cursor: pointer;
 }
 
