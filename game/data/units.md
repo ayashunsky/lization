@@ -8,7 +8,7 @@ This file currently defines:
 - unit type overrides
 - sprite type catalogs
 - action lists per unit type
-- spawn rules
+- spawn pool and guaranteed-presence rules
 - availability requirements
 - conditional gameplay modifiers
 
@@ -20,9 +20,7 @@ This file currently defines:
   "types": {
     "<unitTypeId>": { ... }
   },
-  "spawnRules": [
-    { ... }
-  ],
+  "spawnRules": { ... },
   "spriteTypes": {
     "<spriteTypeId>": { ... }
   }
@@ -39,6 +37,7 @@ Supported fields:
 
 - `typeId`
 - `spriteTypeId`
+- `bookPageId`
 - `name`
 - `labels`
 - `stamina`
@@ -90,6 +89,7 @@ Per-type overrides merged over `default`.
 Supported fields:
 
 - `spriteTypeId`
+- `bookPageId`
 - `name`
 - `labels`
 - `stamina`
@@ -107,6 +107,7 @@ Example:
 ```json
 "grandSchtroumpf": {
   "spriteTypeId": "grandSchtroumpf",
+  "bookPageId": "grand_schtroumpf",
   "name": "Grand Schtroumpf",
   "labels": {
     "fr": "Grand Schtroumpf",
@@ -122,6 +123,8 @@ Example:
   }
 }
 ```
+
+`bookPageId` is optional. When present, UI elements can open the matching unit page directly in the book.
 
 ## Unit Requirements
 
@@ -144,6 +147,16 @@ Example:
 }
 ```
 
+To explicitly clear an inherited action requirement for one action, set that action to `null`:
+
+```json
+"actionRequirements": {
+  "plant": null
+}
+```
+
+This removes the inherited requirement block for `plant` instead of merging with it.
+
 ## `modifiers`
 
 Optional ordered list of conditional gameplay overrides.
@@ -165,6 +178,9 @@ Supported `set` fields:
 - `plantedFoodCapacities`
 - `workPointsPerTurn`
 - `actionRequirements`
+
+Inside `set.actionRequirements`, `null` has the same meaning: it clears the inherited requirement
+for that action instead of merging with it.
 
 Example:
 
@@ -207,48 +223,43 @@ If a unit plants onto an existing matching food resource, the existing tile `foo
 
 ## `spawnRules`
 
-Optional ordered list of spawn rules used when a house creates a new unit.
+Optional spawn configuration used when a house creates a new unit.
 
-Each rule can have:
+Supported fields:
 
-- `when`: optional requirement block
-- `choices`: weighted unit choices
+- `pool`: array of spawnable unit types with quantities
+- `ensurePresentByUnitCount`: ordered list of guarantees
 
-Each choice supports:
+`pool` entries support:
 
 - `type`
-- `weight`
-- `requirements`
+- `quantity`
 
-Rules are evaluated in order. The first rule with at least one eligible choice is used.
+Drawing a unit reduces its currently available quantity by `1`. Availability is derived from the
+configured quantity minus the number of living units of that type, so if a unit leaves the village
+it becomes available for spawning again automatically.
+
+`ensurePresentByUnitCount` entries support:
+
+- `unitCount`
+- `types`
+
+When the village is about to reach `unitCount` living units, the game checks whether at least one
+of the listed `types` is already present. If yes, the draw uses the full pool. If no, the draw is
+restricted to that listed subset until one of those units is present again.
 
 Example matching the current Grand Schtroumpf behavior:
 
 ```json
-"spawnRules": [
-  {
-    "when": {
-      "nextUnitNumberEquals": 5
-    },
-    "choices": [
-      {
-        "type": "grandSchtroumpf",
-        "weight": 1,
-        "requirements": {
-          "requiredUnitsAbsent": ["grandSchtroumpf"]
-        }
-      }
-    ]
-  },
-  {
-    "choices": [
-      {
-        "type": "villager",
-        "weight": 1
-      }
-    ]
-  }
-]
+"spawnRules": {
+  "pool": [
+    { "type": "villager", "quantity": 999 },
+    { "type": "grandSchtroumpf", "quantity": 1 }
+  ],
+  "ensurePresentByUnitCount": [
+    { "unitCount": 5, "types": ["grandSchtroumpf"] }
+  ]
+}
 ```
 
 ## `spriteTypes.<spriteTypeId>`

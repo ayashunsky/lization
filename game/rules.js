@@ -69,8 +69,8 @@ window.APP_RULES = {
       durationTurns: 3,
     },
     materials: {
-      mountainStonePerTile: 260,
-      forestLumberPerTile: 220,
+      mountainStonePerTile: 1000,
+      forestLumberPerTile: 500,
     },
     stockpile: {
       initial: {

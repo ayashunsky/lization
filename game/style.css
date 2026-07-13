@@ -473,6 +473,7 @@ p {
 
 #mapCanvas,
 #mapInteractionCanvas,
+#mapSelectionCanvas,
 #mapUnitsCanvas,
 #mapUnitsCanvasAlt,
 #mapActorsCanvas,
@@ -482,6 +483,7 @@ p {
 
 #mapCanvas,
 #mapInteractionCanvas,
+#mapSelectionCanvas,
 #mapUnitsCanvas,
 #mapUnitsCanvasAlt,
 #mapActorsCanvas {
@@ -489,6 +491,7 @@ p {
 }
 
 #mapInteractionCanvas,
+#mapSelectionCanvas,
 #mapUnitsCanvas,
 #mapUnitsCanvasAlt,
 #mapActorsCanvas,
@@ -934,11 +937,15 @@ p {
 }
 
 .play-inspector-header-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
   align-items: center;
-  justify-content: center;
   gap: 8px;
   width: 100%;
+}
+
+.play-inspector-header-row .play-inspector-title {
+  min-width: 0;
 }
 
 .unit-inspector-layout {
@@ -961,6 +968,33 @@ p {
   font-size: calc(0.82rem * var(--ui-font-scale));
   line-height: 1.1;
   text-align: center;
+}
+
+.unit-page-info-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.unit-page-info-button:hover,
+.unit-page-info-button:focus-visible {
+  color: rgba(255, 248, 224, 0.96);
+  outline: none;
+}
+
+.unit-page-info-button[data-available="false"] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.unit-page-info-button .question-circle {
+  font-size: calc(0.92rem * var(--ui-font-scale));
 }
 
 .panel-lines {
@@ -1014,7 +1048,7 @@ p {
 
 .unit-action-summary {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: center;
 }
@@ -1036,6 +1070,11 @@ p {
   font-size: calc(0.88rem * var(--ui-font-scale));
   line-height: 1.1;
   white-space: nowrap;
+}
+
+.unit-action-summary .panel-icon-button[aria-pressed="true"] {
+  background: rgba(245, 243, 230, 0.18);
+  border-color: rgba(236, 242, 237, 0.34);
 }
 
 .unit-book-button {
@@ -2099,6 +2138,35 @@ p {
 
 .editor-research-list {
   max-height: 460px;
+}
+
+.map-generation-panel {
+  width: min(460px, calc(100vw - 48px));
+}
+
+.map-generation-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.map-generation-field {
+  display: grid;
+  gap: 8px;
+}
+
+.map-generation-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: calc(0.84rem * var(--ui-font-scale));
+  line-height: 1.1;
+}
+
+.map-generation-range {
+  width: 100%;
+  margin: 0;
 }
 
 .editor-research-item {

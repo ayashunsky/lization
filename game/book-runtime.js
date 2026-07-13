@@ -219,16 +219,39 @@ export function createBookRuntimeApi({
       };
     }
 
-    const leftQuota = actualLeftCount * bookVisiblePageLayerCount / actualTotalCount;
-    const rightQuota = actualRightCount * bookVisiblePageLayerCount / actualTotalCount;
+    const minimumLeftCount = actualLeftCount > 0 ? 1 : 0;
+    const minimumRightCount = actualRightCount > 0 ? 1 : 0;
+    const minimumVisibleCount = minimumLeftCount + minimumRightCount;
 
-    let leftCount = Math.floor(leftQuota);
-    let rightCount = Math.floor(rightQuota);
+    if (minimumVisibleCount >= bookVisiblePageLayerCount) {
+      return {
+        left: minimumLeftCount,
+        right: minimumRightCount,
+      };
+    }
+
+    const remainingVisibleCount = bookVisiblePageLayerCount - minimumVisibleCount;
+    const extraLeftCount = Math.max(0, actualLeftCount - minimumLeftCount);
+    const extraRightCount = Math.max(0, actualRightCount - minimumRightCount);
+    const extraTotalCount = extraLeftCount + extraRightCount;
+
+    if (extraTotalCount <= 0) {
+      return {
+        left: minimumLeftCount,
+        right: minimumRightCount,
+      };
+    }
+
+    const leftQuota = extraLeftCount * remainingVisibleCount / extraTotalCount;
+    const rightQuota = extraRightCount * remainingVisibleCount / extraTotalCount;
+
+    let leftCount = minimumLeftCount + Math.floor(leftQuota);
+    let rightCount = minimumRightCount + Math.floor(rightQuota);
     let remainingCount = bookVisiblePageLayerCount - leftCount - rightCount;
 
     while (remainingCount > 0) {
-      const leftRemainder = leftQuota - leftCount;
-      const rightRemainder = rightQuota - rightCount;
+      const leftRemainder = leftQuota - (leftCount - minimumLeftCount);
+      const rightRemainder = rightQuota - (rightCount - minimumRightCount);
 
       if (
         leftRemainder > rightRemainder

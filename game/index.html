@@ -80,6 +80,7 @@
         <div class="map-canvas-stack">
           <canvas id="mapCanvas"></canvas>
           <canvas id="mapInteractionCanvas"></canvas>
+          <canvas id="mapSelectionCanvas"></canvas>
           <canvas id="mapUnitsCanvas"></canvas>
           <canvas id="mapUnitsCanvasAlt"></canvas>
           <canvas id="mapActorsCanvas"></canvas>
@@ -318,6 +319,17 @@
           <div class="unit-inspector-layout">
             <div class="unit-inspector-main">
               <div class="play-inspector-header-row">
+                <button
+                  class="unit-page-info-button"
+                  data-action="open-unit-book-page"
+                  data-role="unit-book-page-button"
+                  data-available="false"
+                  type="button"
+                  aria-hidden="true"
+                  disabled
+                >
+                  <span class="question-circle" aria-hidden="true">?</span>
+                </button>
                 <p class="play-inspector-title" data-role="unit-title"></p>
                 <button class="menu-button panel-icon-button" data-action="select-next-unit" type="button">
                   <span aria-hidden="true">»</span>
@@ -327,6 +339,9 @@
                 <div class="unit-action-summary" data-role="unit-task-row" hidden>
                   <img class="unit-action-sprite" data-role="unit-action-sprite" alt="">
                   <span class="unit-action-progress" data-role="unit-action-progress"></span>
+                  <button class="menu-button panel-icon-button" data-action="toggle-gather-task-loop" type="button" hidden>
+                    <span aria-hidden="true">↻</span>
+                  </button>
                   <button class="menu-button panel-icon-button" data-action="cancel-unit-task" type="button">
                     <span aria-hidden="true">✕</span>
                   </button>
@@ -514,6 +529,50 @@
           <div class="slot-panel-list-wrap">
             <div id="editorResearchList" class="slot-panel-list editor-research-list"></div>
             <p id="editorResearchEmpty" class="slot-panel-empty" hidden></p>
+          </div>
+        </section>
+      </div>
+
+      <div id="mapGenerationOverlay" class="slot-overlay" hidden>
+        <section id="mapGenerationPanel" class="slot-panel map-generation-panel" role="dialog" aria-modal="true" aria-labelledby="mapGenerationTitle">
+          <div class="slot-panel-header">
+            <p id="mapGenerationTitle" class="slot-panel-title" data-role="map-generation-title"></p>
+            <button class="menu-button slot-panel-close" data-action="close-map-generation" type="button" aria-label="Close">×</button>
+          </div>
+          <p class="slot-panel-subtitle" data-role="map-generation-subtitle"></p>
+          <div class="map-generation-fields">
+            <label class="map-generation-field">
+              <span class="map-generation-field-header">
+                <span data-role="map-generation-water-label"></span>
+                <span data-role="map-generation-water-value"></span>
+              </span>
+              <input class="map-generation-range" data-action="map-generation-water" type="range" min="0" max="100" step="1">
+            </label>
+            <label class="map-generation-field">
+              <span class="map-generation-field-header">
+                <span data-role="map-generation-forest-label"></span>
+                <span data-role="map-generation-forest-value"></span>
+              </span>
+              <input class="map-generation-range" data-action="map-generation-forest" type="range" min="0" max="100" step="1">
+            </label>
+            <label class="map-generation-field">
+              <span class="map-generation-field-header">
+                <span data-role="map-generation-mountain-label"></span>
+                <span data-role="map-generation-mountain-value"></span>
+              </span>
+              <input class="map-generation-range" data-action="map-generation-mountain" type="range" min="0" max="100" step="1">
+            </label>
+            <label class="map-generation-field">
+              <span class="map-generation-field-header">
+                <span data-role="map-generation-food-label"></span>
+                <span data-role="map-generation-food-value"></span>
+              </span>
+              <input class="map-generation-range" data-action="map-generation-food" type="range" min="0" max="100" step="1">
+            </label>
+          </div>
+          <div class="slot-panel-actions">
+            <button class="menu-button" data-action="confirm-map-generation" type="button"></button>
+            <button class="menu-button" data-action="cancel-map-generation" type="button"></button>
           </div>
         </section>
       </div>

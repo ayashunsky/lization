@@ -16,6 +16,21 @@
     "plantedFoodCapacities": {
       "grain": 14
     },
+    "actionRequirements": {
+      "plant": {
+        "requiredTechs": ["planting"]
+      }
+    },
+    "modifiers": [
+      {
+        "when": {
+          "requiredUnitsPresent": ["cuisinier"]
+        },
+        "set": {
+          "foodConsumptionPerTurn": 0.8
+        }
+      }
+    ],
     "workPointsPerTurn": {
       "buildHouse": 20,
       "demolish": 25,
@@ -25,10 +40,12 @@
   },
   "types": {
     "villager": {
-      "spriteTypeId": "villager"
+      "spriteTypeId": "villager",
+      "bookPageId": "schtroumpf"
     },
     "grandSchtroumpf": {
       "spriteTypeId": "grandSchtroumpf",
+      "bookPageId": "grand_schtroumpf",
       "name": "Grand Schtroumpf",
       "labels": {
         "fr": "Grand Schtroumpf",
@@ -51,14 +68,40 @@
         }
       ]
     },
+    "bricoleur": {
+      "spriteTypeId": "bricoleur",
+      "bookPageId": "bricoleur",
+      "name": "Schtroumpf Bricoleur",
+      "labels": {
+        "fr": "Schtroumpf Bricoleur",
+        "en": "Handy Smurf",
+        "es": "Pitufo Carpintero",
+        "ru": "Штрумф самоделкин"
+      },
+      "researchPointsPerTurn": 0.6,
+      "allowedActions": ["walk", "layFoundation", "research", "gatherMaterials", "buildHouse"],
+      "modifiers": [
+        {
+          "when": {
+            "requiredBuildingsMin": {
+              "workshop": 1
+            }
+          },
+          "set": {
+            "researchPointsPerTurn": 1.2
+          }
+        }
+      ]
+    },
     "paresseux": {
       "spriteTypeId": "paresseux",
+      "bookPageId": "paresseux",
       "name": "Schtroumpf paresseux",
       "labels": {
         "fr": "Schtroumpf paresseux",
         "en": "Lazy Smurf",
         "es": "Pitufo Perezoso",
-        "ru": "Штрумф Лентяй"
+        "ru": "Штрумф лентяй"
       },
       "stamina": 1,
       "foodConsumptionPerTurn": 1,
@@ -73,6 +116,7 @@
     },
     "lunettes": {
       "spriteTypeId": "lunettes",
+      "bookPageId": "lunettes",
       "name": "Schtroumpf à lunettes",
       "labels": {
         "fr": "Schtroumpf à lunettes",
@@ -83,7 +127,7 @@
       "stamina": 2,
       "foodConsumptionPerTurn": 1,
       "researchPointsPerTurn": 0,
-      "allowedActions": ["walk", "play", "gatherMaterials", "buildHouse", "demolish"],
+      "allowedActions": ["walk", "play", "gatherFood", "plant", "gatherMaterials", "buildHouse", "demolish"],
       "workPointsPerTurn": {
         "buildHouse": 10,
         "demolish": 12,
@@ -92,72 +136,168 @@
     },
     "farceur": {
       "spriteTypeId": "farceur",
+      "bookPageId": "farceur",
       "name": "Schtroumpf farceur",
       "labels": {
         "fr": "Schtroumpf farceur",
         "en": "Jokey Smurf",
         "es": "Pitufo Bromista",
-        "ru": "Штрумф-шутник"
+        "ru": "Штрумф шутник"
       }
     },
     "beta": {
       "spriteTypeId": "beta",
+      "bookPageId": "beta",
       "name": "Schtroumpf bêta",
       "labels": {
         "fr": "Schtroumpf bêta",
         "en": "Dopey Smurf",
         "es": "Pitufo Debilucho",
-        "ru": "Штрумф-глупыш"
+        "ru": "Штрумф глупыш"
       },
       "workPointsPerTurn": {
         "buildHouse": 1,
         "demolish": 1,
+        "gatherFood": 1,
         "gatherMaterials": 1
       }
     },
+    "maladroit": {
+      "spriteTypeId": "maladroit",
+      "bookPageId": "maladroit",
+      "name": "Schtroumpf maladroit",
+      "labels": {
+        "fr": "Schtroumpf maladroit",
+        "en": "Clumsy Smurf",
+        "es": "Pitufo Tontíno",
+        "ru": "Штрумф растяпа"
+      },
+      "workPointsPerTurn": {
+        "buildHouse": 1,
+        "demolish": 1,
+        "gatherFood": 1,
+        "gatherMaterials": 1
+      }
+    },
+    "grognon": {
+      "spriteTypeId": "grognon",
+      "bookPageId": "grognon",
+      "name": "Schtroumpf grognon",
+      "labels": {
+        "fr": "Schtroumpf grognon",
+        "en": "Grouchy Smurf",
+        "es": "Pitufo Gruñón",
+        "ru": "Штрумф ворчун"
+      }
+    },
+    "costaud": {
+      "spriteTypeId": "costaud",
+      "bookPageId": "costaud",
+      "name": "Schtroumpf costaud",
+      "labels": {
+        "fr": "Schtroumpf costaud",
+        "en": "Hefty Smurf",
+        "es": "Pitufo Fortachón",
+        "ru": "Штрумф силач"
+      },
+      "stamina": 3,
+      "workPointsPerTurn": {
+        "buildHouse": 25,
+        "demolish": 30,
+        "gatherFood": 4,
+        "gatherMaterials": 16
+      },
+      "foodConsumptionPerTurn": 2,
+      "modifiers": [
+        {
+          "when": {
+            "requiredUnitsPresent": ["cuisinier"]
+          },
+          "set": {
+            "foodConsumptionPerTurn": 1.6
+          }
+        }
+      ]
+    },
     "gourmand": {
       "spriteTypeId": "gourmand",
+      "bookPageId": "gourmand",
       "name": "Schtroumpf gourmand",
       "labels": {
         "fr": "Schtroumpf gourmand",
         "en": "Greedy Smurf",
         "es": "Pitufo Goloso",
-        "ru": "Штрумф-обжора"
+        "ru": "Штрумф обжора"
       },
-      "foodConsumptionPerTurn": 2
-    }
-  },
-  "spawnRules": [
-    {
-      "when": {
-        "nextUnitNumberEquals": 5
-      },
-      "choices": [
+      "foodConsumptionPerTurn": 2,
+      "modifiers": [
         {
-          "type": "grandSchtroumpf",
-          "weight": 1,
-          "requirements": {
-            "requiredUnitsAbsent": ["grandSchtroumpf"]
+          "when": {
+            "requiredUnitsPresent": ["cuisinier"]
+          },
+          "set": {
+            "foodConsumptionPerTurn": 2
           }
         }
       ]
     },
-    {
-      "choices": [
-        {
-          "type": "villager",
-          "weight": 1
-        }
-      ]
+    "cuisinier": {
+      "spriteTypeId": "cuisinier",
+      "bookPageId": "cuisinier",
+      "name": "Schtroumpf cuisinier",
+      "labels": {
+        "fr": "Schtroumpf cuisinier",
+        "en": "Cook Smurf",
+        "es": "Pitufo Cocinero",
+        "ru": "Штрумф повар"
+      },
+      "allowedActions": ["walk", "play", "gatherFood", "plant"]
+    },
+    "paysan": {
+      "spriteTypeId": "paysan",
+      "bookPageId": "paysan",
+      "name": "Schtroumpf paysan",
+      "labels": {
+        "fr": "Schtroumpf paysan",
+        "en": "Farmer Smurf",
+        "es": "Pitufo Labrador",
+        "ru": "Штрумф фермер"
+      },
+      "plantedFoodCapacities": {
+        "grain": 32
+      },
+      "actionRequirements": {
+        "plant": null
+      }
     }
-  ],
+  },
+  "spawnRules": {
+    "pool": [
+      { "type": "villager", "quantity": 88 },
+      { "type": "bricoleur", "quantity": 1 },
+      { "type": "paresseux", "quantity": 1 },
+      { "type": "lunettes", "quantity": 1 },
+      { "type": "farceur", "quantity": 1 },
+      { "type": "beta", "quantity": 1 },
+      { "type": "maladroit", "quantity": 1 },
+      { "type": "grogon", "quantity": 1 },
+      { "type": "costaud", "quantity": 1 },
+      { "type": "gourmand", "quantity": 1 },
+      { "type": "cuisinier", "quantity": 1 },
+      { "type": "paysan", "quantity": 1 },
+      { "type": "grandSchtroumpf", "quantity": 1 }
+    ],
+    "ensurePresentByUnitCount": [
+      { "unitCount": 15, "types": ["grandSchtroumpf", "bricoleur"] }
+    ]
+  },
   "spriteTypes": {
     "villager": {
       "sources": {
         "idle": {
           "W": "../assets/units/unit.png",
-          "N": "../assets/units/unit_back_sprite.png",
-          "S": "../assets/units/unit_front_sprite.png"
+          "N": "../assets/units/unit_back.png",
+          "S": "../assets/units/unit_front.png"
         },
         "move": {
           "W": [
@@ -165,18 +305,24 @@
             "../assets/units/unit_step.png"
           ],
           "N": [
-            "../assets/units/unit_back_step_sprite.png",
-            "../assets/units/unit_back_step_sprite_2.png"
+            "../assets/units/unit_back_step_1.png",
+            "../assets/units/unit_back_step_2.png"
           ],
           "S": [
-            "../assets/units/unit_front_step_sprite.png",
-            "../assets/units/unit_front_step_sprite_2.png"
+            "../assets/units/unit_front_step_1.png",
+            "../assets/units/unit_front_step_2.png"
           ]
         },
         "work": {
           "O": [
             "../assets/units/unit_work.png",
             "../assets/units/unit_work_1.png"
+          ]
+        },
+        "dig": {
+          "O": [
+            "../assets/units/unit_dig.png",
+            "../assets/units/unit_dig_1.png"
           ]
         },
         "gatherFoodLand": {
@@ -187,16 +333,16 @@
         },
         "gatherFoodFish": {
           "W": [
-            "../assets/units/unit_fishing_sprite.png",
-            "../assets/units/unit_fishing_sprite_1.png"
+            "../assets/units/unit_fishing.png",
+            "../assets/units/unit_fishing_1.png"
           ],
           "N": [
-            "../assets/units/unit_fishing_north_sprite.png",
-            "../assets/units/unit_fishing_north_sprite_1.png"
+            "../assets/units/unit_fishing_north.png",
+            "../assets/units/unit_fishing_north_1.png"
           ],
           "S": [
-            "../assets/units/unit_fishing_south_sprite.png",
-            "../assets/units/unit_fishing_south_sprite_1.png"
+            "../assets/units/unit_fishing_south.png",
+            "../assets/units/unit_fishing_south_1.png"
           ]
         },
         "play": {
@@ -213,8 +359,8 @@
         },
         "gatherMaterialsStone": {
           "O": [
-            "../assets/units/unit_stone_sprite.png",
-            "../assets/units/unit_stone_sprite_1.png"
+            "../assets/units/unit_stone.png",
+            "../assets/units/unit_stone_1.png"
           ]
         }
       },
@@ -230,6 +376,13 @@
           "material:lumber": ["gatherMaterialsLumber", "work", "idle"],
           "material:stone": ["gatherMaterialsStone", "work", "idle"],
           "default": ["work", "idle"]
+        },
+        "plant": {
+          "default": ["dig", "work", "idle"]
+        },
+        "buildHouse": {
+          "subjectType:well": ["dig", "work", "idle"],
+          "building:well": ["dig", "work", "idle"]
         }
       },
       "groundOffset": 0.75,
@@ -238,28 +391,28 @@
     "grandSchtroumpf": {
       "sources": {
         "idle": {
-          "W": "../assets/units/unit_grand_schtroumpf_sprite.png",
-          "N": "../assets/units/unit_grand_schtroumpf_back_sprite.png",
-          "S": "../assets/units/unit_grand_schtroumpf_front_sprite.png"
+          "W": "../assets/units/gs.png",
+          "N": "../assets/units/gs_back.png",
+          "S": "../assets/units/gs_front.png"
         },
         "move": {
           "W": [
-            "../assets/units/unit_grand_schtroumpf_sprite.png",
-            "../assets/units/unit_grand_schtroumpf_step_sprite.png"
+            "../assets/units/gs.png",
+            "../assets/units/gs_step.png"
           ],
           "N": [
-            "../assets/units/unit_grand_schtroumpf_back_step_sprite.png",
-            "../assets/units/unit_grand_schtroumpf_back_step_sprite_2.png"
+            "../assets/units/gs_back_step_1.png",
+            "../assets/units/gs_back_step_2.png"
           ],
           "S": [
-            "../assets/units/unit_grand_schtroumpf_front_step_sprite.png",
-            "../assets/units/unit_grand_schtroumpf_front_step_sprite_2.png"
+            "../assets/units/gs_front_step_1.png",
+            "../assets/units/gs_front_step_2.png"
           ]
         },
         "research": {
           "O": [
-            "../assets/units/unit_gs_research_sprite.png",
-            "../assets/units/unit_gs_research_sprite_1.png"
+            "../assets/units/gs_research_1.png",
+            "../assets/units/gs_research_2.png"
           ]
         }
       }
@@ -293,47 +446,191 @@
         }
       }
     },
-    "lunettes": {
+    "bricoleur": {
       "sources": {
         "idle": {
-          "W": "../assets/units/lunettes.png",
-          "S": "../assets/units/lunettes_front.png"
+          "W": "../assets/units/brico.png",
+          "N": "../assets/units/brico_back.png",
+          "S": "../assets/units/brico_front.png"
         },
         "move": {
           "W": [
-            "../assets/units/lunettes.png",
-            "../assets/units/lunettes_step.png"
+            "../assets/units/brico.png",
+            "../assets/units/brico_step.png"
           ],
           "S": [
-            "../assets/units/lunettes_front_step.png",
-            "../assets/units/lunettes_front_step_2.png"
+            "../assets/units/brico_front_step_1.png",
+            "../assets/units/brico_front_step_2.png"
+          ],
+          "N": [
+            "../assets/units/brico_back_step_1.png",
+            "../assets/units/brico_back_step_2.png"
           ]
         },
         "work": {
           "O": [
-            "../assets/units/lunettes_work.png",
-            "../assets/units/lunettes_work_1.png"
+            "../assets/units/brico_work.png",
+            "../assets/units/brico_work_1.png"
+          ]
+        },
+        "dig": {
+          "O": [
+            "../assets/units/brico_dig.png",
+            "../assets/units/brico_dig_1.png"
           ]
         },
         "gatherMaterialsLumber": {
           "O": [
-            "../assets/units/lunettes_lumber.png",
-            "../assets/units/lunettes_lumber_1.png"
+            "../assets/units/brico_lumber.png",
+            "../assets/units/brico_lumber_1.png"
           ]
         },
         "gatherMaterialsStone": {
           "O": [
-            "../assets/units/lunettes_stone.png",
-            "../assets/units/lunettes_stone_1.png"
+            "../assets/units/brico_stone.png",
+            "../assets/units/brico_stone_1.png"
+          ]
+        },
+        "research": {
+          "O": [
+            "../assets/units/brico_research_1.png",
+            "../assets/units/brico_research_2.png"
+          ]
+        }
+      }
+    },
+    "lunettes": {
+      "sources": {
+        "idle": {
+          "W": "../assets/units/lune.png",
+          "S": "../assets/units/lune_front.png"
+        },
+        "move": {
+          "W": [
+            "../assets/units/lune.png",
+            "../assets/units/lune_step.png"
+          ],
+          "S": [
+            "../assets/units/lune_front_step_1.png",
+            "../assets/units/lune_front_step_2.png"
+          ]
+        },
+        "work": {
+          "O": [
+            "../assets/units/lune_work.png",
+            "../assets/units/lune_work_1.png"
+          ]
+        },
+        "dig": {
+          "O": [
+            "../assets/units/lune_dig.png",
+            "../assets/units/lune_dig_1.png"
+          ]
+        },
+        "gatherFoodLand": {
+          "O": [
+            "../assets/units/lune_food_sprite.png",
+            "../assets/units/lune_food_sprite_1.png"
+          ]
+        },
+        "gatherFoodFish": {
+          "W": [
+            "../assets/units/lune_fishing.png",
+            "../assets/units/lune_fishing_1.png"
+          ],
+          "S": [
+            "../assets/units/lune_fishing_south.png",
+            "../assets/units/lune_fishing_south_1.png"
+          ]
+        },
+        "gatherMaterialsLumber": {
+          "O": [
+            "../assets/units/lune_lumber.png",
+            "../assets/units/lune_lumber_1.png"
+          ]
+        },
+        "gatherMaterialsStone": {
+          "O": [
+            "../assets/units/lune_stone.png",
+            "../assets/units/lune_stone_1.png"
           ]
         },
         "play": {
           "O": [
-            "../assets/units/lunettes_play.png",
-            "../assets/units/lunettes_play_1.png"
+            "../assets/units/lune_play.png",
+            "../assets/units/lune_play_1.png"
           ]
         }
       }
+    },
+    "cuisinier": {
+      "sources": {
+        "idle": {
+          "W": "../assets/units/cuis.png",
+          "N": "../assets/units/cuis_back.png",
+          "S": "../assets/units/cuis_front.png"
+        },
+        "move": {
+          "W": [
+            "../assets/units/cuis.png",
+            "../assets/units/cuis_step.png"
+          ],
+          "N": [
+            "../assets/units/cuis_back_step_1.png",
+            "../assets/units/cuis_back_step_2.png"
+          ],
+          "S": [
+            "../assets/units/cuis_front_step_1.png",
+            "../assets/units/cuis_front_step_2.png"
+          ]
+        },
+        "dig": {
+          "O": [
+            "../assets/units/cuis_dig.png",
+            "../assets/units/cuis_dig_1.png"
+          ]
+        },
+        "gatherFoodLand": {
+          "O": [
+            "../assets/units/cuis_food_sprite.png",
+            "../assets/units/cuis_food_sprite_1.png"
+          ]
+        },
+        "gatherFoodFish": {
+          "W": [
+            "../assets/units/cuis_fishing.png",
+            "../assets/units/cuis_fishing_1.png"
+          ],
+          "N": [
+            "../assets/units/cuis_fishing_north.png",
+            "../assets/units/cuis_fishing_north_1.png"
+          ],
+          "S": [
+            "../assets/units/cuis_fishing_south.png",
+            "../assets/units/cuis_fishing_south_1.png"
+          ]
+        },
+        "play": {
+          "O": [
+            "../assets/units/cuis_play.png",
+            "../assets/units/cuis_play_1.png"
+          ]
+        }
+      },
+      "workFrameDuration": 180,
+      "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0],
+      "actionContextSourceCandidates": {
+        "gatherFood": {
+          "food:fish": ["gatherFoodFish", "idle"],
+          "terrain:water": ["gatherFoodFish", "idle"],
+          "default": ["gatherFoodLand", "idle"]
+        },
+        "plant": {
+          "default": ["dig", "idle"]
+        }
+      },
+      "groundOffset": 0.75,
+      "moveDuration": 720
     }
   }
 }

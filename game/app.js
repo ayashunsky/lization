@@ -17,6 +17,8 @@ const canvas = document.querySelector("#mapCanvas");
 const ctx = canvas.getContext("2d");
 const interactionCanvas = document.querySelector("#mapInteractionCanvas");
 const interactionCtx = interactionCanvas.getContext("2d");
+const selectionCanvas = document.querySelector("#mapSelectionCanvas");
+const selectionCtx = selectionCanvas.getContext("2d");
 const unitsCanvas = document.querySelector("#mapUnitsCanvas");
 const unitsCanvasAlt = document.querySelector("#mapUnitsCanvasAlt");
 const actorsCanvas = document.querySelector("#mapActorsCanvas");
@@ -49,6 +51,8 @@ const editorResearchOverlay = document.querySelector("#editorResearchOverlay");
 const editorResearchPanel = document.querySelector("#editorResearchPanel");
 const editorResearchList = document.querySelector("#editorResearchList");
 const editorResearchEmpty = document.querySelector("#editorResearchEmpty");
+const mapGenerationOverlay = document.querySelector("#mapGenerationOverlay");
+const mapGenerationPanel = document.querySelector("#mapGenerationPanel");
 const appTitleElements = [...document.querySelectorAll('[data-role="app-title"]')];
 const appSubtitleElements = [...document.querySelectorAll('[data-role="app-subtitle"]')];
 const storesTitleElements = [...document.querySelectorAll('[data-role="stores-title"]')];
@@ -86,6 +90,16 @@ const closeEditorResearchButtons = [...document.querySelectorAll('[data-action="
 const clearEditorResearchGoalButtons = [...document.querySelectorAll('[data-action="clear-editor-research-goal"]')];
 const editorResearchTitleElements = [...document.querySelectorAll('[data-role="editor-research-title"]')];
 const editorResearchGoalElements = [...document.querySelectorAll('[data-role="editor-research-goal"]')];
+const mapGenerationTitleElements = [...document.querySelectorAll('[data-role="map-generation-title"]')];
+const mapGenerationSubtitleElements = [...document.querySelectorAll('[data-role="map-generation-subtitle"]')];
+const mapGenerationWaterLabelElements = [...document.querySelectorAll('[data-role="map-generation-water-label"]')];
+const mapGenerationForestLabelElements = [...document.querySelectorAll('[data-role="map-generation-forest-label"]')];
+const mapGenerationMountainLabelElements = [...document.querySelectorAll('[data-role="map-generation-mountain-label"]')];
+const mapGenerationFoodLabelElements = [...document.querySelectorAll('[data-role="map-generation-food-label"]')];
+const mapGenerationWaterValueElements = [...document.querySelectorAll('[data-role="map-generation-water-value"]')];
+const mapGenerationForestValueElements = [...document.querySelectorAll('[data-role="map-generation-forest-value"]')];
+const mapGenerationMountainValueElements = [...document.querySelectorAll('[data-role="map-generation-mountain-value"]')];
+const mapGenerationFoodValueElements = [...document.querySelectorAll('[data-role="map-generation-food-value"]')];
 const editorResourcePanels = [...document.querySelectorAll('[data-role="editor-resource-panel"]')];
 const editorResourceTitleElements = [...document.querySelectorAll('[data-role="editor-resource-title"]')];
 const editorResourceSeparators = [...document.querySelectorAll('[data-role="editor-resource-separator"]')];
@@ -106,6 +120,10 @@ const editorBuildingCompletionInput = document.querySelector('[data-action="edit
 const editorBuildingAbandonedInput = document.querySelector('[data-action="editor-building-abandoned"]');
 const editorVehicleCompletionInput = document.querySelector('[data-action="editor-vehicle-completion"]');
 const editorVehicleAbandonedInput = document.querySelector('[data-action="editor-vehicle-abandoned"]');
+const mapGenerationWaterInput = document.querySelector('[data-action="map-generation-water"]');
+const mapGenerationForestInput = document.querySelector('[data-action="map-generation-forest"]');
+const mapGenerationMountainInput = document.querySelector('[data-action="map-generation-mountain"]');
+const mapGenerationFoodInput = document.querySelector('[data-action="map-generation-food"]');
 const zoomControlGroups = [...document.querySelectorAll(".zoom-controls")];
 const gameMenuToggleButtons = [...document.querySelectorAll('[data-action="toggle-game-menu"]')];
 const newRandomMapButtons = [...document.querySelectorAll('[data-action="new-random-map"]')];
@@ -120,6 +138,8 @@ const closeSlotPanelIconButtons = [...document.querySelectorAll('[data-action="c
 const confirmSlotPanelButtons = [...document.querySelectorAll('[data-action="confirm-slot-panel"]')];
 const importSlotPanelButtons = [...document.querySelectorAll('[data-action="import-slot-panel"]')];
 const deleteSlotPanelButtons = [...document.querySelectorAll('[data-action="delete-slot-panel"]')];
+const closeMapGenerationButtons = [...document.querySelectorAll('[data-action="close-map-generation"], [data-action="cancel-map-generation"]')];
+const confirmMapGenerationButtons = [...document.querySelectorAll('[data-action="confirm-map-generation"]')];
 const zoomOutButtons = [...document.querySelectorAll('[data-action="zoom-out"]')];
 const zoomInButtons = [...document.querySelectorAll('[data-action="zoom-in"]')];
 const zoomLevelReadouts = [...document.querySelectorAll('[data-role="zoom-level"]')];
@@ -132,6 +152,7 @@ const tileInfoSecondaryItems = [...document.querySelectorAll('[data-role="tile-i
 const tileInfoSecondaryCanvases = [...document.querySelectorAll('[data-role="tile-info-secondary-canvas"]')];
 const tileInfoSecondaryCaptions = [...document.querySelectorAll('[data-role="tile-info-secondary-caption"]')];
 const unitTitleReadouts = [...document.querySelectorAll('[data-role="unit-title"]')];
+const unitBookPageButtons = [...document.querySelectorAll('[data-action="open-unit-book-page"]')];
 const unitActionSpriteImages = [...document.querySelectorAll('[data-role="unit-action-sprite"]')];
 const unitActionProgressReadouts = [...document.querySelectorAll('[data-role="unit-action-progress"]')];
 const unitTaskRows = [...document.querySelectorAll('[data-role="unit-task-row"]')];
@@ -153,6 +174,7 @@ const nextUnitButtons = [...document.querySelectorAll('[data-action="select-next
 const autoPassInputs = [...document.querySelectorAll('[data-action="auto-pass"]')];
 const musicEnabledInputs = [...document.querySelectorAll('[data-action="music-enabled"]')];
 const musicVolumeInputs = [...document.querySelectorAll('[data-action="music-volume"]')];
+const gatherTaskLoopButtons = [...document.querySelectorAll('[data-action="toggle-gather-task-loop"]')];
 const cancelUnitTaskButtons = [...document.querySelectorAll('[data-action="cancel-unit-task"]')];
 const openBookOverlayButtons = [...document.querySelectorAll('[data-action="open-book-overlay"]')];
 const closeBookOverlayButtons = [...document.querySelectorAll('[data-action="close-book-overlay"]')];
@@ -238,6 +260,7 @@ const cellSeasons = Object.freeze([
   "spring",
 ]);
 const defaultCellSeason = "summer";
+const autoAssignPlayTasksForIdleUnitsOnManualTurnAdvance = true;
 const seasonTransitionDefinitions = normalizeSeasonTransitionDefinitions(rules.calendar?.seasonTransitions);
 const editorSupportedUnitActions = Object.freeze([
   unitActions.play,
@@ -328,6 +351,8 @@ const unitActionSpecs = Object.freeze({
       toX: destinationCell.x,
       toY: destinationCell.y,
       turnsRemaining: getGatherTaskDurationTurns(),
+      loop: false,
+      allowDepletionOnCycleStart: true,
     } : null,
     serializeTask: (task) => serializeGatherUnitTask(task, "gatherFood"),
     preserveTask: (task) => serializeGatherUnitTask(task, "gatherFood"),
@@ -364,6 +389,8 @@ const unitActionSpecs = Object.freeze({
       toX: destinationCell.x,
       toY: destinationCell.y,
       turnsRemaining: getGatherTaskDurationTurns(),
+      loop: false,
+      allowDepletionOnCycleStart: true,
     } : null,
     serializeTask: (task) => serializeGatherUnitTask(task, "gatherMaterials"),
     preserveTask: (task) => serializeGatherUnitTask(task, "gatherMaterials"),
@@ -423,6 +450,12 @@ const defaultMapConfig = {
   width: map.width,
   height: map.height,
 };
+const defaultMapGenerationSettings = Object.freeze({
+  water: 52,
+  forest: 54,
+  mountain: 32,
+  food: 46,
+});
 
 const terrain = {
   water: {
@@ -461,16 +494,16 @@ const terrain = {
     variants: [
       { id: "grass_01", label: strings.terrainVariants.grass_01, image: "assets/tiles/grass_01.png",
         seasonalImages: {
-          autumn: "assets/tiles/grass_01_winter1.png",
-          winter1: "assets/tiles/grass_01_winter1.png",
+          autumn: "assets/tiles/grass_01_winter1a.png",
+          winter1: "assets/tiles/grass_01_winter1a.png",
           winter2: "assets/tiles/grass_01_winter2.png",
           spring: "assets/tiles/grass_01_spring.png",
         },
       },
       { id: "grass_02", label: strings.terrainVariants.grass_02, image: "assets/tiles/grass_02.png",
          seasonalImages: {
-          autumn: "assets/tiles/grass_02_winter1.png",
-          winter1: "assets/tiles/grass_02_winter1.png",
+          autumn: "assets/tiles/grass_02_winter1a.png",
+          winter1: "assets/tiles/grass_02_winter1a.png",
           winter2: "assets/tiles/grass_02_winter2.png",
           spring: "assets/tiles/grass_02_spring.png",
         },
@@ -570,6 +603,7 @@ let visibleStaticUnitsFrameIndex = null;
 let interactionLayerHadContent = false;
 let actorsLayerHadContent = false;
 let overlayLayerHadContent = false;
+let selectionRingBounds = null;
 let currentDpr = 1;
 let currentTurn = 1;
 let autoAdvanceTurns = true;
@@ -612,6 +646,8 @@ let visualAssetsLoaded = false;
 let visualAssetsLoadPromise = null;
 let activeGameMenuButton = null;
 let slotPanelState = null;
+let mapGenerationPanelState = null;
+let mapGenerationSettings = { ...defaultMapGenerationSettings };
 const tileImages = {};
 const buildingImages = {};
 const vehicleImages = {};
@@ -723,7 +759,7 @@ let vehicleCatalog = createDefaultBuildingCatalog();
 let vehicleDefinitionsLoadPromise = null;
 let vehicleDefinitionsLoaded = false;
 let unitDefinitionsLoadPromise = null;
-let unitSpawnRules = [];
+let unitSpawnConfig = createDefaultUnitSpawnConfig();
 let researchState = createDefaultResearchState();
 let editStateDirty = false;
 let editorResearchReturnFocusButton = null;
@@ -1309,8 +1345,11 @@ function createDefaultUnitRulesConfig() {
   };
 }
 
-function createDefaultUnitSpawnRules() {
-  return [];
+function createDefaultUnitSpawnConfig() {
+  return {
+    pool: [],
+    ensurePresentByUnitCount: [],
+  };
 }
 
 function normalizeLocalizedLabelsMap(value) {
@@ -1573,10 +1612,40 @@ function normalizeUnitModifiers(entries) {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function normalizeUnitActionRequirementsConfig(rawActionRequirements) {
+  if (!rawActionRequirements || typeof rawActionRequirements !== "object" || Array.isArray(rawActionRequirements)) {
+    return undefined;
+  }
+
+  const normalized = Object.fromEntries(
+    Object.entries(rawActionRequirements)
+      .map(([actionId, requirements]) => {
+        const normalizedActionId = normalizePendingUnitAction(actionId);
+
+        if (!normalizedActionId) {
+          return null;
+        }
+
+        if (requirements === null) {
+          return [normalizedActionId, null];
+        }
+
+        const normalizedRequirements = normalizeRuleRequirements(requirements);
+        return Object.keys(normalizedRequirements).length > 0
+          ? [normalizedActionId, normalizedRequirements]
+          : null;
+      })
+      .filter(Boolean),
+  );
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
 function normalizeUnitRulesConfig(entry) {
   const unitEntry = entry && typeof entry === "object" ? entry : {};
   const normalized = {};
   const spriteTypeId = typeof unitEntry.spriteTypeId === "string" ? unitEntry.spriteTypeId.trim() : "";
+  const bookPageId = typeof unitEntry.bookPageId === "string" ? unitEntry.bookPageId.trim() : "";
   const name = typeof unitEntry.name === "string" ? unitEntry.name.trim() : "";
   const labels = normalizeLocalizedLabelsMap(unitEntry.labels);
   const stamina = Number(unitEntry.stamina);
@@ -1586,27 +1655,15 @@ function normalizeUnitRulesConfig(entry) {
   const workPointsPerTurn = normalizeUnitWorkPointsConfig(unitEntry.workPointsPerTurn);
   const plantedFoodCapacities = normalizeUnitPlantedFoodCapacitiesConfig(unitEntry.plantedFoodCapacities);
   const availability = normalizeRuleRequirements(unitEntry.availability);
-  const rawActionRequirements =
-    unitEntry.actionRequirements && typeof unitEntry.actionRequirements === "object" && !Array.isArray(unitEntry.actionRequirements)
-      ? unitEntry.actionRequirements
-      : null;
-  const actionRequirements = rawActionRequirements
-    ? Object.fromEntries(
-      Object.entries(rawActionRequirements)
-        .map(([actionId, requirements]) => {
-          const normalizedActionId = normalizePendingUnitAction(actionId);
-          const normalizedRequirements = normalizeRuleRequirements(requirements);
-          return normalizedActionId && Object.keys(normalizedRequirements).length > 0
-            ? [normalizedActionId, normalizedRequirements]
-            : null;
-        })
-        .filter(Boolean),
-    )
-    : undefined;
+  const actionRequirements = normalizeUnitActionRequirementsConfig(unitEntry.actionRequirements);
   const modifiers = normalizeUnitModifiers(unitEntry.modifiers);
 
   if (spriteTypeId) {
     normalized.spriteTypeId = spriteTypeId;
+  }
+
+  if (bookPageId) {
+    normalized.bookPageId = bookPageId;
   }
 
   if (name) {
@@ -1698,39 +1755,38 @@ function normalizeUnitDefinitionsManifest(manifest, manifestPath = unitManifestP
     normalizedSpriteTypes[normalizedSpriteTypeId] = normalizeUnitSpriteTypeConfig(entry, manifestPath);
   }
 
-  const rawSpawnRules = Array.isArray(manifest?.spawnRules) ? manifest.spawnRules : [];
-  const normalizedSpawnRules = rawSpawnRules
+  const rawSpawnRules = manifest?.spawnRules && typeof manifest.spawnRules === "object" && !Array.isArray(manifest.spawnRules)
+    ? manifest.spawnRules
+    : {};
+  const rawSpawnPool = Array.isArray(rawSpawnRules.pool) ? rawSpawnRules.pool : [];
+  const normalizedSpawnPool = rawSpawnPool
     .map((entry) => {
       if (!entry || typeof entry !== "object") {
         return null;
       }
 
-      const when = normalizeRuleRequirements(entry.when);
-      const rawChoices = Array.isArray(entry.choices) ? entry.choices : [];
-      const choices = rawChoices
-        .map((choice) => {
-          if (!choice || typeof choice !== "object") {
-            return null;
-          }
+      const type = typeof entry.type === "string" ? entry.type.trim() : "";
+      const quantity = Math.max(0, Math.floor(Number(entry.quantity) || 0));
 
-          const type = typeof choice.type === "string" ? choice.type.trim() : "";
-          const weight = Math.max(0, Number(choice.weight) || 0);
-          const requirements = normalizeRuleRequirements(choice.requirements);
+      return type ? { id: type, quantity } : null;
+    })
+    .filter(Boolean);
+  const rawSpawnGuarantees = Array.isArray(rawSpawnRules.ensurePresentByUnitCount)
+    ? rawSpawnRules.ensurePresentByUnitCount
+    : [];
+  const normalizedSpawnGuarantees = rawSpawnGuarantees
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
 
-          return type
-            ? {
-              id: type,
-              weight,
-              ...(Object.keys(requirements).length > 0 ? { requirements } : {}),
-            }
-            : null;
-        })
-        .filter(Boolean);
+      const unitCount = Math.max(0, Math.floor(Number(entry.unitCount) || 0));
+      const types = normalizeRuleIdList(entry.types);
 
-      return choices.length > 0
+      return unitCount > 0 && types?.length
         ? {
-          ...(Object.keys(when).length > 0 ? { when } : {}),
-          choices,
+          unitCount,
+          types,
         }
         : null;
     })
@@ -1739,7 +1795,10 @@ function normalizeUnitDefinitionsManifest(manifest, manifestPath = unitManifestP
   return {
     rules: normalizedRules,
     spriteTypes: normalizedSpriteTypes,
-    spawnRules: normalizedSpawnRules,
+    spawnRules: {
+      pool: normalizedSpawnPool,
+      ensurePresentByUnitCount: normalizedSpawnGuarantees,
+    },
   };
 }
 
@@ -1766,7 +1825,7 @@ async function ensureUnitDefinitionsLoaded() {
       .then((definitions) => {
         rules.units = definitions.rules;
         unitSpriteConfigs = definitions.spriteTypes;
-        unitSpawnRules = definitions.spawnRules || createDefaultUnitSpawnRules();
+        unitSpawnConfig = definitions.spawnRules || createDefaultUnitSpawnConfig();
         return definitions;
       })
       .finally(() => {
@@ -3660,6 +3719,15 @@ function applyStaticText() {
   if (editorResearchEmpty) {
     editorResearchEmpty.textContent = getEditorLabel("noTechnologies");
   }
+  setTextContent(mapGenerationTitleElements, strings.mapGeneration.title);
+  setTextContent(mapGenerationWaterLabelElements, strings.terrain.water);
+  setTextContent(mapGenerationForestLabelElements, strings.terrain.forest);
+  setTextContent(mapGenerationMountainLabelElements, strings.terrain.mountain);
+  setTextContent(mapGenerationFoodLabelElements, strings.resources.food);
+  setTextContent(confirmMapGenerationButtons, strings.actions.generate);
+  setTextContent(closeMapGenerationButtons.filter((button) => button.dataset.action === "cancel-map-generation"), strings.actions.cancel);
+  setAttributeForElements(closeMapGenerationButtons.filter((button) => button.dataset.action === "close-map-generation"), "aria-label", strings.actions.close);
+  updateMapGenerationPanelText();
   setAttributeForElements(languageSelectorGroups, "aria-label", strings.language.selectorLabel);
   setAttributeForElements(zoomControlGroups, "aria-label", strings.aria.zoomControls);
   setAttributeForElements(zoomOutButtons, "aria-label", strings.aria.zoomOut);
@@ -3671,6 +3739,10 @@ function applyStaticText() {
   updateWatchIntroButton();
   setAttributeForElements(nextUnitButtons, "aria-label", strings.actions.nextUnit);
   setAttributeForElements(nextUnitButtons, "title", strings.actions.nextUnit);
+  setAttributeForElements(unitBookPageButtons, "aria-label", strings.actions.openBook);
+  setAttributeForElements(unitBookPageButtons, "title", strings.actions.openBook);
+  setAttributeForElements(gatherTaskLoopButtons, "aria-label", strings.actions.loopGather);
+  setAttributeForElements(gatherTaskLoopButtons, "title", strings.actions.loopGather);
   setAttributeForElements(cancelUnitTaskButtons, "aria-label", strings.actions.cancel);
   setAttributeForElements(cancelUnitTaskButtons, "title", strings.actions.cancel);
   setAttributeForElements(openBookOverlayButtons, "aria-label", strings.actions.openBook);
@@ -4390,6 +4462,46 @@ function normalizeUnitName(name, unitTypeId = getDefaultUnitTypeId()) {
   return normalized || getDefaultUnitName(unitTypeId);
 }
 
+function getUnitBookPageId(currentUnit = unit, context = getRuleContext()) {
+  const resolvedConfig = getEffectiveUnitConfig(currentUnit, context);
+  const configured = typeof resolvedConfig?.bookPageId === "string"
+    ? resolvedConfig.bookPageId.trim()
+    : "";
+
+  return configured || "";
+}
+
+function hasLoadedBookPageId(pageId) {
+  const normalizedPageId = typeof pageId === "string" ? pageId.trim() : "";
+
+  if (!normalizedPageId) {
+    return false;
+  }
+
+  const canValidateAgainstLoadedBook =
+    bookDocument?.loaded &&
+    bookDocument.requestedLanguage === currentLanguage;
+
+  return !canValidateAgainstLoadedBook || Number.isInteger(getBookPageNumberById(normalizedPageId));
+}
+
+function updateUnitBookPageButtons(currentUnit = null, unitName = "") {
+  const pageId = currentUnit ? getUnitBookPageId(currentUnit) : "";
+  const hasPage = hasLoadedBookPageId(pageId);
+  const label = unitName
+    ? `${strings.actions.openBook}: ${unitName}`
+    : strings.actions.openBook;
+
+  for (const button of unitBookPageButtons) {
+    button.dataset.bookPageId = hasPage ? pageId : "";
+    button.dataset.available = hasPage ? "true" : "false";
+    button.disabled = !hasPage;
+    button.setAttribute("aria-hidden", hasPage ? "false" : "true");
+    button.setAttribute("aria-label", label);
+    button.title = label;
+  }
+}
+
 function getUnitHomeBuildingId(currentUnit) {
   return typeof currentUnit?.homeBuildingId === "string" && currentUnit.homeBuildingId
     ? currentUnit.homeBuildingId
@@ -4605,6 +4717,30 @@ function getGatherTaskDurationTurns() {
   }
 
   return Math.max(1, Math.floor(configured));
+}
+
+function getGatherTaskTurnsRemaining(task) {
+  return clampInteger(task?.turnsRemaining, 1, getGatherTaskDurationTurns(), getGatherTaskDurationTurns());
+}
+
+function isGatherTaskCycleStart(task) {
+  return getGatherTaskTurnsRemaining(task) >= getGatherTaskDurationTurns();
+}
+
+function canGatherTaskDepleteOnThisTurn(task) {
+  return isGatherTaskCycleStart(task) && task?.allowDepletionOnCycleStart !== false;
+}
+
+function isLoopableGatherTask(task) {
+  return isTaskAction(task, unitActions.gatherFood) || isTaskAction(task, unitActions.gatherMaterials);
+}
+
+function isGatherTaskLoopEnabled(task) {
+  return isLoopableGatherTask(task) && Boolean(task?.loop);
+}
+
+function canContinueGatherTaskWithoutDepletion(remainingAmount, gatherAmount) {
+  return gatherAmount > 0 && remainingAmount > gatherAmount;
 }
 
 function getUnitFoodConsumptionPerTurn(currentUnit = unit, context = getRuleContext()) {
@@ -5410,6 +5546,146 @@ function closeSaveSlotPanel({ restoreFocus = false } = {}) {
   slotPanelState = null;
 }
 
+function normalizeMapGenerationSliderValue(value, fallback = 50) {
+  return clampInteger(value, 0, 100, fallback);
+}
+
+function normalizeMapGenerationSettings(settings = defaultMapGenerationSettings) {
+  return {
+    water: normalizeMapGenerationSliderValue(settings?.water, defaultMapGenerationSettings.water),
+    forest: normalizeMapGenerationSliderValue(settings?.forest, defaultMapGenerationSettings.forest),
+    mountain: normalizeMapGenerationSliderValue(settings?.mountain, defaultMapGenerationSettings.mountain),
+    food: normalizeMapGenerationSliderValue(settings?.food, defaultMapGenerationSettings.food),
+  };
+}
+
+function getMapGenerationSettingsFromInputs() {
+  return normalizeMapGenerationSettings({
+    water: mapGenerationWaterInput?.value,
+    forest: mapGenerationForestInput?.value,
+    mountain: mapGenerationMountainInput?.value,
+    food: mapGenerationFoodInput?.value,
+  });
+}
+
+function formatMapGenerationSliderReadout(value) {
+  const normalizedValue = normalizeMapGenerationSliderValue(value);
+
+  if (normalizedValue <= 0) {
+    return strings.mapGeneration.veryLittle;
+  }
+
+  if (normalizedValue >= 100) {
+    return strings.mapGeneration.aLot;
+  }
+
+  if (normalizedValue <= 24) {
+    return strings.mapGeneration.little;
+  }
+
+  if (normalizedValue <= 49) {
+    return strings.mapGeneration.some;
+  }
+
+  if (normalizedValue <= 74) {
+    return strings.mapGeneration.quiteALot;
+  }
+
+  return strings.mapGeneration.aLot;
+}
+
+function updateMapGenerationPanelValueReadouts(settings = getMapGenerationSettingsFromInputs()) {
+  const normalizedSettings = normalizeMapGenerationSettings(settings);
+  setTextContent(mapGenerationWaterValueElements, formatMapGenerationSliderReadout(normalizedSettings.water));
+  setTextContent(mapGenerationForestValueElements, formatMapGenerationSliderReadout(normalizedSettings.forest));
+  setTextContent(mapGenerationMountainValueElements, formatMapGenerationSliderReadout(normalizedSettings.mountain));
+  setTextContent(mapGenerationFoodValueElements, formatMapGenerationSliderReadout(normalizedSettings.food));
+}
+
+function updateMapGenerationPanelText() {
+  const targetMode = mapGenerationPanelState?.targetMode || interactionModes.play;
+  const subtitle = targetMode === interactionModes.edit
+    ? strings.mapGeneration.subtitleEdit
+    : strings.mapGeneration.subtitlePlay;
+
+  setTextContent(mapGenerationSubtitleElements, subtitle);
+  updateMapGenerationPanelValueReadouts();
+}
+
+function syncMapGenerationPanelInputs(settings = mapGenerationSettings) {
+  const normalizedSettings = normalizeMapGenerationSettings(settings);
+
+  if (mapGenerationWaterInput) {
+    mapGenerationWaterInput.value = String(normalizedSettings.water);
+  }
+
+  if (mapGenerationForestInput) {
+    mapGenerationForestInput.value = String(normalizedSettings.forest);
+  }
+
+  if (mapGenerationMountainInput) {
+    mapGenerationMountainInput.value = String(normalizedSettings.mountain);
+  }
+
+  if (mapGenerationFoodInput) {
+    mapGenerationFoodInput.value = String(normalizedSettings.food);
+  }
+
+  updateMapGenerationPanelValueReadouts(normalizedSettings);
+}
+
+function closeMapGenerationPanel({ restoreFocus = false } = {}) {
+  if (mapGenerationOverlay) {
+    mapGenerationOverlay.hidden = true;
+  }
+
+  if (restoreFocus && mapGenerationPanelState?.returnFocusButton) {
+    mapGenerationPanelState.returnFocusButton.focus({ preventScroll: true });
+  }
+
+  mapGenerationPanelState = null;
+}
+
+function openMapGenerationPanel({ targetMode = interactionModes.play, returnFocusButton = null } = {}) {
+  mapGenerationPanelState = {
+    targetMode,
+    returnFocusButton,
+  };
+
+  if (mapGenerationOverlay) {
+    mapGenerationOverlay.hidden = false;
+  }
+
+  syncMapGenerationPanelInputs(mapGenerationSettings);
+  updateMapGenerationPanelText();
+  requestAnimationFrame(() => {
+    mapGenerationWaterInput?.focus({ preventScroll: true });
+  });
+}
+
+async function commitMapGenerationPanel() {
+  if (!mapGenerationPanelState) {
+    return false;
+  }
+
+  const targetMode = mapGenerationPanelState.targetMode || interactionModes.play;
+  const nextSettings = getMapGenerationSettingsFromInputs();
+
+  mapGenerationSettings = nextSettings;
+  closeMapGenerationPanel();
+
+  if (targetMode === interactionModes.play) {
+    await runMainMenuLoadingAction(async () => {
+      await ensureVisualAssetsLoaded();
+      startNewGeneratedState(targetMode, buildGeneratedMapCells, nextSettings);
+    });
+    return true;
+  }
+
+  startNewGeneratedState(targetMode, buildGeneratedMapCells, nextSettings);
+  return true;
+}
+
 function getBookPageDefinition(pageNumber) {
   if (!Number.isInteger(pageNumber) || pageNumber < 1) {
     return null;
@@ -5703,6 +5979,10 @@ function mergeUnitActionRequirements(baseRequirements, overrideRequirements) {
   const merged = {};
 
   for (const actionId of new Set([...Object.keys(base), ...Object.keys(override)])) {
+    if (Object.prototype.hasOwnProperty.call(override, actionId) && override[actionId] === null) {
+      continue;
+    }
+
     const requirements = mergeRuleRequirements(base[actionId], override[actionId]);
 
     if (Object.keys(requirements).length > 0) {
@@ -5903,7 +6183,9 @@ function serializeGatherUnitTask(task, taskType) {
     type: taskType,
     toX: clampInteger(task?.toX, 0, map.width - 1, 0),
     toY: clampInteger(task?.toY, 0, map.height - 1, 0),
-    turnsRemaining: clampInteger(task?.turnsRemaining, 1, getGatherTaskDurationTurns(), getGatherTaskDurationTurns()),
+    turnsRemaining: getGatherTaskTurnsRemaining(task),
+    loop: Boolean(task?.loop),
+    allowDepletionOnCycleStart: task?.allowDepletionOnCycleStart !== false,
   };
 }
 
@@ -6318,39 +6600,816 @@ async function importSaveIntoSlot(fileName) {
   return true;
 }
 
-function buildGeneratedMapCells(
+const generatedMapDirections = Object.freeze([
+  "north",
+  "northEast",
+  "east",
+  "southEast",
+  "south",
+  "southWest",
+  "west",
+  "northWest",
+]);
+
+function getGeneratedCellKey(cell) {
+  return cell ? `${cell.x},${cell.y}` : "";
+}
+
+function getGeneratedVillageCenterCell(
+  cells,
   width = defaultMapConfig.width,
   height = defaultMapConfig.height,
 ) {
-  const cells = [];
+  return getCellInCells(cells, width, height, Math.floor(width / 2), Math.floor(height / 2));
+}
+
+function getGeneratedAdjacentCells(cells, width, height, cell) {
+  if (!cell) {
+    return [];
+  }
+
+  const neighbors = [];
+
+  for (const direction of generatedMapDirections) {
+    const neighbor = getNeighborCellInCells(cells, width, height, cell, direction);
+
+    if (neighbor) {
+      neighbors.push(neighbor);
+    }
+  }
+
+  return neighbors;
+}
+
+function countGeneratedCells(cells, predicate = () => true) {
+  let count = 0;
+
+  for (const row of cells) {
+    for (const cell of row) {
+      if (predicate(cell)) {
+        count += 1;
+      }
+    }
+  }
+
+  return count;
+}
+
+function setGeneratedTerrain(cell, type) {
+  if (!cell || !terrain[type]) {
+    return false;
+  }
+
+  cell.type = type;
+  cell.variant = chooseTerrainVariant(type);
+  cell.season = defaultCellSeason;
+  cell.visited = false;
+  cell.visitsCount = 0;
+  initializeCellResources(cell, { rollFood: false });
+  return true;
+}
+
+function clearGeneratedCellFood(cell) {
+  if (!cell) {
+    return false;
+  }
+
+  cell.foodType = null;
+  cell.foodCapacity = 0;
+  cell.foodAmount = 0;
+  return true;
+}
+
+function setGeneratedFoodResource(cell, foodType, { amount = null, capacity = null } = {}) {
+  if (!cell || typeof foodType !== "string" || !foodType) {
+    return false;
+  }
+
+  const foodDefinition = getFoodDefinition(foodType);
+
+  if (!foodDefinition || foodDefinition.terrain !== cell.type) {
+    return false;
+  }
+
+  const maxAmount = Math.max(
+    0,
+    clampNonNegativeNumber(capacity, 999999, getFoodTypeMaxAmount(foodType)),
+  );
+
+  cell.foodType = foodType;
+  cell.foodCapacity = maxAmount;
+  cell.foodAmount = amount === null
+    ? maxAmount
+    : clampNonNegativeNumber(amount, maxAmount, maxAmount);
+  return true;
+}
+
+function isGeneratedVillageClearingCell(cell, centerCell, radius = 2) {
+  return Boolean(cell)
+    && Boolean(centerCell)
+    && walkingDistance(cell.x, cell.y, centerCell.x, centerCell.y) <= radius;
+}
+
+function sampleGeneratedPatchSize(minSize, maxSize, singleCellChance = 0.05) {
+  const normalizedMin = Math.max(1, Math.floor(minSize));
+  const normalizedMax = Math.max(normalizedMin, Math.floor(maxSize));
+
+  if (normalizedMin > 1 && Math.random() < Math.max(0, singleCellChance)) {
+    return 1;
+  }
+
+  if (normalizedMin === normalizedMax) {
+    return normalizedMin;
+  }
+
+  const span = normalizedMax - normalizedMin;
+  const biasedRoll = Math.pow(Math.random(), 0.62);
+  return normalizedMin + Math.round(biasedRoll * span);
+}
+
+function pickGeneratedRandomCell(cells, width, height, predicate) {
+  const candidates = [];
 
   for (let y = 0; y < height; y += 1) {
-    const row = [];
-
     for (let x = 0; x < width; x += 1) {
-      const riverCenter = 8 + Math.sin(y * 0.38) * 4 + y * 0.34;
-      const lakeA = distance(x, y, 31, 13) < 4.2;
-      const lakeB = distance(x, y, 9, 42) < 3.5;
-      const river = Math.abs(x - riverCenter) < 1.1 && y > 3 && y < height - 3;
-      const northWater = y < 3 && x < 18 + y * 3;
-      const eastWater = x > width - 5 && y > 19 && y < 34;
-      const mountainBand =
-        (x > 24 && y > 24 && (x + y) % 3 !== 0) ||
-        (x > 17 && x < 27 && y > 6 && y < 13 && (x + y) % 4 !== 0);
-      const forestBand =
-        ((x + y) % 7 === 0 && y > 4) ||
-        (x > 4 && x < 15 && y > 20 && y < 52 && (x * 2 + y) % 5 !== 0);
+      const cell = cells[y]?.[x];
 
-      let type = "grass";
-      if (river || lakeA || lakeB || northWater || eastWater) type = "water";
-      else if (mountainBand) type = "mountain";
-      else if (forestBand) type = "forest";
+      if (predicate(cell)) {
+        candidates.push(cell);
+      }
+    }
+  }
 
-      row.push(createCell(x, y, type));
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return candidates[Math.floor(Math.random() * candidates.length)] || null;
+}
+
+function paintGeneratedPatches(
+  cells,
+  width,
+  height,
+  targetCount,
+  {
+    patchSize = () => 1,
+    canFill = () => false,
+    fillCell = () => false,
+    afterPatch = null,
+  } = {},
+) {
+  const normalizedTarget = Math.max(0, Math.floor(targetCount));
+  if (normalizedTarget <= 0) {
+    return 0;
+  }
+
+  let filledCount = 0;
+  let attempts = 0;
+  const maxAttempts = Math.max(64, normalizedTarget * 6);
+
+  while (filledCount < normalizedTarget && attempts < maxAttempts) {
+    attempts += 1;
+
+    const seed = pickGeneratedRandomCell(cells, width, height, canFill);
+    if (!seed) {
+      break;
     }
 
-    cells.push(row);
+    const desiredPatchSize = Math.max(1, Math.floor(patchSize()));
+    const frontier = [seed];
+    const frontierKeys = new Set([getGeneratedCellKey(seed)]);
+    const patchCells = [];
+
+    while (frontier.length > 0 && patchCells.length < desiredPatchSize && filledCount < normalizedTarget) {
+      const frontierIndex = Math.floor(Math.random() * frontier.length);
+      const cell = frontier.splice(frontierIndex, 1)[0];
+
+      if (!canFill(cell)) {
+        continue;
+      }
+
+      if (fillCell(cell) === false) {
+        continue;
+      }
+
+      patchCells.push(cell);
+      filledCount += 1;
+
+      const neighbors = shuffleArrayInPlace(
+        getGeneratedAdjacentCells(cells, width, height, cell)
+          .filter((neighbor) => {
+            if (!neighbor || !canFill(neighbor)) {
+              return false;
+            }
+
+            const key = getGeneratedCellKey(neighbor);
+            if (frontierKeys.has(key)) {
+              return false;
+            }
+
+            frontierKeys.add(key);
+            return true;
+          }),
+      );
+
+      frontier.push(...neighbors);
+    }
+
+    if (typeof afterPatch === "function" && patchCells.length > 0) {
+      afterPatch(patchCells);
+    }
   }
+
+  return filledCount;
+}
+
+function paintGeneratedTerrainPatches(
+  cells,
+  width,
+  height,
+  terrainType,
+  targetCount,
+  options = {},
+) {
+  return paintGeneratedPatches(cells, width, height, targetCount, {
+    ...options,
+    fillCell: (cell) => {
+      if (!cell || cell.type === terrainType) {
+        return false;
+      }
+
+      return setGeneratedTerrain(cell, terrainType);
+    },
+  });
+}
+
+function maybeCarveGeneratedLakeIslands(cells, width, height, patchCells) {
+  if (!Array.isArray(patchCells) || patchCells.length < 14 || Math.random() >= 0.42) {
+    return;
+  }
+
+  const candidates = shuffleArrayInPlace(
+    patchCells.filter((cell) =>
+      getGeneratedAdjacentCells(cells, width, height, cell)
+        .filter((neighbor) => neighbor.type === "water")
+        .length >= 6
+    ),
+  );
+
+  const islandCount = Math.min(
+    candidates.length,
+    Math.max(1, Math.floor(patchCells.length / 24)),
+  );
+
+  for (const candidate of candidates.slice(0, islandCount)) {
+    setGeneratedTerrain(candidate, "grass");
+  }
+}
+
+function carveGeneratedVillageClearing(cells, width, height, centerCell) {
+  if (!centerCell) {
+    return;
+  }
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const cell = cells[y]?.[x];
+
+      if (!isGeneratedVillageClearingCell(cell, centerCell, 2)) {
+        continue;
+      }
+
+      setGeneratedTerrain(cell, "grass");
+      clearGeneratedCellFood(cell);
+    }
+  }
+}
+
+function carveGeneratedMountainBorder(cells, width, height, centerCell) {
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const isBorderCell = x === 0 || x === width - 1 || y === 0 || y === height - 1;
+
+      if (!isBorderCell) {
+        continue;
+      }
+
+      const cell = cells[y]?.[x];
+
+      if (!cell || isGeneratedVillageClearingCell(cell, centerCell, 2)) {
+        continue;
+      }
+
+      setGeneratedTerrain(cell, "mountain");
+      clearGeneratedCellFood(cell);
+    }
+  }
+}
+
+function getGeneratedCellCenterPoint(cell) {
+  if (!cell) {
+    return null;
+  }
+
+  return {
+    x: cell.x + (cell.y % 2 === 1 ? 0.5 : 0),
+    y: cell.y * 0.5,
+  };
+}
+
+function getGeneratedRiverTargetWidth(progress) {
+  const normalizedProgress = clampNumber(progress, 0, 1, 0);
+
+  if (normalizedProgress <= 0.08) {
+    return 1;
+  }
+
+  if (normalizedProgress >= 0.32) {
+    return 2;
+  }
+
+  const t = (normalizedProgress - 0.08) / 0.24;
+  const eased = t * t * (3 - 2 * t);
+  return 1 + eased;
+}
+
+function carveGeneratedRiver(cells, width, height, normalizedSettings, centerCell) {
+  if (!centerCell) {
+    return [];
+  }
+
+  const sideBias = Math.random() < 0.5 ? -1 : 1;
+  const horizontalOffset = Math.max(6, Math.floor(width * (0.16 + Math.random() * 0.08)));
+  const laneX = clampInteger(
+    centerCell.x + sideBias * horizontalOffset,
+    2,
+    width - 3,
+    centerCell.x + sideBias * Math.max(4, Math.floor(width * 0.18)),
+  );
+  const startRow = 1;
+  const endRow = Math.max(startRow + 2, height - 2);
+  const wideningSideDirection = sideBias < 0 ? "east" : "west";
+  let current = getCellInCells(cells, width, height, laneX, startRow)
+    || getCellInCells(cells, width, height, laneX - 1, startRow)
+    || getCellInCells(cells, width, height, laneX + 1, startRow);
+  const spineCells = [];
+  const spineKeys = new Set();
+  const segmentDirections = [];
+  let targetX = laneX + (startRow % 2 === 1 ? 0.5 : 0);
+  const minTargetX = 1.5;
+  const maxTargetX = Math.max(minTargetX, width - 1.5);
+  const maxSteps = Math.max(height * 3, width * 4);
+  let preferredDirection = Math.random() < 0.5 ? "southEast" : "southWest";
+  let preferredRunRemaining = 2 + Math.floor(Math.random() * 3);
+  let bendTargetX = clampNumber(
+    targetX + (Math.random() < 0.5 ? -1 : 1) * (1.4 + Math.random() * 2.6),
+    minTargetX,
+    maxTargetX,
+    laneX,
+  );
+  let bendRunRemaining = 3 + Math.floor(Math.random() * 4);
+
+  for (let step = 0; current && step < maxSteps; step += 1) {
+    const currentKey = getGeneratedCellKey(current);
+
+    if (!spineKeys.has(currentKey)) {
+      spineKeys.add(currentKey);
+      spineCells.push(current);
+    }
+
+    if (current.y >= endRow) {
+      break;
+    }
+
+    const currentCenterX = getGeneratedCellCenterPoint(current)?.x ?? current.x;
+
+    if (bendRunRemaining <= 0 || Math.abs(bendTargetX - currentCenterX) < 0.45) {
+      bendTargetX = clampNumber(
+        currentCenterX + (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random() * 3.8),
+        minTargetX,
+        maxTargetX,
+        laneX,
+      );
+      bendRunRemaining = 3 + Math.floor(Math.random() * 5);
+    }
+
+    const bendPull = clampNumber(bendTargetX - currentCenterX, -2.4, 2.4, 0);
+    targetX = clampNumber(
+      currentCenterX + bendPull * 0.58 + (Math.random() - 0.5) * 0.22,
+      minTargetX,
+      maxTargetX,
+      laneX,
+    );
+    bendRunRemaining -= 1;
+
+    const candidates = ["southEast", "southWest"]
+      .map((direction) => ({
+        direction,
+        cell: getNeighborCellInCells(cells, width, height, current, direction),
+      }))
+      .filter(({ cell }) => Boolean(cell) && cell.y <= endRow && cell.x > 0 && cell.x < width - 1);
+
+    if (candidates.length === 0) {
+      break;
+    }
+
+    let filteredCandidates = candidates.filter(({ cell }) => !isGeneratedVillageClearingCell(cell, centerCell, 4));
+    if (filteredCandidates.length === 0) {
+      filteredCandidates = candidates;
+    }
+
+    const rankedCandidates = filteredCandidates
+      .map(({ cell }) => {
+        const point = getGeneratedCellCenterPoint(cell);
+        const xPenalty = Math.abs((point?.x ?? cell.x) - targetX);
+        const revisitPenalty = spineKeys.has(getGeneratedCellKey(cell)) ? 8 : 0;
+        const edgePenalty = cell.x <= 1 || cell.x >= width - 2 ? 1.25 : 0;
+
+        return {
+          cell,
+          score: xPenalty + revisitPenalty + edgePenalty + Math.random() * 0.6,
+        };
+      })
+      .sort((left, right) => left.score - right.score);
+
+    const idealDirection = targetX >= currentCenterX
+      ? "southEast"
+      : "southWest";
+
+    if (preferredRunRemaining <= 0) {
+      preferredDirection = Math.random() < 0.78
+        ? idealDirection
+        : (idealDirection === "southEast" ? "southWest" : "southEast");
+      preferredRunRemaining = 2 + Math.floor(Math.random() * 3);
+    }
+
+    const scoredCandidates = rankedCandidates
+      .map(({ cell, score }) => {
+        const direction = cell.x >= current.x ? "southEast" : "southWest";
+        const runPenalty = direction === preferredDirection ? 0 : 1.1;
+        const targetPenalty = direction === idealDirection ? 0 : 0.25;
+
+        return {
+          cell,
+          direction,
+          score: score + runPenalty + targetPenalty,
+        };
+      })
+      .sort((left, right) => left.score - right.score);
+
+    const nextCandidate = scoredCandidates[0] || null;
+    const nextCell = nextCandidate?.cell || null;
+
+    if (!nextCell) {
+      break;
+    }
+
+    const nextDirection = nextCandidate?.direction || (nextCell.x >= current.x ? "southEast" : "southWest");
+    if (nextDirection === preferredDirection) {
+      preferredRunRemaining -= 1;
+    } else {
+      preferredDirection = nextDirection;
+      preferredRunRemaining = 2 + Math.floor(Math.random() * 2);
+    }
+
+    segmentDirections.push(nextDirection);
+    current = nextCell;
+  }
+
+  const carvedCells = [];
+  const carvedKeys = new Set();
+  const carveRiverCell = (cell) => {
+    if (!cell) {
+      return false;
+    }
+
+    const key = getGeneratedCellKey(cell);
+    if (carvedKeys.has(key)) {
+      return false;
+    }
+
+    carvedKeys.add(key);
+    setGeneratedTerrain(cell, "water");
+    carvedCells.push(cell);
+    return true;
+  };
+
+  for (const cell of spineCells) {
+    carveRiverCell(cell);
+  }
+
+  const totalSegments = Math.max(1, segmentDirections.length - 1);
+  let extraLaneCarry = 0;
+
+  for (let segmentIndex = 0; segmentIndex < segmentDirections.length; segmentIndex += 1) {
+    const baseCell = spineCells[segmentIndex];
+    const segmentDirection = segmentDirections[segmentIndex];
+    const previousDirection = segmentDirections[segmentIndex - 1] || null;
+    const nextDirection = segmentDirections[segmentIndex + 1] || segmentDirection;
+    const isTurnSegment = segmentDirection !== previousDirection || segmentDirection !== nextDirection;
+    const progress = segmentIndex / totalSegments;
+    const targetWidth = getGeneratedRiverTargetWidth(progress);
+    const desiredExtraLane = Math.max(0, targetWidth - 1);
+    extraLaneCarry += desiredExtraLane;
+
+    const shouldWiden = desiredExtraLane >= 0.999
+      || extraLaneCarry >= 1
+      || (isTurnSegment && desiredExtraLane >= 0.6);
+
+    if (!shouldWiden) {
+      continue;
+    }
+
+    extraLaneCarry = Math.max(0, extraLaneCarry - 1);
+
+    const widthCell = getNeighborCellInCells(cells, width, height, baseCell, wideningSideDirection);
+
+    if (!widthCell || isGeneratedVillageClearingCell(widthCell, centerCell, 3)) {
+      continue;
+    }
+
+    carveRiverCell(widthCell);
+  }
+
+  if (spineCells.length >= 2) {
+    const lastCell = spineCells[spineCells.length - 1];
+    const lastWidthCell = getNeighborCellInCells(cells, width, height, lastCell, wideningSideDirection);
+
+    if (lastWidthCell && !isGeneratedVillageClearingCell(lastWidthCell, centerCell, 3)) {
+      carveRiverCell(lastWidthCell);
+    }
+  }
+
+  return carvedCells;
+}
+
+function carveGeneratedStreams(
+  cells,
+  width,
+  height,
+  normalizedSettings,
+  centerCell,
+  riverCells = [],
+  streamCountTarget = 2,
+) {
+  const desiredStreamCount = clampInteger(streamCountTarget, 1, 3, 2);
+  if (desiredStreamCount <= 0 || !Array.isArray(riverCells) || riverCells.length === 0) {
+    return [];
+  }
+
+  const centerX = centerCell?.x ?? Math.floor(width / 2);
+  const sourceCandidates = shuffleArrayInPlace(
+    riverCells.filter((cell) =>
+      cell
+      && cell.x > 1
+      && cell.x < width - 2
+      && cell.y >= 2
+      && cell.y <= height - 3
+      && !isGeneratedVillageClearingCell(cell, centerCell, 4)
+    ),
+  );
+  const carvedCells = [];
+  const carvedKeys = new Set();
+  let createdStreams = 0;
+
+  for (let streamIndex = 0; streamIndex < sourceCandidates.length && createdStreams < desiredStreamCount; streamIndex += 1) {
+    const source = sourceCandidates[streamIndex];
+    if (!source) {
+      break;
+    }
+
+    const side = source.x <= centerX ? "left" : "right";
+    const outwardDirections = side === "left"
+      ? ["northWest", "southWest"]
+      : ["northEast", "southEast"];
+    let preferredDirection = outwardDirections[Math.floor(Math.random() * outwardDirections.length)] || outwardDirections[0];
+    let preferredRunRemaining = 2 + Math.floor(Math.random() * 3);
+    const streamLength = 4 + Math.floor(Math.random() * 5) + Math.floor(normalizedSettings.water / 45);
+    let current = source;
+    let carvedThisStream = 0;
+
+    const firstStepCandidates = shuffleArrayInPlace([...outwardDirections]);
+    let firstStep = null;
+
+    for (const direction of firstStepCandidates) {
+      const candidate = getNeighborCellInCells(cells, width, height, current, direction);
+
+      if (
+        !candidate
+        || candidate.x <= 0
+        || candidate.x >= width - 1
+        || candidate.y <= 0
+        || candidate.y >= height - 1
+        || isGeneratedVillageClearingCell(candidate, centerCell, 4)
+        || candidate.type === "water"
+      ) {
+        continue;
+      }
+
+      firstStep = { cell: candidate, direction };
+      break;
+    }
+
+    if (!firstStep) {
+      continue;
+    }
+
+    setGeneratedTerrain(firstStep.cell, "water");
+    const firstKey = getGeneratedCellKey(firstStep.cell);
+    if (!carvedKeys.has(firstKey)) {
+      carvedKeys.add(firstKey);
+      carvedCells.push(firstStep.cell);
+    }
+    carvedThisStream += 1;
+    current = firstStep.cell;
+    preferredDirection = firstStep.direction;
+    preferredRunRemaining = Math.max(1, preferredRunRemaining - 1);
+
+    for (let segment = 1; segment < streamLength; segment += 1) {
+      if (preferredRunRemaining <= 0) {
+        preferredDirection = outwardDirections.find((direction) => direction !== preferredDirection) || preferredDirection;
+        preferredRunRemaining = 2 + Math.floor(Math.random() * 3);
+      }
+
+      const directionCandidates = Math.random() < 0.82
+        ? [preferredDirection, ...outwardDirections.filter((direction) => direction !== preferredDirection)]
+        : shuffleArrayInPlace([...outwardDirections]);
+      let next = null;
+      let nextDirection = "";
+
+      for (const direction of directionCandidates) {
+        const candidate = getNeighborCellInCells(cells, width, height, current, direction);
+
+        if (
+          !candidate
+          || candidate.x <= 0
+          || candidate.x >= width - 1
+          || candidate.y <= 0
+          || candidate.y >= height - 1
+          || isGeneratedVillageClearingCell(candidate, centerCell, 4)
+          || candidate.type === "water"
+        ) {
+          continue;
+        }
+
+        next = candidate;
+        nextDirection = direction;
+        break;
+      }
+
+      if (!next) {
+        break;
+      }
+
+      setGeneratedTerrain(next, "water");
+      const key = getGeneratedCellKey(next);
+      if (!carvedKeys.has(key)) {
+        carvedKeys.add(key);
+        carvedCells.push(next);
+      }
+      carvedThisStream += 1;
+
+      if (nextDirection === preferredDirection) {
+        preferredRunRemaining -= 1;
+      } else {
+        preferredDirection = nextDirection;
+        preferredRunRemaining = 1 + Math.floor(Math.random() * 2);
+      }
+
+      current = next;
+    }
+
+    if (carvedThisStream >= 3) {
+      createdStreams += 1;
+    }
+  }
+
+  return carvedCells;
+}
+
+function applyGeneratedWaterResources(cells, normalizedSettings) {
+  const waterCells = [];
+
+  for (const row of cells) {
+    for (const cell of row) {
+      if (cell.type === "water") {
+        waterCells.push(cell);
+      }
+    }
+  }
+
+  const fishableTarget = Math.round(
+    waterCells.length * (0.06 + ((normalizedSettings.food / 100) ** 1.08) * 0.23),
+  );
+  const fishableCells = new Set(
+    shuffleArrayInPlace([...waterCells])
+      .slice(0, fishableTarget)
+      .map((cell) => getGeneratedCellKey(cell)),
+  );
+
+  for (const cell of waterCells) {
+    cell.variant = fishableCells.has(getGeneratedCellKey(cell)) ? "water_01" : "water_02";
+    syncCellResourcesWithVariant(cell, { seedOnWater01: true });
+  }
+}
+
+function applyGeneratedFoodPatches(cells, width, height, normalizedSettings, centerCell) {
+  const grassCellCount = countGeneratedCells(
+    cells,
+    (cell) => cell.type === "grass" && !isGeneratedVillageClearingCell(cell, centerCell, 1),
+  );
+  const forestCellCount = countGeneratedCells(cells, (cell) => cell.type === "forest");
+  const grainTarget = Math.round(
+    grassCellCount * (0.025 + ((normalizedSettings.food / 100) ** 1.15) * 0.16),
+  );
+  const forestFoodTarget = Math.round(
+    forestCellCount * (0.04 + ((normalizedSettings.food / 100) ** 1.05) * 0.18),
+  );
+  const berriesTarget = Math.round(forestFoodTarget * 0.58);
+  const mushroomsTarget = Math.max(0, forestFoodTarget - berriesTarget);
+
+  paintGeneratedPatches(cells, width, height, grainTarget, {
+    patchSize: () => sampleGeneratedPatchSize(4, 22 + Math.round(normalizedSettings.food * 0.14), 0.03),
+    canFill: (cell) =>
+      Boolean(cell)
+      && cell.type === "grass"
+      && !cell.foodType
+      && !isGeneratedVillageClearingCell(cell, centerCell, 1),
+    fillCell: (cell) => setGeneratedFoodResource(cell, "grain"),
+  });
+
+  const forestFoodCells = shuffleArrayInPlace(
+    cells
+      .flatMap((row) => row)
+      .filter((cell) => Boolean(cell) && cell.type === "forest" && !cell.foodType),
+  );
+  let forestFoodOffset = 0;
+
+  for (const [foodType, targetCount] of [
+    ["berries", berriesTarget],
+    ["mushrooms", mushroomsTarget],
+  ]) {
+    const nextCells = forestFoodCells.slice(forestFoodOffset, forestFoodOffset + targetCount);
+
+    for (const cell of nextCells) {
+      setGeneratedFoodResource(cell, foodType);
+    }
+
+    forestFoodOffset += nextCells.length;
+  }
+}
+
+function buildGeneratedMapCells(
+  width = defaultMapConfig.width,
+  height = defaultMapConfig.height,
+  settings = mapGenerationSettings,
+) {
+  const normalizedSettings = normalizeMapGenerationSettings(settings);
+  const cells = buildEmptyMapCells(width, height);
+  const centerCell = getCellInCells(cells, width, height, Math.floor(width / 2), Math.floor(height / 2));
+  const riverCells = carveGeneratedRiver(cells, width, height, normalizedSettings, centerCell);
+  const streamCountTarget = clampInteger(1 + Math.floor(normalizedSettings.water / 34), 1, 3, 2);
+  carveGeneratedStreams(cells, width, height, normalizedSettings, centerCell, riverCells, streamCountTarget);
+  carveGeneratedVillageClearing(cells, width, height, centerCell);
+  carveGeneratedMountainBorder(cells, width, height, centerCell);
+
+  const totalCellCount = width * height;
+  const desiredWaterCount = Math.max(
+    countGeneratedCells(cells, (cell) => cell.type === "water"),
+    Math.round(totalCellCount * (0.035 + ((normalizedSettings.water / 100) ** 1.18) * 0.285)),
+  );
+  const additionalLakeTarget = Math.max(
+    0,
+    desiredWaterCount - countGeneratedCells(cells, (cell) => cell.type === "water"),
+  );
+
+  paintGeneratedTerrainPatches(cells, width, height, "water", additionalLakeTarget, {
+    patchSize: () => sampleGeneratedPatchSize(14, 52 + Math.round(normalizedSettings.water * 0.4), 0.04),
+    canFill: (cell) => Boolean(cell) && cell.type !== "water" && !isGeneratedVillageClearingCell(cell, centerCell, 3),
+    afterPatch: (patchCells) => maybeCarveGeneratedLakeIslands(cells, width, height, patchCells),
+  });
+
+  const nonWaterCellCount = countGeneratedCells(cells, (cell) => cell.type !== "water");
+  const mountainTarget = Math.round(
+    nonWaterCellCount * (0.02 + ((normalizedSettings.mountain / 100) ** 1.2) * 0.18),
+  );
+  const forestTarget = Math.round(
+    nonWaterCellCount * (0.08 + ((normalizedSettings.forest / 100) ** 1.1) * 0.28),
+  );
+
+  paintGeneratedTerrainPatches(cells, width, height, "mountain", mountainTarget, {
+    patchSize: () => sampleGeneratedPatchSize(3, 16 + Math.round(normalizedSettings.mountain * 0.26), 0.08),
+    canFill: (cell) => Boolean(cell) && cell.type === "grass" && !isGeneratedVillageClearingCell(cell, centerCell, 3),
+  });
+  paintGeneratedTerrainPatches(cells, width, height, "forest", forestTarget, {
+    patchSize: () => sampleGeneratedPatchSize(4, 24 + Math.round(normalizedSettings.forest * 0.34), 0.07),
+    canFill: (cell) => Boolean(cell) && cell.type === "grass" && !isGeneratedVillageClearingCell(cell, centerCell, 2),
+  });
+  carveGeneratedVillageClearing(cells, width, height, centerCell);
+  applyGeneratedWaterResources(cells, normalizedSettings);
+  applyGeneratedFoodPatches(cells, width, height, normalizedSettings, centerCell);
+  clearGeneratedCellFood(centerCell);
 
   return cells;
 }
@@ -6424,15 +7483,55 @@ function markCellsVisitedByUnits(cells, units) {
   }
 }
 
-function createDefaultUnitState(cells, width, height, unitTypeId = getDefaultUnitTypeId()) {
-  const unitType = normalizeUnitTypeId(unitTypeId);
-  const spawn = findNearestPassableCellInCells(
-    cells,
-    width,
-    height,
+function createDefaultUnitState(cells, width, height, unitTypeOrOptions = getDefaultUnitTypeId()) {
+  const options = unitTypeOrOptions && typeof unitTypeOrOptions === "object" && !Array.isArray(unitTypeOrOptions)
+    ? unitTypeOrOptions
+    : { unitTypeId: unitTypeOrOptions };
+  const unitType = normalizeUnitTypeId(options.unitTypeId);
+  const originX = clampInteger(
+    options.originCell?.x ?? options.originX,
+    0,
+    width - 1,
     Math.floor(width / 2),
+  );
+  const originY = clampInteger(
+    options.originCell?.y ?? options.originY,
+    0,
+    height - 1,
     Math.floor(height / 2),
   );
+  const blockedKeys = options.blockedKeys instanceof Set ? options.blockedKeys : new Set();
+  let spawn = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const cell = cells[y]?.[x];
+
+      if (!cell || cell.type !== "grass" || blockedKeys.has(`${x},${y}`)) {
+        continue;
+      }
+
+      const cellDistance = walkingDistance(x, y, originX, originY);
+
+      if (cellDistance >= bestDistance) {
+        continue;
+      }
+
+      spawn = cell;
+      bestDistance = cellDistance;
+    }
+  }
+
+  if (!spawn) {
+    spawn = findNearestPassableCellInCells(
+      cells,
+      width,
+      height,
+      originX,
+      originY,
+    );
+  }
 
   return spawn
       ? {
@@ -6583,68 +7682,30 @@ function markCellVisitedByUnit(cell, { invalidate = true } = {}) {
 }
 
 function createDefaultBuildingsState(cells, width, height, units) {
-  const spawnUnit = Array.isArray(units) ? units[0] : null;
+  const centerCell = getGeneratedVillageCenterCell(cells, width, height);
 
-  if (!spawnUnit) return [];
+  if (!centerCell) return [];
 
-  const spawnCell = getCellInCells(cells, width, height, spawnUnit.x, spawnUnit.y);
-
-  if (!spawnCell) return [];
-
-  const placementDirections = [
-    "east",
-    "west",
-    "southEast",
-    "southWest",
-    "northEast",
-    "northWest",
-    "south",
-    "north",
-  ];
-  const placementCells = [];
-  const occupied = new Set([`${spawnUnit.x},${spawnUnit.y}`]);
-
-  for (const direction of placementDirections) {
-    const neighbor = getNeighborCellInCells(cells, width, height, spawnCell, direction);
-
-    if (!getUnitCellPassabilityState(neighbor).terrainOrStructurePassable) continue;
-    const key = `${neighbor.x},${neighbor.y}`;
-
-    if (occupied.has(key)) continue;
-
-    occupied.add(key);
-    placementCells.push(neighbor);
+  if (centerCell.type !== "grass" || hasFoodResource(centerCell)) {
+    setGeneratedTerrain(centerCell, "grass");
+    clearGeneratedCellFood(centerCell);
   }
 
-  if (placementCells.length === 0) return [];
-
-  const previewBuildings = [
+  return [
     {
-      state: "complete",
+      id: "building_01",
+      type: "house",
       subtype: chooseConstructibleSubtypeForKind("building", "house") || "house_01",
+      x: centerCell.x,
+      y: centerCell.y,
+      width: getDefaultConstructibleDimensionForKind("building", "width"),
+      height: getDefaultConstructibleDimensionForKind("building", "height"),
+      state: "complete",
+      walkable: isConstructibleTypeWalkable("building", "house"),
       completeness: 1,
+      constructionCost: getConstructibleConstructionCost("building", "house"),
     },
   ];
-
-  return previewBuildings
-    .slice(0, placementCells.length)
-    .map((preview, index) => {
-      const cell = placementCells[index];
-
-      return {
-        id: `building_${String(index + 1).padStart(2, "0")}`,
-        type: "house",
-        subtype: preview.subtype,
-        x: cell.x,
-        y: cell.y,
-        width: getDefaultConstructibleDimensionForKind("building", "width"),
-        height: getDefaultConstructibleDimensionForKind("building", "height"),
-        state: preview.state,
-        walkable: isConstructibleTypeWalkable("building", "house"),
-        completeness: preview.completeness,
-        constructionCost: getConstructibleConstructionCost("building", "house"),
-      };
-    });
 }
 
 function markCellsVisitedByBuildings(cells, buildingsState) {
@@ -6661,13 +7722,27 @@ function markCellsVisitedByBuildings(cells, buildingsState) {
   }
 }
 
-function createGeneratedState(mode, buildCells = buildGeneratedMapCells) {
+function createGeneratedState(
+  mode,
+  buildCells = buildGeneratedMapCells,
+  generationSettings = mapGenerationSettings,
+) {
   const width = defaultMapConfig.width;
   const height = defaultMapConfig.height;
-  const cells = buildCells(width, height);
-  const defaultUnit = createDefaultUnitState(cells, width, height);
+  const cells = buildCells(width, height, generationSettings);
+  const centerCell = getGeneratedVillageCenterCell(cells, width, height);
+  const defaultBuildings = createDefaultBuildingsState(cells, width, height, []);
+  const blockedKeys = new Set(
+    defaultBuildings.flatMap((building) =>
+      getConstructibleOccupiedCellsForKind("building", building)
+        .map(({ x, y }) => `${x},${y}`)
+    ),
+  );
+  const defaultUnit = createDefaultUnitState(cells, width, height, {
+    originCell: centerCell,
+    blockedKeys,
+  });
   const units = defaultUnit ? [defaultUnit] : [];
-  const defaultBuildings = createDefaultBuildingsState(cells, width, height, units);
 
   if (units[0] && defaultBuildings[0]) {
     units[0].homeBuildingId = defaultBuildings[0].id;
@@ -7738,7 +8813,7 @@ function shouldAnimateWorkingUnits() {
 }
 
 function shouldAnimateSelectionMarker() {
-  return canRenderAnimatedFrames() && isPlayMode() && !mainMenuOpen && Boolean(getSelectedUnit());
+  return false;
 }
 
 function getRawUnitTaskDirection(currentUnit) {
@@ -7991,6 +9066,28 @@ function queuePlayUnitAction({ currentUnit = getSelectedUnit() } = {}) {
   return assignUnitTask(createUnitTaskForAction(unitActions.play), currentUnit);
 }
 
+function assignPlayTasksToEligibleIdleUnitsForManualTurnAdvance(context = getRuleContext()) {
+  if (!autoAssignPlayTasksForIdleUnitsOnManualTurnAdvance) {
+    return 0;
+  }
+
+  let assignedCount = 0;
+
+  for (const currentUnit of getIdleUnits()) {
+    if (!canUnitUseAction(currentUnit, unitActions.play, context)) {
+      continue;
+    }
+
+    currentUnit.task = createUnitTaskForAction(unitActions.play);
+    currentUnit.turnRoute = null;
+    currentUnit.lastStepFromX = null;
+    currentUnit.lastStepFromY = null;
+    assignedCount += 1;
+  }
+
+  return assignedCount;
+}
+
 function queueResearchUnitAction({ currentUnit = getSelectedUnit() } = {}) {
   if (!currentUnit || currentUnit.move) return false;
   if (!canUnitUseAction(currentUnit, unitActions.research)) return false;
@@ -8223,6 +9320,16 @@ function cancelUnitTask(currentUnit = getSelectedUnit() || unit) {
   return true;
 }
 
+function toggleGatherTaskLoop(currentUnit = getSelectedUnit() || unit) {
+  if (!currentUnit?.task || currentUnit.move || isReplayPhase() || !isLoopableGatherTask(currentUnit.task)) {
+    return false;
+  }
+
+  currentUnit.task.loop = !Boolean(currentUnit.task.loop);
+  refreshAfterUnitTaskChange({ autoAdvance: true });
+  return true;
+}
+
 function exhaustFoodResource(cell) {
   if (!cell) return;
 
@@ -8260,9 +9367,11 @@ function resolveGatherFoodTask(currentUnit) {
     return;
   }
 
+  const canDepleteThisTurn = canGatherTaskDepleteOnThisTurn(currentUnit.task);
+  const currentFoodAmount = clampNonNegativeNumber(targetCell.foodAmount, 999999, 0);
   const gatherAmount = Math.min(
     getUnitWorkPointsPerTurn("gatherFood"),
-    clampNonNegativeNumber(targetCell.foodAmount, 999999, 0),
+    currentFoodAmount,
   );
 
   if (gatherAmount <= 0) {
@@ -8272,18 +9381,30 @@ function resolveGatherFoodTask(currentUnit) {
     return;
   }
 
-  targetCell.foodAmount = Math.max(0, targetCell.foodAmount - gatherAmount);
+  if (!canDepleteThisTurn && !canContinueGatherTaskWithoutDepletion(currentFoodAmount, gatherAmount)) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+
+  targetCell.foodAmount = Math.max(0, currentFoodAmount - gatherAmount);
   addToStockpile("food", gatherAmount);
   turnReplayHadWork = true;
   currentUnit.stamina = 0;
-  currentUnit.task.turnsRemaining = Math.max(0, (currentUnit.task.turnsRemaining || 0) - 1);
+  currentUnit.task.turnsRemaining = Math.max(0, getGatherTaskTurnsRemaining(currentUnit.task) - 1);
+  currentUnit.task.allowDepletionOnCycleStart = false;
 
   if (targetCell.foodAmount <= 0) {
     exhaustFoodResource(targetCell);
     clearCompletedTask(currentUnit);
   } else if (currentUnit.task.turnsRemaining <= 0) {
-    clearCompletedTask(currentUnit);
-    invalidateStaticLayer();
+    if (isGatherTaskLoopEnabled(currentUnit.task) && canContinueGatherTaskWithoutDepletion(targetCell.foodAmount, gatherAmount)) {
+      currentUnit.task.turnsRemaining = getGatherTaskDurationTurns();
+      currentUnit.task.allowDepletionOnCycleStart = false;
+      invalidateStaticLayer();
+    } else {
+      clearCompletedTask(currentUnit);
+      invalidateStaticLayer();
+    }
   } else {
     invalidateStaticLayer();
   }
@@ -8333,9 +9454,11 @@ function resolveGatherMaterialsTask(currentUnit) {
   }
 
   const materialType = getCellMaterialResourceType(targetCell);
+  const canDepleteThisTurn = canGatherTaskDepleteOnThisTurn(currentUnit.task);
+  const currentMaterialAmount = clampNonNegativeNumber(targetCell.materialAmount, 999999, 0);
   const gatherAmount = Math.min(
     getUnitWorkPointsPerTurn("gatherMaterials"),
-    clampNonNegativeNumber(targetCell.materialAmount, 999999, 0),
+    currentMaterialAmount,
   );
 
   if (!materialType || gatherAmount <= 0) {
@@ -8346,18 +9469,30 @@ function resolveGatherMaterialsTask(currentUnit) {
     return;
   }
 
-  targetCell.materialAmount = Math.max(0, targetCell.materialAmount - gatherAmount);
+  if (!canDepleteThisTurn && !canContinueGatherTaskWithoutDepletion(currentMaterialAmount, gatherAmount)) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+
+  targetCell.materialAmount = Math.max(0, currentMaterialAmount - gatherAmount);
   addToStockpile(materialType, gatherAmount);
   turnReplayHadWork = true;
   currentUnit.stamina = 0;
-  currentUnit.task.turnsRemaining = Math.max(0, (currentUnit.task.turnsRemaining || 0) - 1);
+  currentUnit.task.turnsRemaining = Math.max(0, getGatherTaskTurnsRemaining(currentUnit.task) - 1);
+  currentUnit.task.allowDepletionOnCycleStart = false;
 
   if (targetCell.materialAmount <= 0) {
     exhaustMaterialResource(targetCell);
     clearCompletedTask(currentUnit);
   } else if (currentUnit.task.turnsRemaining <= 0) {
-    clearCompletedTask(currentUnit);
-    invalidateStaticLayer();
+    if (isGatherTaskLoopEnabled(currentUnit.task) && canContinueGatherTaskWithoutDepletion(targetCell.materialAmount, gatherAmount)) {
+      currentUnit.task.turnsRemaining = getGatherTaskDurationTurns();
+      currentUnit.task.allowDepletionOnCycleStart = false;
+      invalidateStaticLayer();
+    } else {
+      clearCompletedTask(currentUnit);
+      invalidateStaticLayer();
+    }
   } else {
     invalidateStaticLayer();
   }
@@ -9090,10 +10225,15 @@ function updateBuildingsForTurn() {
   }
 }
 
-function advanceTurn() {
+function advanceTurn({ userInitiated = false } = {}) {
   if (!canAdvanceTurn()) return;
 
   clearPendingAutoAdvance();
+
+  if (userInitiated) {
+    assignPlayTasksToEligibleIdleUnitsForManualTurnAdvance();
+  }
+
   currentTurn += 1;
   applySeasonConversionForCurrentTurn();
   updateBuildingsForTurn();
@@ -9723,27 +10863,93 @@ function findAdjacentSpawnCell(x, y) {
   return null;
 }
 
-function getNextHouseSpawnUnitTypeId() {
-  const context = getRuleContext();
+function getUnitSpawnPoolEntryRemainingQuantity(entry, context = getRuleContext()) {
+  if (!entry || typeof entry !== "object") {
+    return 0;
+  }
 
-  for (const rule of unitSpawnRules) {
-    if (!matchesRequirements(rule?.when, context)) {
+  return Math.max(0, Math.floor(Number(entry.quantity) || 0) - getCountForRuleMap(context.livingUnitCountsByType, entry.id));
+}
+
+function getEligibleUnitSpawnPoolEntries(context = getRuleContext(), allowedTypeIds = null) {
+  const allowedTypeIdSet = Array.isArray(allowedTypeIds) && allowedTypeIds.length > 0
+    ? new Set(
+      allowedTypeIds
+        .map((typeId) => (typeof typeId === "string" ? normalizeUnitTypeId(typeId) : ""))
+        .filter(Boolean),
+    )
+    : null;
+
+  return (unitSpawnConfig.pool || []).filter((entry) =>
+    hasDefinedUnitType(entry?.id) &&
+    (!allowedTypeIdSet || allowedTypeIdSet.has(entry.id)) &&
+    isUnitTypeAvailable(entry.id, context) &&
+    getUnitSpawnPoolEntryRemainingQuantity(entry, context) > 0,
+  );
+}
+
+function getActiveUnitSpawnGuarantee(context = getRuleContext()) {
+  for (const guarantee of unitSpawnConfig.ensurePresentByUnitCount || []) {
+    if (!Number.isFinite(guarantee?.unitCount) || context.nextUnitNumber < guarantee.unitCount) {
       continue;
     }
 
-    const eligibleChoices = (rule?.choices || []).filter((choice) =>
-      hasDefinedUnitType(choice?.id) &&
-      isUnitTypeAvailable(choice.id, context) &&
-      matchesRequirements(choice?.requirements, context),
+    const guaranteedTypes = (guarantee.types || []).filter((typeId) =>
+      hasDefinedUnitType(typeId) && isUnitTypeAvailable(typeId, context),
     );
-    const chosenTypeId = chooseWeightedId(eligibleChoices);
 
-    if (chosenTypeId) {
-      return normalizeUnitTypeId(chosenTypeId);
+    if (guaranteedTypes.length === 0) {
+      continue;
+    }
+
+    const isSatisfied = guaranteedTypes.some((typeId) => getCountForRuleMap(context.livingUnitCountsByType, typeId) > 0);
+
+    if (!isSatisfied) {
+      return {
+        ...guarantee,
+        types: guaranteedTypes,
+      };
     }
   }
 
-  return getDefaultUnitTypeId();
+  return null;
+}
+
+function chooseQuantityPoolId(items) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+
+  const totalQuantity = items.reduce((sum, item) => sum + Math.max(0, Math.floor(Number(item?.quantity) || 0)), 0);
+
+  if (!(totalQuantity > 0)) {
+    return items[0]?.id || null;
+  }
+
+  let roll = Math.floor(Math.random() * totalQuantity);
+
+  for (const item of items) {
+    roll -= Math.max(0, Math.floor(Number(item?.quantity) || 0));
+
+    if (roll < 0) {
+      return item?.id || null;
+    }
+  }
+
+  return items[items.length - 1]?.id || null;
+}
+
+function getNextHouseSpawnUnitTypeId() {
+  const context = getRuleContext();
+  const eligiblePoolEntries = getEligibleUnitSpawnPoolEntries(context);
+
+  if (eligiblePoolEntries.length === 0) {
+    return (unitSpawnConfig.pool || []).length === 0 ? getDefaultUnitTypeId() : null;
+  }
+
+  const activeGuarantee = getActiveUnitSpawnGuarantee(context);
+  const restrictedPoolEntries = activeGuarantee ? getEligibleUnitSpawnPoolEntries(context, activeGuarantee.types) : [];
+  const chosenTypeId = chooseQuantityPoolId(restrictedPoolEntries.length > 0 ? restrictedPoolEntries : eligiblePoolEntries);
+
+  return chosenTypeId ? normalizeUnitTypeId(chosenTypeId) : null;
 }
 
 function spawnUnitFromHouse(building, unitTypeId = getNextHouseSpawnUnitTypeId()) {
@@ -9752,7 +10958,7 @@ function spawnUnitFromHouse(building, unitTypeId = getNextHouseSpawnUnitTypeId()
   const spawnCell = findAdjacentSpawnCell(building.x, building.y);
   const unitType = normalizeUnitTypeId(unitTypeId);
 
-  if (!spawnCell) {
+  if (!spawnCell || !unitType) {
     return null;
   }
 
@@ -9976,6 +11182,13 @@ function updateUnitReadout() {
       button.disabled = disabled || isReplayPhase();
     }
   };
+  const setLoopButtonState = (visible, active = false, disabled = false) => {
+    for (const button of gatherTaskLoopButtons) {
+      button.hidden = !visible;
+      button.disabled = !visible || disabled || isReplayPhase();
+      button.setAttribute("aria-pressed", visible && active ? "true" : "false");
+    }
+  };
   const setActionSprite = (imagePath) => {
     for (const image of unitActionSpriteImages) {
       if (imagePath) {
@@ -9991,18 +11204,26 @@ function updateUnitReadout() {
     for (const row of unitTaskRows) {
       row.hidden = true;
     }
+    setLoopButtonState(false, false, true);
     setCancelButtonState(false, true);
   };
   const showTaskRow = (
     imagePath,
     progressText = "",
-    { cancelVisible = false, cancelDisabled = false } = {},
+    {
+      cancelVisible = false,
+      cancelDisabled = false,
+      loopVisible = false,
+      loopActive = false,
+      loopDisabled = false,
+    } = {},
   ) => {
     setActionSprite(imagePath);
     setTextContent(unitActionProgressReadouts, progressText);
     for (const row of unitTaskRows) {
       row.hidden = false;
     }
+    setLoopButtonState(loopVisible, loopActive, loopDisabled);
     setCancelButtonState(cancelVisible, cancelDisabled);
   };
   const setUnitTitle = (text) => setTextContent(unitTitleReadouts, text);
@@ -10015,6 +11236,7 @@ function updateUnitReadout() {
 
   if (!displayedUnit) {
     setUnitTitle(strings.readouts.unitTitleNone);
+    updateUnitBookPageButtons(null);
     hideTaskRow();
     updateTileInspectorReadout();
     updateUnitActionControls();
@@ -10023,6 +11245,7 @@ function updateUnitReadout() {
 
   if (!selectedUnit && getUnits().length > 1) {
     setUnitTitle(strings.readouts.unitTitleNone);
+    updateUnitBookPageButtons(null);
     hideTaskRow();
     updateTileInspectorReadout();
     updateUnitActionControls();
@@ -10031,6 +11254,7 @@ function updateUnitReadout() {
 
   const unitName = normalizeUnitName(displayedUnit.name);
   setUnitTitle(unitName);
+  updateUnitBookPageButtons(displayedUnit, unitName);
 
   if (displayedUnit.move) {
     setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit));
@@ -10038,10 +11262,15 @@ function updateUnitReadout() {
   }
 
   if (displayedUnit.task) {
+    const showLoopButton = isLoopableGatherTask(displayedUnit.task);
     setTaskAndRefresh(
       getUnitInspectorSpriteImage(displayedUnit),
       getUnitTaskInspectorProgressText(displayedUnit),
-      { cancelVisible: true },
+      {
+        cancelVisible: true,
+        loopVisible: showLoopButton,
+        loopActive: showLoopButton && isGatherTaskLoopEnabled(displayedUnit.task),
+      },
     );
     return;
   }
@@ -10280,11 +11509,15 @@ function activateMode(nextMode) {
   schedulePostModeActivationLayoutRefresh(nextMode);
 }
 
-function startNewGeneratedState(mode, buildCells = buildGeneratedMapCells) {
+function startNewGeneratedState(
+  mode,
+  buildCells = buildGeneratedMapCells,
+  generationSettings = mapGenerationSettings,
+) {
   if (!mode) return false;
 
   setInteractionMode(mode);
-  applyStateSnapshot(createGeneratedState(mode, buildCells), mode);
+  applyStateSnapshot(createGeneratedState(mode, buildCells, generationSettings), mode);
 
   if (mode === interactionModes.play) {
     saveStateToFile(autosaveSlotName, interactionModes.play, { alertMode: "once" });
@@ -11138,6 +12371,7 @@ function stepAnimations(now) {
 
   let needsAnotherFrame = shouldAnimateWorkingUnits() || shouldAnimateSelectionMarker();
   const movingUnit = getMovingUnit();
+  let needsFullDraw = staticLayerDirty || staticUnitsLayerDirty;
 
   if (movingUnit?.move) {
     const progress = getUnitMoveProgress(movingUnit, now);
@@ -11178,6 +12412,7 @@ function stepAnimations(now) {
 
       syncActiveUnit(movingUnit.id);
       refreshAfterWorldAndUnitTaskChange({ drawNow: false });
+      needsFullDraw = true;
 
       if (isReplayPhase()) {
         startNextReplayEvent();
@@ -11190,7 +12425,11 @@ function stepAnimations(now) {
     }
   }
 
-  draw(now);
+  if (needsFullDraw) {
+    draw(now);
+  } else {
+    drawAnimatedFrame(now, { redrawInteraction: Boolean(movingUnit?.move) });
+  }
 
   if (needsAnotherFrame) {
     scheduleAnimation();
@@ -11730,30 +12969,81 @@ function drawUnitMoveTaskLines(now = performance.now(), drawContext = ctx) {
   drawContext.restore();
 }
 
-function drawSelectedUnitMarker(drawContext = ctx) {
+function getSelectedUnitMarkerState(now = performance.now()) {
   const selectedUnit = getSelectedUnit();
 
-  if (interactionMode !== interactionModes.play || !selectedUnit) return;
+  if (interactionMode !== interactionModes.play || !selectedUnit) return null;
 
   const screen = getUnitScreenPosition(selectedUnit);
 
-  if (!screen) return;
+  if (!screen) return null;
 
-  const now = performance.now();
-  const pulse = (Math.sin(now / 320) + 1) / 2;
   const centerY = screen.y + tile.height * 0.66;
-  const radiusX = tile.width * (0.29 + pulse * 0.05);
-  const radiusY = tile.height * (0.112 + pulse * 0.02);
-  const fillAlpha = 0.5 + pulse * 0.22;
+  const radiusX = tile.width * 0.34;
+  const radiusY = tile.height * 0.132;
+  const fillAlpha = 0.61;
+  const lineWidth = Math.max(1.5, 2 * zoomLevels[zoomIndex]);
 
-  drawContext.save();
-  drawContext.fillStyle = `rgba(68, 98, 178, ${fillAlpha})`;
-  drawContext.beginPath();
-  drawContext.ellipse(
-    screen.x,
+  return {
+    screen,
     centerY,
     radiusX,
     radiusY,
+    fillAlpha,
+    lineWidth,
+  };
+}
+
+function getSelectedUnitMarkerBounds(markerState) {
+  if (!markerState) {
+    return null;
+  }
+
+  const padding = Math.max(6, markerState.lineWidth * 2 + 2);
+
+  return {
+    x: Math.floor(markerState.screen.x - markerState.radiusX - padding),
+    y: Math.floor(markerState.centerY - markerState.radiusY - padding),
+    width: Math.ceil(markerState.radiusX * 2 + padding * 2),
+    height: Math.ceil(markerState.radiusY * 2 + padding * 2),
+  };
+}
+
+function mergeCanvasRects(firstRect, secondRect) {
+  if (!firstRect) {
+    return secondRect;
+  }
+
+  if (!secondRect) {
+    return firstRect;
+  }
+
+  const minX = Math.min(firstRect.x, secondRect.x);
+  const minY = Math.min(firstRect.y, secondRect.y);
+  const maxX = Math.max(firstRect.x + firstRect.width, secondRect.x + secondRect.width);
+  const maxY = Math.max(firstRect.y + firstRect.height, secondRect.y + secondRect.height);
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+function drawSelectedUnitMarker(markerState, drawContext) {
+  if (!markerState) {
+    return;
+  }
+
+  drawContext.save();
+  drawContext.fillStyle = `rgba(68, 98, 178, ${markerState.fillAlpha})`;
+  drawContext.beginPath();
+  drawContext.ellipse(
+    markerState.screen.x,
+    markerState.centerY,
+    markerState.radiusX,
+    markerState.radiusY,
     0,
     0,
     Math.PI * 2,
@@ -11761,13 +13051,13 @@ function drawSelectedUnitMarker(drawContext = ctx) {
   drawContext.fill();
 
   drawContext.strokeStyle = "rgb(102, 171, 255)";
-  drawContext.lineWidth = Math.max(1.5, 2 * zoomLevels[zoomIndex]);
+  drawContext.lineWidth = markerState.lineWidth;
   drawContext.beginPath();
   drawContext.ellipse(
-    screen.x,
-    centerY,
-    radiusX,
-    radiusY,
+    markerState.screen.x,
+    markerState.centerY,
+    markerState.radiusX,
+    markerState.radiusY,
     0,
     0,
     Math.PI * 2,
@@ -11979,6 +13269,7 @@ function layoutCanvas({ preserveCenter = false } = {}) {
 
   resizeVisibleCanvasLayer(canvas, ctx, canvasSize, dpr);
   resizeVisibleCanvasLayer(interactionCanvas, interactionCtx, canvasSize, dpr);
+  resizeVisibleCanvasLayer(selectionCanvas, selectionCtx, canvasSize, dpr);
   for (let index = 0; index < staticUnitsLayerCanvases.length; index += 1) {
     resizeVisibleCanvasLayer(
       staticUnitsLayerCanvases[index],
@@ -11994,6 +13285,7 @@ function layoutCanvas({ preserveCenter = false } = {}) {
   interactionLayerHadContent = false;
   actorsLayerHadContent = false;
   overlayLayerHadContent = false;
+  selectionRingBounds = null;
 
   origin = {
     x: leftInset + tile.width / 2,
@@ -12862,6 +14154,24 @@ function clearCanvasContext(drawContext) {
   drawContext.restore();
 }
 
+function clearCanvasRect(drawContext, rect) {
+  if (!rect || rect.width <= 0 || rect.height <= 0) {
+    return;
+  }
+
+  const dpr = currentDpr || 1;
+
+  drawContext.save();
+  drawContext.setTransform(1, 0, 0, 1, 0, 0);
+  drawContext.clearRect(
+    rect.x * dpr,
+    rect.y * dpr,
+    rect.width * dpr,
+    rect.height * dpr,
+  );
+  drawContext.restore();
+}
+
 function renderStaticLayerToMain() {
   clearCanvasContext(ctx);
   drawList = [];
@@ -12945,7 +14255,7 @@ function hasInteractionLayerContent() {
   if (interactionMode === interactionModes.play) {
     return Boolean(
       isPlayTileInspectionActive() ||
-      getSelectedUnit() ||
+      getUnitTargetCells().length > 0 ||
       hasVisibleUnitMoveTaskLines(),
     );
   }
@@ -12965,16 +14275,34 @@ function drawInteractionLayer(now = performance.now()) {
   }
 
   clearCanvasContext(interactionCtx);
-  drawInteractiveTileOverlays(interactionCtx);
 
-  if (interactionMode === interactionModes.play) {
+  if (interactionMode === interactionModes.edit) {
+    drawInteractiveTileOverlays(interactionCtx);
+  } else if (interactionMode === interactionModes.play) {
     drawInspectedPlayCellMarker(interactionCtx);
     drawUnitMoveTaskLines(now, interactionCtx);
-    drawSelectedUnitMarker(interactionCtx);
     drawUnitTargets(interactionCtx);
   }
 
   interactionLayerHadContent = true;
+}
+
+function drawSelectionRingLayer(now = performance.now()) {
+  const markerState = getSelectedUnitMarkerState(now);
+  const nextBounds = getSelectedUnitMarkerBounds(markerState);
+  const clearBounds = mergeCanvasRects(selectionRingBounds, nextBounds);
+
+  if (clearBounds) {
+    clearCanvasRect(selectionCtx, clearBounds);
+  }
+
+  if (!markerState) {
+    selectionRingBounds = null;
+    return;
+  }
+
+  drawSelectedUnitMarker(markerState, selectionCtx);
+  selectionRingBounds = nextBounds;
 }
 
 function drawActorsLayer(now = performance.now()) {
@@ -13009,6 +14337,25 @@ function drawOverlayLayer() {
   overlayLayerHadContent = true;
 }
 
+function drawAnimatedFrame(now = performance.now(), { redrawInteraction = false } = {}) {
+  ensureStaticUnitsLayerSize();
+  syncVisibleStaticUnitsLayer(
+    interactionMode === interactionModes.play ? getWorkingUnitFrameIndex(now) : 0,
+  );
+  const selectedUnit = getSelectedUnit();
+  const shouldRedrawSelectionRing = shouldAnimateSelectionMarker() || Boolean(selectedUnit?.move);
+
+  if (redrawInteraction) {
+    drawInteractionLayer(now);
+  }
+
+  if (shouldRedrawSelectionRing) {
+    drawSelectionRingLayer(now);
+  }
+
+  drawActorsLayer(now);
+}
+
 function draw(now = performance.now()) {
   ensureStaticUnitsLayerSize();
 
@@ -13024,6 +14371,7 @@ function draw(now = performance.now()) {
     interactionMode === interactionModes.play ? getWorkingUnitFrameIndex(now) : 0,
   );
   drawInteractionLayer(now);
+  drawSelectionRingLayer(now);
   drawActorsLayer(now);
   drawOverlayLayer();
 }
@@ -13734,6 +15082,15 @@ document.addEventListener("pointerdown", (event) => {
   }
 
   if (
+    mapGenerationOverlay &&
+    !mapGenerationOverlay.hidden &&
+    !mapGenerationPanel.contains(event.target)
+  ) {
+    closeMapGenerationPanel();
+    return;
+  }
+
+  if (
     gameActionMenu &&
     !gameActionMenu.hidden &&
     !gameActionMenu.contains(event.target) &&
@@ -13767,6 +15124,11 @@ document.addEventListener("keydown", (event) => {
 
   if (saveSlotOverlay && !saveSlotOverlay.hidden) {
     closeSaveSlotPanel({ restoreFocus: true });
+    return;
+  }
+
+  if (mapGenerationOverlay && !mapGenerationOverlay.hidden) {
+    closeMapGenerationPanel({ restoreFocus: true });
     return;
   }
 
@@ -13905,9 +15267,9 @@ mainMenuOverlay.addEventListener("click", (event) => {
   }
 
   if (action === "start-new-game") {
-    void runMainMenuLoadingAction(async () => {
-      await ensureVisualAssetsLoaded();
-      startNewGeneratedState(interactionModes.play);
+    openMapGenerationPanel({
+      targetMode: interactionModes.play,
+      returnFocusButton: button,
     });
     return;
   }
@@ -13940,8 +15302,12 @@ for (const button of newRandomMapButtons) {
   button.addEventListener("click", () => {
     if (!isEditMode()) return;
 
+    const returnFocusButton = activeGameMenuButton || button;
     closeGameActionMenu();
-    startNewGeneratedState(interactionModes.edit, buildGeneratedMapCells);
+    openMapGenerationPanel({
+      targetMode: interactionModes.edit,
+      returnFocusButton,
+    });
   });
 }
 
@@ -13956,7 +15322,7 @@ for (const button of newEmptyMapButtons) {
 
 for (const button of nextTurnButtons) {
   button.addEventListener("click", () => {
-    advanceTurn();
+    advanceTurn({ userInitiated: true });
   });
 }
 
@@ -13970,35 +15336,55 @@ for (const button of nextUnitButtons) {
   });
 }
 
-  for (const button of unitActionButtons) {
-    button.addEventListener("click", () => {
-      const selectedUnit = getSelectedUnit();
+for (const button of unitBookPageButtons) {
+  button.addEventListener("click", async () => {
+    const pageId = button.dataset.bookPageId || "";
 
-      if (!selectedUnit || selectedUnit.move || isReplayPhase()) return;
+    if (!pageId) {
+      return;
+    }
 
-      const action = normalizeSelectableUnitAction(button.dataset.unitAction);
-      if (!canUnitUseSelectableAction(selectedUnit, action)) return;
-      const currentAction = getCurrentSelectedUnitAction();
+    await openBookOverlayPanel(button);
 
-      if (action === unitActions.play) {
-        queueUnitPlayTask(selectedUnit);
-        return;
-      }
+    if (!pageId || (bookOverlay && bookOverlay.hidden)) {
+      return;
+    }
 
-      if (action === unitActions.research) {
-        queueUnitResearchTask(selectedUnit);
-        return;
-      }
+    if (!jumpBookToPageId(pageId)) {
+      updateUnitReadout();
+    }
+  });
+}
 
-      if (isCellTargetUnitAction(action) && currentAction === action) {
-        selectedUnitAction = getPreferredUnitAction(selectedUnit, unitActions.walk);
-        updateUnitActionControls();
-        draw();
-        return;
-      }
+for (const button of unitActionButtons) {
+  button.addEventListener("click", () => {
+    const selectedUnit = getSelectedUnit();
 
-      selectedUnitAction = action;
+    if (!selectedUnit || selectedUnit.move || isReplayPhase()) return;
+
+    const action = normalizeSelectableUnitAction(button.dataset.unitAction);
+    if (!canUnitUseSelectableAction(selectedUnit, action)) return;
+    const currentAction = getCurrentSelectedUnitAction();
+
+    if (action === unitActions.play) {
+      queueUnitPlayTask(selectedUnit);
+      return;
+    }
+
+    if (action === unitActions.research) {
+      queueUnitResearchTask(selectedUnit);
+      return;
+    }
+
+    if (isCellTargetUnitAction(action) && currentAction === action) {
+      selectedUnitAction = getPreferredUnitAction(selectedUnit, unitActions.walk);
       updateUnitActionControls();
+      draw();
+      return;
+    }
+
+    selectedUnitAction = action;
+    updateUnitActionControls();
     draw();
   });
 }
@@ -14012,6 +15398,12 @@ if (foundationActionMenu) {
     }
 
     setSelectedFoundationConstructible(button.dataset.foundationId);
+  });
+}
+
+for (const button of gatherTaskLoopButtons) {
+  button.addEventListener("click", () => {
+    toggleGatherTaskLoop();
   });
 }
 
@@ -14121,6 +15513,29 @@ for (const button of openMainMenuButtons) {
 for (const button of dismissSlotPanelButtons) {
   button.addEventListener("click", () => {
     closeSaveSlotPanel({ restoreFocus: true });
+  });
+}
+
+for (const button of closeMapGenerationButtons) {
+  button.addEventListener("click", () => {
+    closeMapGenerationPanel({ restoreFocus: true });
+  });
+}
+
+for (const button of confirmMapGenerationButtons) {
+  button.addEventListener("click", () => {
+    void commitMapGenerationPanel();
+  });
+}
+
+for (const input of [
+  mapGenerationWaterInput,
+  mapGenerationForestInput,
+  mapGenerationMountainInput,
+  mapGenerationFoodInput,
+].filter(Boolean)) {
+  input.addEventListener("input", () => {
+    updateMapGenerationPanelValueReadouts();
   });
 }
 

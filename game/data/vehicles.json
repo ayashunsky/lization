@@ -75,13 +75,13 @@
                 "sources": {
                   "idle": {
                     "W": "../assets/units/unit.png",
-                    "N": "../assets/units/unit_back_sprite.png",
-                    "S": "../assets/units/unit_front_sprite.png"
+                    "N": "../assets/units/unit_back.png",
+                    "S": "../assets/units/unit_front.png"
                   },
                   "move": {
                     "W": ["../assets/units/unit.png"],
-                    "N": ["../assets/units/unit_back_sprite.png"],
-                    "S": ["../assets/units/unit_front_sprite.png"]
+                    "N": ["../assets/units/unit_back.png"],
+                    "S": ["../assets/units/unit_front.png"]
                   }
                 },
                 "moveFrameSequence": [0]
@@ -91,14 +91,48 @@
               "unit": {
                 "sources": {
                   "idle": {
-                    "W": "../assets/units/unit_grand_schtroumpf_sprite.png",
-                    "N": "../assets/units/unit_grand_schtroumpf_back_sprite.png",
-                    "S": "../assets/units/unit_grand_schtroumpf_front_sprite.png"
+                    "W": "../assets/units/gs.png",
+                    "N": "../assets/units/gs_back.png",
+                    "S": "../assets/units/gs_front.png"
                   },
                   "move": {
-                    "W": ["../assets/units/unit_grand_schtroumpf_sprite.png"],
-                    "N": ["../assets/units/unit_grand_schtroumpf_back_sprite.png"],
-                    "S": ["../assets/units/unit_grand_schtroumpf_front_sprite.png"]
+                    "W": ["../assets/units/gs.png"],
+                    "N": ["../assets/units/gs_back.png"],
+                    "S": ["../assets/units/gs_front.png"]
+                  }
+                },
+                "moveFrameSequence": [0]
+              }
+            },
+            "lunettes": {
+              "unit": {
+                "sources": {
+                  "idle": {
+                    "W": "../assets/units/lune.png",
+                    "N": "../assets/units/unit_back.png",
+                    "S": "../assets/units/lune_front.png"
+                  },
+                  "move": {
+                    "W": ["../assets/units/lune.png"],
+                    "N": ["../assets/units/unit_back.png"],
+                    "S": ["../assets/units/lune_front.png"]
+                  }
+                },
+                "moveFrameSequence": [0]
+              }
+            },
+            "bricoleur": {
+              "unit": {
+                "sources": {
+                  "idle": {
+                    "W": "../assets/units/brico.png",
+                    "N": "../assets/units/brico_back.png",
+                    "S": "../assets/units/brico_front.png"
+                  },
+                  "move": {
+                    "W": ["../assets/units/brico.png"],
+                    "N": ["../assets/units/brico_back.png"],
+                    "S": ["../assets/units/brico_front.png"]
                   }
                 },
                 "moveFrameSequence": [0]
@@ -222,22 +256,22 @@
               "unit": {
                 "sources": {
                   "idle": {
-                    "W": "../assets/units/unit_gs_wb_w.png",
-                    "N": "../assets/units/unit_gs_wb_n.png",
-                    "S": "../assets/units/unit_gs_wb_s.png"
+                    "W": "../assets/units/gs_wb_w.png",
+                    "N": "../assets/units/gs_wb_n.png",
+                    "S": "../assets/units/gs_wb_s.png"
                   },
                   "move": {
                     "W": [
-                      "../assets/units/unit_gs_wb_w.png",
-                      "../assets/units/unit_gs_wb_step_w.png"
+                      "../assets/units/gs_wb_w.png",
+                      "../assets/units/gs_wb_step_w.png"
                     ],
                     "N": [
-                      "../assets/units/unit_gs_wb_step_n_1.png",
-                      "../assets/units/unit_gs_wb_step_n_2.png"
+                      "../assets/units/gs_wb_step_n_1.png",
+                      "../assets/units/gs_wb_step_n_2.png"
                     ],
                     "S": [
-                      "../assets/units/unit_gs_wb_step_s_1.png",
-                      "../assets/units/unit_gs_wb_step_s_2.png"
+                      "../assets/units/gs_wb_step_s_1.png",
+                      "../assets/units/gs_wb_step_s_2.png"
                     ]
                   }
                 },
@@ -248,22 +282,48 @@
               "unit": {
                 "sources": {
                   "idle": {
-                    "W": "../assets/units/lunettes_wb_w.png",
+                    "W": "../assets/units/lune_wb_w.png",
                     "N": "../assets/units/unit_wb_n.png",
-                    "S": "../assets/units/lunettes_wb_s.png"
+                    "S": "../assets/units/lune_wb_s.png"
                   },
                   "move": {
                     "W": [
-                      "../assets/units/lunettes_wb_w.png",
-                      "../assets/units/lunettes_wb_step_w.png"
+                      "../assets/units/lune_wb_w.png",
+                      "../assets/units/lune_wb_step_w.png"
                     ],
                     "N": [
                       "../assets/units/unit_wb_step_n_1.png",
                       "../assets/units/unit_wb_step_n_2.png"
                     ],
                     "S": [
-                      "../assets/units/lunettes_wb_step_s_1.png",
-                      "../assets/units/lunettes_wb_step_s_2.png"
+                      "../assets/units/lune_wb_step_s_1.png",
+                      "../assets/units/lune_wb_step_s_2.png"
+                    ]
+                  }
+                },
+                "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0]
+              }
+            },
+            "bricoleur": {
+              "unit": {
+                "sources": {
+                  "idle": {
+                    "W": "../assets/units/brico_wb_w.png",
+                    "N": "../assets/units/brico_wb_n.png",
+                    "S": "../assets/units/brico_wb_s.png"
+                  },
+                  "move": {
+                    "W": [
+                      "../assets/units/brico_wb_w.png",
+                      "../assets/units/brico_wb_step_w.png"
+                    ],
+                    "N": [
+                      "../assets/units/brico_wb_step_n_1.png",
+                      "../assets/units/brico_wb_step_n_2.png"
+                    ],
+                    "S": [
+                      "../assets/units/brico_wb_step_s_1.png",
+                      "../assets/units/brico_wb_step_s_2.png"
                     ]
                   }
                 },

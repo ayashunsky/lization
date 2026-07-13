@@ -17,8 +17,8 @@
       "limits": {
         "countByBuilding": {
           "building": "well",
-          "base": 10,
-          "perBuilding": 10
+          "base": 15,
+          "perBuilding": 15
         }
       },
       "rules": {
