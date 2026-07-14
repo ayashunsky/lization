@@ -30,6 +30,7 @@ export function createConstructiblesApi(deps) {
     spendFromStockpile,
     canPlaceNewBuildingConstructionOnCell,
     canPlaceNewVehicleConstructionOnCell,
+    markCellVisited,
     normalizeLinkedEntityId,
     normalizeBuildingState,
     drawNativeSingleCellImageAtCell,
@@ -216,6 +217,21 @@ export function createConstructiblesApi(deps) {
     return getMovementDirections().includes(direction) ? direction : null;
   }
 
+  function getReverseConstructibleFootprintStep(direction) {
+    const reverseDirections = {
+      north: "south",
+      northEast: "southWest",
+      east: "west",
+      southEast: "northWest",
+      south: "north",
+      southWest: "northEast",
+      west: "east",
+      northWest: "southEast",
+    };
+
+    return reverseDirections[direction] || null;
+  }
+
   function getConstructibleFootprintPathsForKind(kind, type) {
     const rawFootprint = getConstructibleRulesForKind(kind, type)?.footprint;
 
@@ -323,6 +339,69 @@ export function createConstructiblesApi(deps) {
 
   function getConstructiblePlacementCellsForKind(kind, originCell, type) {
     return getConstructiblePlacementEntriesForKind(kind, originCell, type).map((entry) => entry.cell);
+  }
+
+  function getConstructibleCandidateOriginsForPlacementCellForKind(kind, placementCell, type) {
+    if (!placementCell) {
+      return [];
+    }
+
+    const footprintPaths = getConstructibleFootprintPathsForKind(kind, type);
+    const origins = [];
+    const seenKeys = new Set();
+    const addOriginCell = (cell) => {
+      if (!cell) {
+        return;
+      }
+
+      const key = createCellKey(cell.x, cell.y);
+
+      if (seenKeys.has(key)) {
+        return;
+      }
+
+      seenKeys.add(key);
+      origins.push(cell);
+    };
+
+    if (!footprintPaths) {
+      const width = getConstructibleDimensionForKind(kind, type, "width");
+      const height = getConstructibleDimensionForKind(kind, type, "height");
+
+      for (let offsetY = 0; offsetY < height; offsetY += 1) {
+        for (let offsetX = 0; offsetX < width; offsetX += 1) {
+          addOriginCell(getCell(
+            placementCell.x - offsetX,
+            placementCell.y - offsetY * 2,
+          ));
+        }
+      }
+
+      return origins;
+    }
+
+    for (const path of footprintPaths) {
+      let currentCell = placementCell;
+
+      for (let index = path.length - 1; index >= 0; index -= 1) {
+        const reverseDirection = getReverseConstructibleFootprintStep(path[index]);
+
+        if (!reverseDirection) {
+          currentCell = null;
+          break;
+        }
+
+        currentCell = getNeighborByDirection(currentCell, reverseDirection);
+
+        if (!currentCell) {
+          break;
+        }
+      }
+
+      addOriginCell(currentCell);
+    }
+
+    return origins;
   }
 
   function getConstructibleOccupiedCellsForKind(kind, constructible) {
@@ -513,7 +592,7 @@ export function createConstructiblesApi(deps) {
     }
 
     for (const cell of getConstructibleOccupiedCellsForKind(kind, constructible)) {
-      cell.visited = true;
+      markCellVisited(cell, { invalidate: false });
     }
   }
 
@@ -935,6 +1014,7 @@ export function createConstructiblesApi(deps) {
     getConstructiblePlacementTerrainRulesForKind,
     getConstructiblePlacementEntriesForKind,
     getConstructiblePlacementCellsForKind,
+    getConstructibleCandidateOriginsForPlacementCellForKind,
     getConstructibleOccupiedCellsForKind,
     getConstructiblePlacementIndexAtCellForKind,
     createFoundationConstructibleDescriptor,

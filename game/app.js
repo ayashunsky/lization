@@ -2,6 +2,7 @@ import { createConstructiblesApi } from "./constructibles.js";
 import { createBookContentApi } from "./book-content.js";
 import { createBookRuntimeApi } from "./book-runtime.js";
 import { createEditorUiApi } from "./editor-ui.js";
+import { createOverlayRuntimeApi } from "./overlay-runtime.js";
 import { createSpriteRuntimeApi, spriteTaskSourceCandidateSets } from "./sprite-runtime.js";
 import { createTerrainRuntimeApi } from "./terrain-runtime.js";
 import {
@@ -92,6 +93,14 @@ const editorResearchTitleElements = [...document.querySelectorAll('[data-role="e
 const editorResearchGoalElements = [...document.querySelectorAll('[data-role="editor-research-goal"]')];
 const mapGenerationTitleElements = [...document.querySelectorAll('[data-role="map-generation-title"]')];
 const mapGenerationSubtitleElements = [...document.querySelectorAll('[data-role="map-generation-subtitle"]')];
+const mapGenerationSizeTitleElements = [...document.querySelectorAll('[data-role="map-generation-size-title"]')];
+const mapGenerationRandomTitleElements = [...document.querySelectorAll('[data-role="map-generation-random-title"]')];
+const mapGenerationWidthLabelElements = [...document.querySelectorAll('[data-role="map-generation-width-label"]')];
+const mapGenerationHeightLabelElements = [...document.querySelectorAll('[data-role="map-generation-height-label"]')];
+const mapGenerationSizePresetLabelElements = [...document.querySelectorAll('[data-role="map-generation-size-preset-label"]')];
+const mapGenerationSizeSmallLabelElements = [...document.querySelectorAll('[data-role="map-generation-size-small-label"]')];
+const mapGenerationSizeNormalLabelElements = [...document.querySelectorAll('[data-role="map-generation-size-normal-label"]')];
+const mapGenerationSizeBigLabelElements = [...document.querySelectorAll('[data-role="map-generation-size-big-label"]')];
 const mapGenerationWaterLabelElements = [...document.querySelectorAll('[data-role="map-generation-water-label"]')];
 const mapGenerationForestLabelElements = [...document.querySelectorAll('[data-role="map-generation-forest-label"]')];
 const mapGenerationMountainLabelElements = [...document.querySelectorAll('[data-role="map-generation-mountain-label"]')];
@@ -100,6 +109,7 @@ const mapGenerationWaterValueElements = [...document.querySelectorAll('[data-rol
 const mapGenerationForestValueElements = [...document.querySelectorAll('[data-role="map-generation-forest-value"]')];
 const mapGenerationMountainValueElements = [...document.querySelectorAll('[data-role="map-generation-mountain-value"]')];
 const mapGenerationFoodValueElements = [...document.querySelectorAll('[data-role="map-generation-food-value"]')];
+const mapGenerationRandomFieldGroups = [...document.querySelectorAll('[data-role="map-generation-random-fields"]')];
 const editorResourcePanels = [...document.querySelectorAll('[data-role="editor-resource-panel"]')];
 const editorResourceTitleElements = [...document.querySelectorAll('[data-role="editor-resource-title"]')];
 const editorResourceSeparators = [...document.querySelectorAll('[data-role="editor-resource-separator"]')];
@@ -120,6 +130,9 @@ const editorBuildingCompletionInput = document.querySelector('[data-action="edit
 const editorBuildingAbandonedInput = document.querySelector('[data-action="editor-building-abandoned"]');
 const editorVehicleCompletionInput = document.querySelector('[data-action="editor-vehicle-completion"]');
 const editorVehicleAbandonedInput = document.querySelector('[data-action="editor-vehicle-abandoned"]');
+const mapGenerationWidthInput = document.querySelector('[data-action="map-generation-width"]');
+const mapGenerationHeightInput = document.querySelector('[data-action="map-generation-height"]');
+const mapGenerationSizePresetInputs = [...document.querySelectorAll('[data-action="map-generation-size-preset"]')];
 const mapGenerationWaterInput = document.querySelector('[data-action="map-generation-water"]');
 const mapGenerationForestInput = document.querySelector('[data-action="map-generation-forest"]');
 const mapGenerationMountainInput = document.querySelector('[data-action="map-generation-mountain"]');
@@ -153,6 +166,7 @@ const tileInfoSecondaryCanvases = [...document.querySelectorAll('[data-role="til
 const tileInfoSecondaryCaptions = [...document.querySelectorAll('[data-role="tile-info-secondary-caption"]')];
 const unitTitleReadouts = [...document.querySelectorAll('[data-role="unit-title"]')];
 const unitBookPageButtons = [...document.querySelectorAll('[data-action="open-unit-book-page"]')];
+const centerUnitOnMapButtons = [...document.querySelectorAll('[data-action="center-unit-on-map"]')];
 const unitActionSpriteImages = [...document.querySelectorAll('[data-role="unit-action-sprite"]')];
 const unitActionProgressReadouts = [...document.querySelectorAll('[data-role="unit-action-progress"]')];
 const unitTaskRows = [...document.querySelectorAll('[data-role="unit-task-row"]')];
@@ -450,6 +464,16 @@ const defaultMapConfig = {
   width: map.width,
   height: map.height,
 };
+const mapGenerationSizePresets = Object.freeze({
+  small: Object.freeze({ width: 28, height: 42 }),
+  normal: Object.freeze({ width: defaultMapConfig.width, height: defaultMapConfig.height }),
+  big: Object.freeze({ width: 56, height: 84 }),
+});
+const minimumGeneratedMapDimension = 16;
+const defaultMapGenerationSize = Object.freeze({
+  width: defaultMapConfig.width,
+  height: defaultMapConfig.height,
+});
 const defaultMapGenerationSettings = Object.freeze({
   water: 52,
   forest: 54,
@@ -583,7 +607,10 @@ let hoverCell = null;
 let playHoverCell = null;
 let activeCell = null;
 let openEditorDropdownId = null;
-let drawList = [];
+let tileHitAreas = [];
+let visibleCellKeys = new Set();
+let visibleCellsByRow = [];
+let foodResourceCells = new Map();
 let didCenterInitialView = false;
 let zoomIndex = 1;
 let interactionMode = null;
@@ -648,6 +675,7 @@ let activeGameMenuButton = null;
 let slotPanelState = null;
 let mapGenerationPanelState = null;
 let mapGenerationSettings = { ...defaultMapGenerationSettings };
+let mapGenerationSize = { ...defaultMapGenerationSize };
 const tileImages = {};
 const buildingImages = {};
 const vehicleImages = {};
@@ -658,13 +686,17 @@ const unitImages = {};
 const imageLoadPromises = new WeakMap();
 const saveVersion = 9;
 const storageKeys = {
-  filePrefix: "schtroumpfilization:save-file:v1:",
   currentFile: {
     edit: "schtroumpfilization:current-file:edit:v1",
     play: "schtroumpfilization:current-file:play:v1",
   },
   audioSettings: "schtroumpfilization:audio-settings:v1",
 };
+const saveDatabaseConfig = Object.freeze({
+  name: "schtroumpfilization-saves-v1",
+  version: 1,
+  storeName: "saveFiles",
+});
 const compactSerializedCellFieldIndex = Object.freeze({
   type: 0,
   variant: 1,
@@ -765,6 +797,7 @@ let editStateDirty = false;
 let editorResearchReturnFocusButton = null;
 let pendingBookResearchAssignmentUnitId = null;
 let lastSaveStorageErrorSignature = null;
+let saveDatabasePromise = null;
 
 const {
   normalizeConstructibleKind,
@@ -783,6 +816,7 @@ const {
   getConstructibleDimensionForKind,
   getConstructiblePlacementEntriesForKind,
   getConstructiblePlacementCellsForKind,
+  getConstructibleCandidateOriginsForPlacementCellForKind,
   getConstructibleOccupiedCellsForKind,
   getConstructiblePlacementIndexAtCellForKind,
   createFoundationConstructibleDescriptor,
@@ -829,6 +863,7 @@ const {
   spendFromStockpile,
   canPlaceNewBuildingConstructionOnCell,
   canPlaceNewVehicleConstructionOnCell,
+  markCellVisited,
   normalizeLinkedEntityId,
   normalizeBuildingState,
   drawNativeSingleCellImageAtCell,
@@ -878,6 +913,41 @@ function setAttributeForElements(elements, name, value) {
     element.setAttribute(name, value);
   }
 }
+
+const {
+  doesSeasonSuppressPathEffects,
+  getCellPathWellKnownVisitsThreshold,
+  getCellPathPreviewVisitsThreshold,
+  getCellVisitsCount,
+  isWellKnownPathCell,
+  isPreviewPathCell,
+  getPathCompletionPercent,
+  syncPathRenderableCellIndexForCell,
+  rebuildPathRenderableCellIndex,
+  getPathStateBetween,
+  hasFullPathBetween,
+  drawInspectorPathOverlay,
+  drawFogBorders,
+  getTileEdges,
+  getTileCorners,
+  drawPaths,
+} = createOverlayRuntimeApi({
+  map,
+  baseTile,
+  tile,
+  ctx,
+  getCell,
+  getEdgeNeighbor,
+  getCornerNeighbor,
+  getNeighborByDirection,
+  areCellsAdjacent,
+  createCellKey,
+  getPathWellKnownVisitsThreshold,
+  getPathPreviewVisitsThreshold,
+  isCellVisibleToPlayer,
+  isPlayMode,
+  isoToScreen,
+});
 
 const {
   getShoreOverlayPaths,
@@ -3720,6 +3790,14 @@ function applyStaticText() {
     editorResearchEmpty.textContent = getEditorLabel("noTechnologies");
   }
   setTextContent(mapGenerationTitleElements, strings.mapGeneration.title);
+  setTextContent(mapGenerationSizeTitleElements, strings.mapGeneration.sizeTitle);
+  setTextContent(mapGenerationRandomTitleElements, strings.mapGeneration.randomTitle);
+  setTextContent(mapGenerationWidthLabelElements, strings.mapGeneration.width);
+  setTextContent(mapGenerationHeightLabelElements, strings.mapGeneration.height);
+  setTextContent(mapGenerationSizePresetLabelElements, strings.mapGeneration.sizePreset);
+  setTextContent(mapGenerationSizeSmallLabelElements, strings.mapGeneration.sizeSmall);
+  setTextContent(mapGenerationSizeNormalLabelElements, strings.mapGeneration.sizeNormal);
+  setTextContent(mapGenerationSizeBigLabelElements, strings.mapGeneration.sizeBig);
   setTextContent(mapGenerationWaterLabelElements, strings.terrain.water);
   setTextContent(mapGenerationForestLabelElements, strings.terrain.forest);
   setTextContent(mapGenerationMountainLabelElements, strings.terrain.mountain);
@@ -3816,11 +3894,160 @@ function getCurrentFileKey(mode) {
   return storageKeys.currentFile[mode] || null;
 }
 
-function getSaveFileKey(fileName) {
+function isIndexedDbAvailable() {
+  return typeof window.indexedDB?.open === "function";
+}
+
+function idbRequestToPromise(request) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+    request.onerror = () => {
+      reject(request.error || new Error("IndexedDB request failed."));
+    };
+  });
+}
+
+function openSaveDatabase() {
+  if (!isIndexedDbAvailable()) {
+    return Promise.resolve(null);
+  }
+
+  if (!saveDatabasePromise) {
+    saveDatabasePromise = new Promise((resolve) => {
+      let settled = false;
+      const request = window.indexedDB.open(saveDatabaseConfig.name, saveDatabaseConfig.version);
+
+      request.onupgradeneeded = () => {
+        const database = request.result;
+
+        if (!database.objectStoreNames.contains(saveDatabaseConfig.storeName)) {
+          database.createObjectStore(saveDatabaseConfig.storeName, { keyPath: "name" });
+        }
+      };
+
+      request.onsuccess = () => {
+        const database = request.result;
+
+        database.onversionchange = () => {
+          database.close();
+        };
+
+        settled = true;
+        resolve(database);
+      };
+
+      request.onerror = () => {
+        console.warn("Could not open save database.", request.error);
+        settled = true;
+        saveDatabasePromise = null;
+        resolve(null);
+      };
+
+      request.onblocked = () => {
+        if (settled) {
+          return;
+        }
+
+        console.warn("Save database open request is blocked.");
+        settled = true;
+        saveDatabasePromise = null;
+        resolve(null);
+      };
+    });
+  }
+
+  return saveDatabasePromise;
+}
+
+async function listIndexedDbSaveRecords() {
+  const database = await openSaveDatabase();
+
+  if (!database) {
+    return [];
+  }
+
+  try {
+    const store = database.transaction(saveDatabaseConfig.storeName, "readonly").objectStore(saveDatabaseConfig.storeName);
+    const records = await idbRequestToPromise(store.getAll());
+    return Array.isArray(records) ? records : [];
+  } catch (error) {
+    console.warn("Could not read IndexedDB save records.", error);
+    return [];
+  }
+}
+
+async function getIndexedDbSaveRecord(fileName) {
   const normalizedName = sanitizeFileName(fileName);
 
-  if (!normalizedName) return null;
-  return `${storageKeys.filePrefix}${encodeURIComponent(normalizedName)}`;
+  if (!normalizedName) {
+    return null;
+  }
+
+  const database = await openSaveDatabase();
+
+  if (!database) {
+    return null;
+  }
+
+  try {
+    const store = database.transaction(saveDatabaseConfig.storeName, "readonly").objectStore(saveDatabaseConfig.storeName);
+    const record = await idbRequestToPromise(store.get(normalizedName));
+    return record && typeof record === "object" ? record : null;
+  } catch (error) {
+    console.warn(`Could not read IndexedDB save record ${normalizedName}.`, error);
+    return null;
+  }
+}
+
+async function putIndexedDbSaveRecord(fileName, rawContents) {
+  const normalizedName = sanitizeFileName(fileName);
+
+  if (!normalizedName || typeof rawContents !== "string") {
+    return false;
+  }
+
+  const database = await openSaveDatabase();
+
+  if (!database) {
+    return false;
+  }
+
+  try {
+    const store = database.transaction(saveDatabaseConfig.storeName, "readwrite").objectStore(saveDatabaseConfig.storeName);
+    await idbRequestToPromise(store.put({
+      name: normalizedName,
+      raw: rawContents,
+      updatedAt: Date.now(),
+    }));
+    return true;
+  } catch (error) {
+    throw error;
+  }
+}
+
+async function deleteIndexedDbSaveRecord(fileName) {
+  const normalizedName = sanitizeFileName(fileName);
+
+  if (!normalizedName) {
+    return false;
+  }
+
+  const database = await openSaveDatabase();
+
+  if (!database) {
+    return false;
+  }
+
+  try {
+    const store = database.transaction(saveDatabaseConfig.storeName, "readwrite").objectStore(saveDatabaseConfig.storeName);
+    await idbRequestToPromise(store.delete(normalizedName));
+    return true;
+  } catch (error) {
+    console.warn(`Could not delete IndexedDB save record ${normalizedName}.`, error);
+    return false;
+  }
 }
 
 function readCurrentFileName(mode) {
@@ -4004,15 +4231,6 @@ function updateStockpileReadout() {
     foodShortageTurns > 0
       ? `${foodShortageTurns}/${shortageThreshold}`
       : `${formatDisplayedQuantity(foodAmount)}/${formatDisplayedQuantity(foodCapacity)}`,
-  );
-}
-
-function getPathCompletionPercent(cell) {
-  return clampInteger(
-    Math.round((getCellVisitsCount(cell) / getCellPathWellKnownVisitsThreshold(cell)) * 100),
-    0,
-    100,
-    0,
   );
 }
 
@@ -4253,54 +4471,6 @@ function drawInspectorBuildingOverlay(context, building) {
 
 function drawInspectorVehicleOverlay(context, vehicle) {
   drawInspectorConstructibleOverlayForKind("vehicle", context, vehicle);
-}
-
-function drawInspectorPathOverlay(context, isFull) {
-  if (!context) {
-    return;
-  }
-
-  const centerX = baseTile.width / 2;
-  const centerY = baseTile.height / 2;
-
-  context.save();
-  context.lineCap = "round";
-  context.lineJoin = "round";
-
-  if (isFull) {
-    context.strokeStyle = "rgba(12, 11, 10, 0.92)";
-    context.lineWidth = Math.max(3.2, baseTile.width * 0.08);
-    context.beginPath();
-    context.moveTo(18, centerY + 1);
-    context.quadraticCurveTo(centerX, centerY - 7, 70, centerY + 1);
-    context.stroke();
-
-    context.strokeStyle = "rgba(254, 232, 111, 1)";
-    context.lineWidth = Math.max(2, baseTile.width * 0.05);
-    context.beginPath();
-    context.moveTo(18, centerY + 1);
-    context.quadraticCurveTo(centerX, centerY - 7, 70, centerY + 1);
-    context.stroke();
-
-    context.beginPath();
-    context.arc(centerX, centerY - 1, Math.max(1.8, baseTile.width * 0.026), 0, Math.PI * 2);
-    context.fillStyle = "rgba(254, 232, 111, 1)";
-    context.fill();
-  } else {
-    context.strokeStyle = "rgba(151, 124, 82, 0.28)";
-    context.lineWidth = Math.max(1.4, baseTile.width * 0.04);
-    context.beginPath();
-    context.moveTo(18, centerY + 1);
-    context.quadraticCurveTo(centerX, centerY - 7, 70, centerY + 1);
-    context.stroke();
-
-    context.beginPath();
-    context.arc(centerX, centerY - 1, Math.max(1.5, baseTile.width * 0.022), 0, Math.PI * 2);
-    context.fillStyle = "rgba(151, 124, 82, 0.28)";
-    context.fill();
-  }
-
-  context.restore();
 }
 
 function renderTileInspectorInfoItem(canvas, entry) {
@@ -4567,10 +4737,6 @@ function doesSeasonHideLandFoodVisuals(cell) {
   return isLandCell(cell) && isWinter2SeasonCell(cell);
 }
 
-function doesSeasonSuppressPathEffects(cell) {
-  return Boolean(cell) && cell.type === "grass" && isWinter2SeasonCell(cell);
-}
-
 function isSeasonallyWalkableWaterCell(cell) {
   return Boolean(cell) && cell.type === "water" && isWinter2SeasonCell(cell);
 }
@@ -4585,54 +4751,6 @@ function doesMovementRuleListAllowCell(movementTerrains, cell) {
   return Array.isArray(movementTerrains) && movementTerrains.some((entry) =>
     entry?.terrain === cell.type && (!entry.season || entry.season === cellSeason)
   );
-}
-
-function getCellPathWellKnownVisitsThreshold(cell) {
-  return getPathWellKnownVisitsThreshold();
-}
-
-function getCellPathPreviewVisitsThreshold(cell) {
-  return getPathPreviewVisitsThreshold();
-}
-
-function getCellVisitsCount(cell) {
-  if (!cell || cell.type !== "grass") {
-    return 0;
-  }
-
-  return Math.max(0, clampInteger(cell.visitsCount, 0, getCellPathWellKnownVisitsThreshold(cell), 0));
-}
-
-function isWellKnownPathCell(cell) {
-  return Boolean(cell) && cell.type === "grass" && getCellVisitsCount(cell) >= getCellPathWellKnownVisitsThreshold(cell);
-}
-
-function isPreviewPathCell(cell) {
-  return Boolean(cell) && cell.type === "grass" && getCellVisitsCount(cell) >= getCellPathPreviewVisitsThreshold(cell);
-}
-
-function getPathStateBetween(fromCell, toCell) {
-  if (!fromCell || !toCell || !areCellsAdjacent(fromCell.x, fromCell.y, toCell.x, toCell.y)) {
-    return null;
-  }
-
-  if (doesSeasonSuppressPathEffects(fromCell) || doesSeasonSuppressPathEffects(toCell)) {
-    return null;
-  }
-
-  if (isWellKnownPathCell(fromCell) && isWellKnownPathCell(toCell)) {
-    return "full";
-  }
-
-  if (isPreviewPathCell(fromCell) && isPreviewPathCell(toCell)) {
-    return "preview";
-  }
-
-  return null;
-}
-
-function hasFullPathBetween(fromCell, toCell) {
-  return getPathStateBetween(fromCell, toCell) === "full";
 }
 
 function getTerrainMoveCost(cell, fromCell = null) {
@@ -5437,43 +5555,35 @@ function getConstructionWorkCompletenessDelta(taskType, structure) {
   return clamp(workPoints / cost, 0, 1);
 }
 
-function getSaveSlotNames() {
-  return getSaveSlotEntries().map((entry) => entry.name);
-}
-
-function getSaveSlotEntries() {
+async function getSaveSlotEntries() {
   const entries = [];
 
-  try {
-    for (let index = 0; index < window.localStorage.length; index += 1) {
-      const key = window.localStorage.key(index);
+  for (const record of await listIndexedDbSaveRecords()) {
+    const name = sanitizeFileName(record?.name);
+    const raw = typeof record?.raw === "string" ? record.raw : null;
+    let parsed = null;
+    let isValidJson = false;
 
-      if (!key || !key.startsWith(storageKeys.filePrefix)) continue;
-
-      const name = decodeURIComponent(key.slice(storageKeys.filePrefix.length));
-      const raw = window.localStorage.getItem(key);
-      let parsed = null;
-      let isValidJson = false;
-
-      if (typeof raw === "string") {
-        try {
-          parsed = JSON.parse(raw);
-          isValidJson = true;
-        } catch (error) {
-          parsed = null;
-        }
+    if (raw) {
+      try {
+        parsed = JSON.parse(raw);
+        isValidJson = true;
+      } catch (error) {
+        parsed = null;
       }
-
-      entries.push({
-        name,
-        raw: typeof raw === "string" ? raw : null,
-        parsed,
-        isValidJson,
-        isCompatible: isCompatibleSaveState(parsed),
-      });
     }
-  } catch (error) {
-    console.warn("Could not enumerate save slots.", error);
+
+    if (!name) {
+      continue;
+    }
+
+    entries.push({
+      name,
+      raw,
+      parsed,
+      isValidJson,
+      isCompatible: isCompatibleSaveState(parsed),
+    });
   }
 
   return entries.sort((a, b) => a.name.localeCompare(b.name, currentLanguage));
@@ -5550,6 +5660,10 @@ function normalizeMapGenerationSliderValue(value, fallback = 50) {
   return clampInteger(value, 0, 100, fallback);
 }
 
+function normalizeMapGenerationDimension(value, fallback = defaultMapConfig.width) {
+  return clampInteger(value, minimumGeneratedMapDimension, 512, fallback);
+}
+
 function normalizeMapGenerationSettings(settings = defaultMapGenerationSettings) {
   return {
     water: normalizeMapGenerationSliderValue(settings?.water, defaultMapGenerationSettings.water),
@@ -5559,12 +5673,38 @@ function normalizeMapGenerationSettings(settings = defaultMapGenerationSettings)
   };
 }
 
+function normalizeMapGenerationSize(settings = defaultMapGenerationSize) {
+  return {
+    width: normalizeMapGenerationDimension(settings?.width, defaultMapGenerationSize.width),
+    height: normalizeMapGenerationDimension(settings?.height, defaultMapGenerationSize.height),
+  };
+}
+
+function getMapGenerationSizePresetId(size = defaultMapGenerationSize) {
+  const normalizedSize = normalizeMapGenerationSize(size);
+
+  for (const [presetId, presetSize] of Object.entries(mapGenerationSizePresets)) {
+    if (presetSize.width === normalizedSize.width && presetSize.height === normalizedSize.height) {
+      return presetId;
+    }
+  }
+
+  return null;
+}
+
 function getMapGenerationSettingsFromInputs() {
   return normalizeMapGenerationSettings({
     water: mapGenerationWaterInput?.value,
     forest: mapGenerationForestInput?.value,
     mountain: mapGenerationMountainInput?.value,
     food: mapGenerationFoodInput?.value,
+  });
+}
+
+function getMapGenerationSizeFromInputs() {
+  return normalizeMapGenerationSize({
+    width: mapGenerationWidthInput?.value,
+    height: mapGenerationHeightInput?.value,
   });
 }
 
@@ -5604,11 +5744,19 @@ function updateMapGenerationPanelValueReadouts(settings = getMapGenerationSettin
 
 function updateMapGenerationPanelText() {
   const targetMode = mapGenerationPanelState?.targetMode || interactionModes.play;
-  const subtitle = targetMode === interactionModes.edit
-    ? strings.mapGeneration.subtitleEdit
-    : strings.mapGeneration.subtitlePlay;
+  const isEmptyMap = mapGenerationPanelState?.generationKind === "empty";
+  const subtitle = isEmptyMap
+    ? strings.mapGeneration.subtitleEmptyEdit
+    : targetMode === interactionModes.edit
+      ? strings.mapGeneration.subtitleEdit
+      : strings.mapGeneration.subtitlePlay;
+  const title = isEmptyMap ? strings.mapGeneration.emptyTitle : strings.mapGeneration.title;
 
+  setTextContent(mapGenerationTitleElements, title);
   setTextContent(mapGenerationSubtitleElements, subtitle);
+  for (const group of mapGenerationRandomFieldGroups) {
+    group.hidden = isEmptyMap;
+  }
   updateMapGenerationPanelValueReadouts();
 }
 
@@ -5634,6 +5782,23 @@ function syncMapGenerationPanelInputs(settings = mapGenerationSettings) {
   updateMapGenerationPanelValueReadouts(normalizedSettings);
 }
 
+function syncMapGenerationSizeInputs(size = mapGenerationSize) {
+  const normalizedSize = normalizeMapGenerationSize(size);
+  const presetId = getMapGenerationSizePresetId(normalizedSize);
+
+  if (mapGenerationWidthInput) {
+    mapGenerationWidthInput.value = String(normalizedSize.width);
+  }
+
+  if (mapGenerationHeightInput) {
+    mapGenerationHeightInput.value = String(normalizedSize.height);
+  }
+
+  for (const input of mapGenerationSizePresetInputs) {
+    input.checked = input.value === presetId;
+  }
+}
+
 function closeMapGenerationPanel({ restoreFocus = false } = {}) {
   if (mapGenerationOverlay) {
     mapGenerationOverlay.hidden = true;
@@ -5646,10 +5811,15 @@ function closeMapGenerationPanel({ restoreFocus = false } = {}) {
   mapGenerationPanelState = null;
 }
 
-function openMapGenerationPanel({ targetMode = interactionModes.play, returnFocusButton = null } = {}) {
+function openMapGenerationPanel({
+  targetMode = interactionModes.play,
+  returnFocusButton = null,
+  generationKind = "random",
+} = {}) {
   mapGenerationPanelState = {
     targetMode,
     returnFocusButton,
+    generationKind: generationKind === "empty" ? "empty" : "random",
   };
 
   if (mapGenerationOverlay) {
@@ -5657,9 +5827,10 @@ function openMapGenerationPanel({ targetMode = interactionModes.play, returnFocu
   }
 
   syncMapGenerationPanelInputs(mapGenerationSettings);
+  syncMapGenerationSizeInputs(mapGenerationSize);
   updateMapGenerationPanelText();
   requestAnimationFrame(() => {
-    mapGenerationWaterInput?.focus({ preventScroll: true });
+    mapGenerationWidthInput?.focus({ preventScroll: true });
   });
 }
 
@@ -5669,20 +5840,25 @@ async function commitMapGenerationPanel() {
   }
 
   const targetMode = mapGenerationPanelState.targetMode || interactionModes.play;
+  const buildCells = mapGenerationPanelState.generationKind === "empty"
+    ? buildEmptyMapCells
+    : buildGeneratedMapCells;
   const nextSettings = getMapGenerationSettingsFromInputs();
+  const nextSize = getMapGenerationSizeFromInputs();
 
   mapGenerationSettings = nextSettings;
+  mapGenerationSize = nextSize;
   closeMapGenerationPanel();
 
   if (targetMode === interactionModes.play) {
     await runMainMenuLoadingAction(async () => {
       await ensureVisualAssetsLoaded();
-      startNewGeneratedState(targetMode, buildGeneratedMapCells, nextSettings);
+      startNewGeneratedState(targetMode, buildCells, nextSettings, nextSize);
     });
     return true;
   }
 
-  startNewGeneratedState(targetMode, buildGeneratedMapCells, nextSettings);
+  startNewGeneratedState(targetMode, buildCells, nextSettings, nextSize);
   return true;
 }
 
@@ -5703,10 +5879,10 @@ function getBookPageNumberById(pageId) {
   return index >= 0 ? index + 1 : null;
 }
 
-function renderSaveSlotList() {
-  if (!saveSlotList || !saveSlotEmpty) return;
+async function renderSaveSlotList() {
+  if (!saveSlotList || !saveSlotEmpty) return [];
 
-  const saveEntries = getSaveSlotEntries();
+  const saveEntries = await getSaveSlotEntries();
   saveSlotList.replaceChildren();
   saveSlotEmpty.hidden = saveEntries.length > 0;
 
@@ -5715,7 +5891,7 @@ function renderSaveSlotList() {
     const isSelected = slotPanelState?.value === entry.name;
     const nameSpan = document.createElement("span");
     const metaSpan = document.createElement("span");
-    let metaText = "";
+    const metaParts = [];
 
     button.type = "button";
     button.className = "slot-panel-item";
@@ -5724,19 +5900,19 @@ function renderSaveSlotList() {
     metaSpan.className = "slot-panel-item-meta";
 
     if (!entry.isValidJson) {
-      metaText = strings.saveSlots.invalidTag;
+      metaParts.push(strings.saveSlots.invalidTag);
     } else if (!entry.isCompatible) {
-      metaText = strings.saveSlots.obsoleteTag;
+      metaParts.push(strings.saveSlots.obsoleteTag);
     }
 
-    metaSpan.textContent = metaText;
+    metaSpan.textContent = metaParts.join(" · ");
     button.dataset.slotName = entry.name;
     button.classList.toggle("is-selected", isSelected);
     button.setAttribute("role", "option");
     button.setAttribute("aria-selected", isSelected ? "true" : "false");
     button.append(nameSpan);
 
-    if (metaText) {
+    if (metaParts.length > 0) {
       button.append(metaSpan);
     }
 
@@ -5744,14 +5920,15 @@ function renderSaveSlotList() {
   }
 
   updateSaveSlotPanelActionStates(saveEntries);
+  return saveEntries;
 }
 
-function hasSaveSlotEntry(fileName, entries = getSaveSlotEntries()) {
+function hasSaveSlotEntry(fileName, entries = []) {
   const normalizedName = sanitizeFileName(fileName);
   return Boolean(normalizedName) && entries.some((entry) => entry.name === normalizedName);
 }
 
-function updateSaveSlotPanelActionStates(saveEntries = getSaveSlotEntries()) {
+function updateSaveSlotPanelActionStates(saveEntries = []) {
   const selectedName = sanitizeFileName(slotPanelState?.value || saveSlotInput?.value || "");
   const canDelete = Boolean(slotPanelState && slotPanelState.mode === "export" && hasSaveSlotEntry(selectedName, saveEntries));
 
@@ -5761,7 +5938,7 @@ function updateSaveSlotPanelActionStates(saveEntries = getSaveSlotEntries()) {
   }
 }
 
-function updateSaveSlotPanel() {
+async function updateSaveSlotPanel() {
   if (!slotPanelState || !saveSlotOverlay || !saveSlotTitle || !saveSlotInput) return;
 
   if (slotPanelState.mode === "load") {
@@ -5780,7 +5957,7 @@ function updateSaveSlotPanel() {
   }
 
   saveSlotInput.value = slotPanelState.value || "";
-  renderSaveSlotList();
+  await renderSaveSlotList();
 }
 
 function clearCurrentFileNameReferences(fileName) {
@@ -5797,7 +5974,7 @@ function clearCurrentFileNameReferences(fileName) {
   }
 }
 
-function deleteSaveFile(fileName) {
+async function deleteSaveFile(fileName) {
   const normalizedName = sanitizeFileName(fileName);
 
   if (!normalizedName) {
@@ -5805,7 +5982,9 @@ function deleteSaveFile(fileName) {
     return false;
   }
 
-  if (!hasSaveSlotEntry(normalizedName)) {
+  const saveEntries = await getSaveSlotEntries();
+
+  if (!hasSaveSlotEntry(normalizedName, saveEntries)) {
     window.alert(strings.messages.saveNotFound(normalizedName));
     return false;
   }
@@ -5815,7 +5994,14 @@ function deleteSaveFile(fileName) {
   }
 
   try {
-    window.localStorage.removeItem(getSaveFileKey(normalizedName));
+    if (!(await deleteIndexedDbSaveRecord(normalizedName))) {
+      throw new Error(`Could not delete IndexedDB save record ${normalizedName}.`);
+    }
+
+    if (await readRawSaveFile(normalizedName)) {
+      throw new Error(`Save slot ${normalizedName} still exists after delete attempt.`);
+    }
+
     clearCurrentFileNameReferences(normalizedName);
 
     if (slotPanelState?.value === normalizedName) {
@@ -5825,7 +6011,7 @@ function deleteSaveFile(fileName) {
       }
     }
 
-    renderSaveSlotList();
+    await renderSaveSlotList();
     updatePersistenceControls();
     return true;
   } catch (error) {
@@ -5850,7 +6036,7 @@ function openSaveSlotPanel(mode, { targetMode = interactionMode, initialValue = 
     saveSlotOverlay.hidden = false;
   }
 
-  updateSaveSlotPanel();
+  void updateSaveSlotPanel();
   requestAnimationFrame(() => {
     saveSlotInput?.focus({ preventScroll: true });
     saveSlotInput?.select();
@@ -5872,7 +6058,9 @@ async function commitSaveSlotPanel() {
   }
 
   if (slotPanelState.mode === "load") {
-    const existingState = readSaveFile(fileName);
+    const shouldRevealAfterLoad =
+      mainMenuOpen && Object.values(interactionModes).includes(targetMode);
+    const existingState = await readSaveFile(fileName);
 
     if (!existingState) {
       window.alert(strings.messages.saveNotFound(fileName));
@@ -5886,20 +6074,24 @@ async function commitSaveSlotPanel() {
 
     await ensureVisualAssetsLoaded();
 
-    if ((mainMenuOpen || interactionMode !== targetMode) && Object.values(interactionModes).includes(targetMode)) {
-      setInteractionMode(targetMode);
+    if (!shouldRevealAfterLoad && (mainMenuOpen || interactionMode !== targetMode) && Object.values(interactionModes).includes(targetMode)) {
+      setInteractionMode(targetMode, { drawNow: false });
     }
 
-    if (!loadFileIntoMode(fileName, targetMode)) {
+    if (!(await loadFileIntoMode(fileName, targetMode))) {
       window.alert(strings.messages.obsoleteSave(fileName));
       return false;
+    }
+
+    if (shouldRevealAfterLoad) {
+      setInteractionMode(targetMode);
     }
   } else if (slotPanelState.mode === "export") {
     if (!(await exportSaveFile(fileName))) {
       return false;
     }
   } else {
-    if (!saveStateToFile(fileName, targetMode)) {
+    if (!(await saveStateToFile(fileName, targetMode))) {
       return false;
     }
   }
@@ -6358,42 +6550,39 @@ function reportSaveStorageWriteError(fileName, error, alertMode = "always") {
   window.alert(message);
 }
 
-function writeSaveFile(fileName, state, { alertMode = "always" } = {}) {
-  const storageKey = getSaveFileKey(fileName);
-
-  if (!storageKey) return false;
-
+async function writeSaveFile(fileName, state, { alertMode = "always" } = {}) {
   try {
-    window.localStorage.setItem(storageKey, JSON.stringify(state));
-    lastSaveStorageErrorSignature = null;
-    return true;
+    return await writeRawSaveFile(fileName, JSON.stringify(state), { alertMode });
   } catch (error) {
     reportSaveStorageWriteError(fileName, error, alertMode);
     return false;
   }
 }
 
-function writeRawSaveFile(fileName, rawContents, { alertMode = "always" } = {}) {
-  const storageKey = getSaveFileKey(fileName);
+async function writeRawSaveFile(fileName, rawContents, { alertMode = "always" } = {}) {
+  const normalizedName = sanitizeFileName(fileName);
 
-  if (!storageKey || typeof rawContents !== "string") return false;
+  if (!normalizedName || typeof rawContents !== "string") return false;
 
   try {
-    window.localStorage.setItem(storageKey, rawContents);
+    if (!(await putIndexedDbSaveRecord(normalizedName, rawContents))) {
+      throw new Error("Save database is unavailable.");
+    }
+
     lastSaveStorageErrorSignature = null;
     return true;
   } catch (error) {
-    reportSaveStorageWriteError(fileName, error, alertMode);
+    reportSaveStorageWriteError(normalizedName, error, alertMode);
     return false;
   }
 }
 
-function saveStateToFile(fileName, mode = interactionMode, { alertMode = "always" } = {}) {
+async function saveStateToFile(fileName, mode = interactionMode, { alertMode = "always" } = {}) {
   const normalizedName = sanitizeFileName(fileName);
 
   if (!normalizedName) return false;
 
-  const didSave = writeSaveFile(normalizedName, serializeCurrentState(), { alertMode });
+  const didSave = await writeSaveFile(normalizedName, serializeCurrentState(), { alertMode });
 
   if (!didSave) return false;
 
@@ -6405,13 +6594,9 @@ function saveStateToFile(fileName, mode = interactionMode, { alertMode = "always
   return true;
 }
 
-function readSaveFile(fileName) {
-  const storageKey = getSaveFileKey(fileName);
-
-  if (!storageKey) return null;
-
+async function readSaveFile(fileName) {
   try {
-    const raw = window.localStorage.getItem(storageKey);
+    const raw = await readRawSaveFile(fileName);
 
     if (!raw) return null;
     return JSON.parse(raw);
@@ -6421,18 +6606,18 @@ function readSaveFile(fileName) {
   }
 }
 
-function readRawSaveFile(fileName) {
-  const storageKey = getSaveFileKey(fileName);
+async function readRawSaveFile(fileName) {
+  const normalizedName = sanitizeFileName(fileName);
 
-  if (!storageKey) return null;
+  if (!normalizedName) return null;
 
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    return typeof raw === "string" ? raw : null;
-  } catch (error) {
-    console.warn(`Could not load raw save file ${fileName}.`, error);
-    return null;
+  const indexedRecord = await getIndexedDbSaveRecord(normalizedName);
+
+  if (typeof indexedRecord?.raw === "string") {
+    return indexedRecord.raw;
   }
+
+  return null;
 }
 
 function isCompatibleSaveState(state) {
@@ -6525,7 +6710,7 @@ async function saveTextFileToDisk(fileName, rawContents) {
 }
 
 async function exportSaveFile(fileName) {
-  const raw = readRawSaveFile(fileName);
+  const raw = await readRawSaveFile(fileName);
 
   if (!raw) {
     window.alert(strings.messages.saveNotFound(fileName));
@@ -6586,7 +6771,7 @@ async function importSaveIntoSlot(fileName) {
     return false;
   }
 
-  if (!writeRawSaveFile(normalizedName, JSON.stringify(parsed))) {
+  if (!(await writeRawSaveFile(normalizedName, JSON.stringify(parsed)))) {
     return false;
   }
 
@@ -6595,7 +6780,7 @@ async function importSaveIntoSlot(fileName) {
     saveSlotInput.value = normalizedName;
   }
 
-  renderSaveSlotList();
+  await renderSaveSlotList();
   updatePersistenceControls();
   return true;
 }
@@ -6677,6 +6862,7 @@ function clearGeneratedCellFood(cell) {
   cell.foodType = null;
   cell.foodCapacity = 0;
   cell.foodAmount = 0;
+  syncFoodResourceCellIndexForCell(cell);
   return true;
 }
 
@@ -6701,6 +6887,7 @@ function setGeneratedFoodResource(cell, foodType, { amount = null, capacity = nu
   cell.foodAmount = amount === null
     ? maxAmount
     : clampNonNegativeNumber(amount, maxAmount, maxAmount);
+  syncFoodResourceCellIndexForCell(cell);
   return true;
 }
 
@@ -7655,12 +7842,8 @@ function markCellVisitedByUnit(cell, { invalidate = true } = {}) {
     return false;
   }
 
-  let changed = false;
-
-  if (!cell.visited) {
-    cell.visited = true;
-    changed = true;
-  }
+  let changed = markCellVisited(cell, { invalidate: false });
+  let didTouchPathIndex = false;
 
   if (cell.type === "grass" && !doesSeasonSuppressPathEffects(cell)) {
     const nextVisitsCount = Math.min(
@@ -7671,14 +7854,19 @@ function markCellVisitedByUnit(cell, { invalidate = true } = {}) {
     if (nextVisitsCount !== getCellVisitsCount(cell)) {
       cell.visitsCount = nextVisitsCount;
       changed = true;
+      didTouchPathIndex = syncPathRenderableCellIndexForCell(cell) || didTouchPathIndex;
     }
   }
 
-  if (changed && invalidate) {
+  if (!didTouchPathIndex && changed && cell.type === "grass") {
+    syncPathRenderableCellIndexForCell(cell);
+  }
+
+  if ((changed || didTouchPathIndex) && invalidate) {
     invalidateStaticLayer();
   }
 
-  return changed;
+  return changed || didTouchPathIndex;
 }
 
 function createDefaultBuildingsState(cells, width, height, units) {
@@ -7726,9 +7914,11 @@ function createGeneratedState(
   mode,
   buildCells = buildGeneratedMapCells,
   generationSettings = mapGenerationSettings,
+  generationSize = defaultMapGenerationSize,
 ) {
-  const width = defaultMapConfig.width;
-  const height = defaultMapConfig.height;
+  const normalizedSize = normalizeMapGenerationSize(generationSize);
+  const width = normalizedSize.width;
+  const height = normalizedSize.height;
   const cells = buildCells(width, height, generationSettings);
   const centerCell = getGeneratedVillageCenterCell(cells, width, height);
   const defaultBuildings = createDefaultBuildingsState(cells, width, height, []);
@@ -7771,7 +7961,7 @@ function createGeneratedState(
 }
 
 function createDefaultState(mode) {
-  return createGeneratedState(mode, buildGeneratedMapCells);
+  return createGeneratedState(mode, buildGeneratedMapCells, defaultMapGenerationSettings, defaultMapGenerationSize);
 }
 
 function applySeasonStateToCell(cell) {
@@ -8102,25 +8292,18 @@ function normalizeMapState(rawMap) {
 }
 
 function findNearestPassableCellInCells(cells, width, height, startX, startY) {
-  let best = null;
-  let bestDistance = Number.POSITIVE_INFINITY;
+  const startCell = getCellInCells(cells, width, height, startX, startY);
 
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const cell = cells[y]?.[x];
-
-      if (!getUnitCellPassabilityState(cell).terrainOrStructurePassable) continue;
-
-      const cellDistance = distance(x, y, startX, startY);
-
-      if (cellDistance >= bestDistance) continue;
-
-      best = cell;
-      bestDistance = cellDistance;
-    }
+  if (!startCell) {
+    return null;
   }
 
-  return best;
+  return findNearestMatchingCellByAdjacency(startCell, {
+    getNeighbors: (cell) => getGeneratedAdjacentCells(cells, width, height, cell),
+    isMatch: (cell) => getUnitCellPassabilityState(cell).terrainOrStructurePassable,
+    getKey: getGeneratedCellKey,
+    score: (cell) => distance(cell.x, cell.y, startX, startY),
+  });
 }
 
 function normalizeDirection(direction) {
@@ -8582,6 +8765,9 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   map.width = nextMap.width;
   map.height = nextMap.height;
   map.cells = nextMap.cells;
+  rebuildVisibleCellIndex(map.cells);
+  rebuildFoodResourceCellIndex(map.cells);
+  rebuildPathRenderableCellIndex(map.cells);
   buildings = normalizeConstructiblesState("building", nextState.buildings, { requireArray: true });
   vehicles = normalizeConstructiblesState("vehicle", nextState.vehicles);
   units = normalizeUnitsState(nextState.units, mode);
@@ -8617,12 +8803,12 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   });
 }
 
-function loadFileIntoMode(fileName, mode, options) {
+async function loadFileIntoMode(fileName, mode, options) {
   const normalizedName = sanitizeFileName(fileName);
 
   if (!normalizedName) return false;
 
-  const state = readSaveFile(normalizedName);
+  const state = await readSaveFile(normalizedName);
 
   if (!state) return false;
   if (!isCompatibleSaveState(state)) {
@@ -8630,17 +8816,21 @@ function loadFileIntoMode(fileName, mode, options) {
     return false;
   }
 
+  const previousFileName = getCurrentFileName(mode);
+
   try {
-    applyStateSnapshot(state, mode, options);
     writeCurrentFileName(mode, normalizedName);
+    applyStateSnapshot(state, mode, options);
     return true;
   } catch (error) {
+    writeCurrentFileName(mode, previousFileName);
+    updatePersistenceControls();
     console.warn(`Could not apply save slot ${normalizedName}.`, error);
     return false;
   }
 }
 
-function loadCurrentFileForMode(mode, options) {
+async function loadCurrentFileForMode(mode, options) {
   const currentFileName = getCurrentFileName(mode);
 
   if (!currentFileName) {
@@ -8648,7 +8838,7 @@ function loadCurrentFileForMode(mode, options) {
     return false;
   }
 
-  if (loadFileIntoMode(currentFileName, mode, options)) {
+  if (await loadFileIntoMode(currentFileName, mode, options)) {
     return true;
   }
 
@@ -8681,7 +8871,7 @@ function saveState(mode = interactionMode) {
   return saveStateToFile(currentFileName, mode);
 }
 
-function autosavePlayState() {
+async function autosavePlayState() {
   return saveStateToFile(autosaveSlotName, interactionModes.play, { alertMode: "once" });
 }
 
@@ -9152,9 +9342,7 @@ function queueBuildHouseUnitAction({ currentUnit = getSelectedUnit(), destinatio
 
   const cell = getCell(destinationCell.x, destinationCell.y);
 
-  if (cell && !cell.visited) {
-    cell.visited = true;
-  }
+  markCellVisited(cell, { invalidate: false });
 
   if (targetMode?.mode === "new") {
     addSituationMessage("houseStarted");
@@ -9335,9 +9523,7 @@ function exhaustFoodResource(cell) {
 
   const wasFishOnWater = cell.type === "water" && cell.foodType === "fish";
 
-  cell.foodType = null;
-  cell.foodCapacity = 0;
-  cell.foodAmount = 0;
+  clearGeneratedCellFood(cell);
 
   if (wasFishOnWater) {
     cell.variant = "water_02";
@@ -9427,9 +9613,10 @@ function resolvePlantTask(currentUnit) {
   }
 
   if (!targetCell.foodType) {
-    targetCell.foodType = plantedFoodType;
-    targetCell.foodCapacity = plantedFoodCapacity;
-    targetCell.foodAmount = 0;
+    setGeneratedFoodResource(targetCell, plantedFoodType, {
+      amount: 0,
+      capacity: plantedFoodCapacity,
+    });
   }
 
   targetCell.foodAmount = clamp(
@@ -9438,7 +9625,7 @@ function resolvePlantTask(currentUnit) {
     getCellFoodMaxAmount(targetCell),
   );
   applySeasonStateToCell(targetCell);
-  targetCell.visited = true;
+  markCellVisited(targetCell, { invalidate: false });
   turnReplayHadWork = true;
   currentUnit.stamina = 0;
   invalidateStaticLayer();
@@ -9806,26 +9993,20 @@ function resetUnitsForTurn() {
 function regrowFoodResourcesForTurn() {
   let didChange = false;
 
-  for (const row of map.cells) {
-    for (const cell of row) {
-      if (!hasFoodResource(cell)) {
-        continue;
-      }
+  for (const cell of foodResourceCells.values()) {
+    const maxAmount = getCellFoodMaxAmount(cell);
+    const currentAmount = clampNumber(Number(cell.foodAmount), 0, maxAmount, 0);
+    const regrowthRate = getFoodTypeRegrowthRate(cell.foodType);
 
-      const maxAmount = getCellFoodMaxAmount(cell);
-      const currentAmount = clampNumber(Number(cell.foodAmount), 0, maxAmount, 0);
-      const regrowthRate = getFoodTypeRegrowthRate(cell.foodType);
+    if (maxAmount <= 0 || currentAmount <= 0 || regrowthRate <= 0 || doesSeasonDisableLandFoodRegrowth(cell)) {
+      continue;
+    }
 
-      if (maxAmount <= 0 || currentAmount <= 0 || regrowthRate <= 0 || doesSeasonDisableLandFoodRegrowth(cell)) {
-        continue;
-      }
+    const nextAmount = clamp(currentAmount * (1 + regrowthRate), 0, maxAmount);
 
-      const nextAmount = clamp(currentAmount * (1 + regrowthRate), 0, maxAmount);
-
-      if (nextAmount !== cell.foodAmount) {
-        cell.foodAmount = nextAmount;
-        didChange = true;
-      }
+    if (nextAmount !== cell.foodAmount) {
+      cell.foodAmount = nextAmount;
+      didChange = true;
     }
   }
 
@@ -10188,7 +10369,7 @@ function resolveTurn() {
   applyVillageEconomyForTurn();
   turnReplayFinalStates = captureReplayUnitStates();
   turnReplayVehicleFinalStates = captureReplayVehicleStates();
-  autosavePlayState();
+  void autosavePlayState();
 }
 
 function updateBuildingsForTurn() {
@@ -10507,6 +10688,7 @@ function initializeCellResources(cell, { rollFood = true } = {}) {
     }
   }
 
+  syncFoodResourceCellIndexForCell(cell);
   return cell;
 }
 
@@ -10523,12 +10705,14 @@ function syncCellResourcesWithVariant(cell, { seedOnWater01 = false } = {}) {
       cell.foodCapacity = getFoodTypeMaxAmount("fish");
       cell.foodAmount = cell.foodCapacity;
     }
+    syncFoodResourceCellIndexForCell(cell);
     return;
   }
 
   cell.foodType = null;
   cell.foodCapacity = 0;
   cell.foodAmount = 0;
+  syncFoodResourceCellIndexForCell(cell);
 }
 
 function createCell(x, y, type) {
@@ -10552,6 +10736,7 @@ function setCellTerrain(cell, type, { rollFood = true } = {}) {
     cell.variant = chooseTerrainVariant(type);
     cell.visitsCount = 0;
     initializeCellResources(cell, { rollFood });
+    syncPathRenderableCellIndexForCell(cell);
     invalidateStaticLayer();
     return;
   }
@@ -10994,6 +11179,9 @@ function spawnUnitFromHouse(building, unitTypeId = getNextHouseSpawnUnitTypeId()
 
 function makeMap() {
   map.cells = buildGeneratedMapCells(map.width, map.height);
+  rebuildVisibleCellIndex(map.cells);
+  rebuildFoodResourceCellIndex(map.cells);
+  rebuildPathRenderableCellIndex(map.cells);
   setTextContent(mapSizeReadouts, strings.readouts.mapSize(map.width, map.height));
   invalidateStaticLayer();
 }
@@ -11012,25 +11200,18 @@ function initializeUnit() {
 }
 
 function findNearestPassableCell(startX, startY, currentUnit = null, occupiedKeys = null) {
-  let best = null;
-  let bestDistance = Number.POSITIVE_INFINITY;
+  const startCell = getCell(startX, startY);
 
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      const cell = getCell(x, y);
-
-      if (!canUnitEnter(cell, currentUnit, occupiedKeys)) continue;
-
-      const cellDistance = distance(x, y, startX, startY);
-
-      if (cellDistance >= bestDistance) continue;
-
-      best = cell;
-      bestDistance = cellDistance;
-    }
+  if (!startCell) {
+    return null;
   }
 
-  return best;
+  return findNearestMatchingCellByAdjacency(startCell, {
+    getNeighbors: getAdjacentCells,
+    isMatch: (cell) => canUnitEnter(cell, currentUnit, occupiedKeys),
+    getKey: (cell) => createCellKey(cell.x, cell.y),
+    score: (cell) => distance(cell.x, cell.y, startX, startY),
+  });
 }
 
 function canUnitEnter(cell, currentUnit = null, occupiedKeys = null) {
@@ -11176,6 +11357,17 @@ function dismountUnit(currentUnit = getSelectedUnit(), destinationCell = null) {
 function updateUnitReadout() {
   const selectedUnit = getSelectedUnit();
   const displayedUnit = selectedUnit || unit;
+  const setCenterButtonState = (currentUnit = null, unitName = "") => {
+    const label = unitName
+      ? `${strings.actions.centerUnitOnMap}: ${unitName}`
+      : strings.actions.centerUnitOnMap;
+
+    for (const button of centerUnitOnMapButtons) {
+      button.disabled = !currentUnit;
+      button.setAttribute("aria-label", label);
+      button.title = label;
+    }
+  };
   const setCancelButtonState = (visible, disabled = false) => {
     for (const button of cancelUnitTaskButtons) {
       button.hidden = !visible;
@@ -11236,6 +11428,7 @@ function updateUnitReadout() {
 
   if (!displayedUnit) {
     setUnitTitle(strings.readouts.unitTitleNone);
+    setCenterButtonState(null);
     updateUnitBookPageButtons(null);
     hideTaskRow();
     updateTileInspectorReadout();
@@ -11245,6 +11438,7 @@ function updateUnitReadout() {
 
   if (!selectedUnit && getUnits().length > 1) {
     setUnitTitle(strings.readouts.unitTitleNone);
+    setCenterButtonState(null);
     updateUnitBookPageButtons(null);
     hideTaskRow();
     updateTileInspectorReadout();
@@ -11254,6 +11448,7 @@ function updateUnitReadout() {
 
   const unitName = normalizeUnitName(displayedUnit.name);
   setUnitTitle(unitName);
+  setCenterButtonState(displayedUnit, unitName);
   updateUnitBookPageButtons(displayedUnit, unitName);
 
   if (displayedUnit.move) {
@@ -11473,7 +11668,7 @@ function openMainMenu() {
   draw();
 }
 
-function setInteractionMode(nextMode) {
+function setInteractionMode(nextMode, { drawNow = true } = {}) {
   if (!Object.values(interactionModes).includes(nextMode)) return;
 
   const didChange = interactionMode !== nextMode || mainMenuOpen;
@@ -11489,7 +11684,7 @@ function setInteractionMode(nextMode) {
   closeBookOverlay({ restoreState: false });
   clearEditHoverState();
   clearUnitSelection();
-  refreshAfterModeStateTransition({ drawNow: didChange });
+  refreshAfterModeStateTransition({ drawNow: drawNow && didChange });
 }
 
 function schedulePostModeActivationLayoutRefresh(expectedMode) {
@@ -11503,9 +11698,19 @@ function schedulePostModeActivationLayoutRefresh(expectedMode) {
   });
 }
 
-function activateMode(nextMode) {
-  setInteractionMode(nextMode);
-  loadCurrentFileForMode(nextMode);
+async function activateMode(nextMode) {
+  const shouldRevealAfterLoad = mainMenuOpen;
+
+  if (!shouldRevealAfterLoad) {
+    setInteractionMode(nextMode, { drawNow: false });
+  }
+
+  await loadCurrentFileForMode(nextMode);
+
+  if (shouldRevealAfterLoad) {
+    setInteractionMode(nextMode);
+  }
+
   schedulePostModeActivationLayoutRefresh(nextMode);
 }
 
@@ -11513,14 +11718,15 @@ function startNewGeneratedState(
   mode,
   buildCells = buildGeneratedMapCells,
   generationSettings = mapGenerationSettings,
+  generationSize = mapGenerationSize,
 ) {
   if (!mode) return false;
 
   setInteractionMode(mode);
-  applyStateSnapshot(createGeneratedState(mode, buildCells, generationSettings), mode);
+  applyStateSnapshot(createGeneratedState(mode, buildCells, generationSettings, generationSize), mode);
 
   if (mode === interactionModes.play) {
-    saveStateToFile(autosaveSlotName, interactionModes.play, { alertMode: "once" });
+    void saveStateToFile(autosaveSlotName, interactionModes.play, { alertMode: "once" });
     return true;
   }
 
@@ -11653,9 +11859,25 @@ function getUnitTargetStyle() {
 }
 
 function isCellVisibleToPlayer(cell) {
-  if (!cell) return false;
-  if (!isPlayMode()) return true;
-  if (cell.visited) return true;
+  if (!cell) {
+    return false;
+  }
+
+  if (!isPlayMode()) {
+    return true;
+  }
+
+  return visibleCellKeys.has(createCellKey(cell.x, cell.y));
+}
+
+function isCellVisibleByExploration(cell) {
+  if (!cell) {
+    return false;
+  }
+
+  if (cell.visited) {
+    return true;
+  }
 
   for (const direction of getMovementDirections()) {
     const neighbor = getNeighborByDirection(cell, direction);
@@ -11666,6 +11888,153 @@ function isCellVisibleToPlayer(cell) {
   }
 
   return false;
+}
+
+function resetVisibleCellIndex(rowCount = map.height) {
+  visibleCellKeys = new Set();
+  visibleCellsByRow = Array.from(
+    { length: Math.max(0, clampInteger(rowCount, 0, 999999, 0)) },
+    () => [],
+  );
+}
+
+function addVisibleCellToIndex(cell) {
+  if (!cell) {
+    return false;
+  }
+
+  const key = createCellKey(cell.x, cell.y);
+
+  if (visibleCellKeys.has(key)) {
+    return false;
+  }
+
+  visibleCellKeys.add(key);
+
+  if (!Array.isArray(visibleCellsByRow[cell.y])) {
+    visibleCellsByRow[cell.y] = [];
+  }
+
+  const row = visibleCellsByRow[cell.y];
+  let insertIndex = row.length;
+
+  while (insertIndex > 0 && row[insertIndex - 1].x > cell.x) {
+    insertIndex -= 1;
+  }
+
+  row.splice(insertIndex, 0, cell);
+  return true;
+}
+
+function syncVisibleCellIndexForVisibleCell(cell) {
+  if (!isCellVisibleByExploration(cell)) {
+    return false;
+  }
+
+  return addVisibleCellToIndex(cell);
+}
+
+function syncVisibleCellIndexForVisitedCell(cell) {
+  if (!cell?.visited) {
+    return false;
+  }
+
+  let changed = syncVisibleCellIndexForVisibleCell(cell);
+
+  for (const direction of getMovementDirections()) {
+    if (syncVisibleCellIndexForVisibleCell(getNeighborByDirection(cell, direction))) {
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+function rebuildVisibleCellIndex(cells = map.cells) {
+  const rowCount = Array.isArray(cells) ? cells.length : map.height;
+  resetVisibleCellIndex(rowCount);
+
+  if (!Array.isArray(cells)) {
+    return visibleCellsByRow;
+  }
+
+  for (const row of cells) {
+    if (!Array.isArray(row)) {
+      continue;
+    }
+
+    for (const cell of row) {
+      if (isCellVisibleByExploration(cell)) {
+        addVisibleCellToIndex(cell);
+      }
+    }
+  }
+
+  return visibleCellsByRow;
+}
+
+function isCurrentMapCellInstance(cell) {
+  return Boolean(cell) && getCell(cell.x, cell.y) === cell;
+}
+
+function syncFoodResourceCellIndexForCell(cell) {
+  if (!isCurrentMapCellInstance(cell)) {
+    return false;
+  }
+
+  const key = createCellKey(cell.x, cell.y);
+  const shouldTrack = hasFoodResource(cell);
+  const hadEntry = foodResourceCells.has(key);
+  const previousCell = hadEntry ? foodResourceCells.get(key) : null;
+
+  if (shouldTrack) {
+    foodResourceCells.set(key, cell);
+    return !hadEntry || previousCell !== cell;
+  }
+
+  if (hadEntry) {
+    foodResourceCells.delete(key);
+    return true;
+  }
+
+  return false;
+}
+
+function rebuildFoodResourceCellIndex(cells = map.cells) {
+  foodResourceCells = new Map();
+
+  if (!Array.isArray(cells)) {
+    return foodResourceCells;
+  }
+
+  for (const row of cells) {
+    if (!Array.isArray(row)) {
+      continue;
+    }
+
+    for (const cell of row) {
+      if (hasFoodResource(cell)) {
+        foodResourceCells.set(createCellKey(cell.x, cell.y), cell);
+      }
+    }
+  }
+
+  return foodResourceCells;
+}
+
+function markCellVisited(cell, { invalidate = true } = {}) {
+  if (!cell || cell.visited) {
+    return false;
+  }
+
+  cell.visited = true;
+  syncVisibleCellIndexForVisitedCell(cell);
+
+  if (invalidate) {
+    invalidateStaticLayer();
+  }
+
+  return true;
 }
 
 function getNeighborByDirection(cell, direction) {
@@ -11698,6 +12067,78 @@ function getAdjacentCells(cell) {
   }
 
   return neighbors;
+}
+
+function findNearestMatchingCellByAdjacency(
+  startCell,
+  {
+    getNeighbors,
+    isMatch,
+    getKey,
+    score = null,
+  } = {},
+) {
+  if (!startCell || typeof getNeighbors !== "function" || typeof isMatch !== "function" || typeof getKey !== "function") {
+    return null;
+  }
+
+  let frontier = [startCell];
+  const visitedKeys = new Set([getKey(startCell)]);
+
+  while (frontier.length > 0) {
+    const matches = [];
+
+    for (const cell of frontier) {
+      if (isMatch(cell)) {
+        matches.push(cell);
+      }
+    }
+
+    if (matches.length > 0) {
+      if (matches.length === 1 || typeof score !== "function") {
+        return matches[0];
+      }
+
+      matches.sort((left, right) => {
+        const scoreDelta = score(left) - score(right);
+
+        if (scoreDelta !== 0) {
+          return scoreDelta;
+        }
+
+        if (left.y !== right.y) {
+          return left.y - right.y;
+        }
+
+        return left.x - right.x;
+      });
+
+      return matches[0];
+    }
+
+    const nextFrontier = [];
+
+    for (const cell of frontier) {
+      for (const neighbor of getNeighbors(cell)) {
+        if (!neighbor) {
+          continue;
+        }
+
+        const key = getKey(neighbor);
+
+        if (!key || visitedKeys.has(key)) {
+          continue;
+        }
+
+        visitedKeys.add(key);
+        nextFrontier.push(neighbor);
+      }
+    }
+
+    frontier = nextFrontier;
+  }
+
+  return null;
 }
 
 function areCellsAdjacent(fromX, fromY, toX, toY) {
@@ -11804,29 +12245,38 @@ function getFoundationPlacementCells(currentUnit = unit, constructible = getSele
     return [];
   }
 
-  const cells = [];
+  const originCell = getCell(currentUnit.x, currentUnit.y);
 
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      const cell = getCell(x, y);
+  if (!originCell) {
+    return [];
+  }
 
-      if (!cell) {
+  const candidates = [];
+  const seenKeys = new Set();
+
+  for (const adjacentCell of getAdjacentCells(originCell)) {
+    for (const candidateOrigin of getConstructibleCandidateOriginsForPlacementCellForKind(
+      constructible.kind,
+      adjacentCell,
+      constructible.type,
+    )) {
+      const key = createCellKey(candidateOrigin.x, candidateOrigin.y);
+
+      if (seenKeys.has(key)) {
         continue;
       }
 
-      if (!canPlaceNewConstructibleConstructionOnCell(cell, constructible, currentUnit)) {
+      seenKeys.add(key);
+
+      if (!canPlaceNewConstructibleConstructionOnCell(candidateOrigin, constructible, currentUnit)) {
         continue;
       }
 
-      if (!doesConstructiblePlacementTouchUnit(cell, constructible, currentUnit)) {
-        continue;
-      }
-
-      cells.push(cell);
+      candidates.push(candidateOrigin);
     }
   }
 
-  return cells;
+  return candidates;
 }
 
 function getHoveredFoundationPlacementCells(currentUnit = getSelectedUnit(), originCell = playHoverCell) {
@@ -13385,7 +13835,7 @@ function drawDiamondPath(cx, cy, lift = 0, drawContext = ctx) {
 }
 
 function drawTileOverlays(cell) {
-  if (!isCellVisibleToPlayer(cell)) {
+  if (!cell) {
     return;
   }
 
@@ -13394,11 +13844,17 @@ function drawTileOverlays(cell) {
 
   drawCellResourceOverlay(cell, screen, lift);
   drawFogBorders(cell, screen, lift);
-  recordTileHitArea(cell, screen, lift);
 }
 
-function recordTileHitArea(cell, screen, lift) {
-  drawList.push({
+function recordTileHitArea(cell) {
+  if (!cell) {
+    return;
+  }
+
+  const screen = isoToScreen(cell.x, cell.y);
+  const lift = 0;
+
+  tileHitAreas.push({
     cell,
     points: [
       { x: screen.x, y: screen.y - lift },
@@ -13440,488 +13896,6 @@ function drawTileOverlay(cell, style, drawContext = ctx) {
   drawContext.strokeStyle = style.strokeStyle;
   drawContext.lineWidth = style.lineWidth;
   drawContext.stroke();
-}
-
-function getTileTopCenter(screen, lift = 0) {
-  return {
-    x: screen.x,
-    y: screen.y + tile.height / 2 - lift,
-  };
-}
-
-function getPathCurveMiddleControlPoint(fromPoint, toPoint, direction) {
-  const midX = (fromPoint.x + toPoint.x) / 2;
-  const midY = (fromPoint.y + toPoint.y) / 2;
-  const bend = tile.width * 0.25;
-
-  switch (direction) {
-    case "east":
-      return { x: midX, y: midY - bend * 0.5 };
-    case "south":
-      return { x: midX + bend * 0.55, y: midY };
-    case "southEast":
-      return { x: midX + bend * 0.65, y: midY - bend * 0.3 };
-    case "southWest":
-      return { x: midX - bend * 0.65, y: midY - bend * 0.3 };
-    default:
-      return { x: midX, y: midY };
-  }
-}
-
-function drawPathNode(point, pathState) {
-  const isFull = pathState === "full";
-
-  if (!isFull) {
-    return;
-  }
-
-  ctx.beginPath();
-  ctx.arc(point.x, point.y, Math.max(3.4, tile.width * 0.06), 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(12, 11, 10, 0.92)";
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(point.x, point.y, Math.max(1.8, tile.width * 0.04), 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(254, 232, 111, 1)";
-  ctx.fill();
-}
-
-function drawPathIntersectionCap(point, pathState) {
-  const isFull = pathState === "full";
-
-  ctx.beginPath();
-  ctx.arc(point.x, point.y, Math.max(1.3, tile.width * 0.055), 0, Math.PI * 2);
-  ctx.fillStyle = isFull ? "rgba(254, 232, 111, 1)" : "rgba(151, 124, 82, 0.28)";
-  ctx.fill();
-}
-
-function getVisiblePathStateBetween(fromCell, toCell) {
-  if (!fromCell || !toCell || !isCellVisibleToPlayer(fromCell) || !isCellVisibleToPlayer(toCell)) {
-    return null;
-  }
-
-  return getPathStateBetween(fromCell, toCell);
-}
-
-function getPathCrossingDescriptorsAtCorner(cell, cornerDirection) {
-  switch (cornerDirection) {
-    case "north":
-      return {
-        vertical: {
-          fromCell: getCornerNeighbor(cell, "north"),
-          toCell: cell,
-          direction: "south",
-        },
-        horizontal: {
-          fromCell: getEdgeNeighbor(cell, "northWest"),
-          toCell: getEdgeNeighbor(cell, "northEast"),
-          direction: "east",
-        },
-      };
-    case "east":
-      return {
-        vertical: {
-          fromCell: getEdgeNeighbor(cell, "northEast"),
-          toCell: getEdgeNeighbor(cell, "southEast"),
-          direction: "south",
-        },
-        horizontal: {
-          fromCell: cell,
-          toCell: getCornerNeighbor(cell, "east"),
-          direction: "east",
-        },
-      };
-    case "south":
-      return {
-        vertical: {
-          fromCell: cell,
-          toCell: getCornerNeighbor(cell, "south"),
-          direction: "south",
-        },
-        horizontal: {
-          fromCell: getEdgeNeighbor(cell, "southWest"),
-          toCell: getEdgeNeighbor(cell, "southEast"),
-          direction: "east",
-        },
-      };
-    case "west":
-      return {
-        vertical: {
-          fromCell: getEdgeNeighbor(cell, "northWest"),
-          toCell: getEdgeNeighbor(cell, "southWest"),
-          direction: "south",
-        },
-        horizontal: {
-          fromCell: getCornerNeighbor(cell, "west"),
-          toCell: cell,
-          direction: "east",
-        },
-      };
-    default:
-      return null;
-  }
-}
-
-function getPathDescriptorState(descriptor) {
-  if (!descriptor) {
-    return null;
-  }
-
-  return getVisiblePathStateBetween(descriptor.fromCell, descriptor.toCell);
-}
-
-function getPathDescriptorPoints(descriptor) {
-  if (!descriptor?.fromCell || !descriptor?.toCell) {
-    return null;
-  }
-
-  return getQuarticBezierPathPoints(
-    getTileTopCenter(isoToScreen(descriptor.fromCell.x, descriptor.fromCell.y)),
-    getTileTopCenter(isoToScreen(descriptor.toCell.x, descriptor.toCell.y)),
-    descriptor.direction,
-  );
-}
-
-function getSegmentIntersectionPoint(aStart, aEnd, bStart, bEnd) {
-  const r = {
-    x: aEnd.x - aStart.x,
-    y: aEnd.y - aStart.y,
-  };
-  const s = {
-    x: bEnd.x - bStart.x,
-    y: bEnd.y - bStart.y,
-  };
-  const denominator = r.x * s.y - r.y * s.x;
-
-  if (Math.abs(denominator) < 0.0001) {
-    return null;
-  }
-
-  const startDelta = {
-    x: bStart.x - aStart.x,
-    y: bStart.y - aStart.y,
-  };
-  const u = (startDelta.x * r.y - startDelta.y * r.x) / denominator;
-  const t = (startDelta.x * s.y - startDelta.y * s.x) / denominator;
-
-  if (t < 0 || t > 1 || u < 0 || u > 1) {
-    return null;
-  }
-
-  return {
-    x: aStart.x + t * r.x,
-    y: aStart.y + t * r.y,
-  };
-}
-
-function findPolylineIntersectionPoint(firstPoints, secondPoints) {
-  if (!Array.isArray(firstPoints) || !Array.isArray(secondPoints)) {
-    return null;
-  }
-
-  for (let firstIndex = 0; firstIndex < firstPoints.length - 1; firstIndex += 1) {
-    for (let secondIndex = 0; secondIndex < secondPoints.length - 1; secondIndex += 1) {
-      const intersection = getSegmentIntersectionPoint(
-        firstPoints[firstIndex],
-        firstPoints[firstIndex + 1],
-        secondPoints[secondIndex],
-        secondPoints[secondIndex + 1],
-      );
-
-      if (intersection) {
-        return intersection;
-      }
-    }
-  }
-
-  return null;
-}
-
-function getPathCrossingAtCorner(cell, corner) {
-  const descriptors = getPathCrossingDescriptorsAtCorner(cell, corner.direction);
-
-  if (!descriptors) {
-    return null;
-  }
-
-  const verticalState = getPathDescriptorState(descriptors.vertical);
-  const horizontalState = getPathDescriptorState(descriptors.horizontal);
-
-  if (verticalState !== "full" || horizontalState !== "full") {
-    return null;
-  }
-
-  return {
-    pathState: "full",
-    point:
-      findPolylineIntersectionPoint(
-        getPathDescriptorPoints(descriptors.vertical),
-        getPathDescriptorPoints(descriptors.horizontal),
-      ) || corner.point,
-  };
-}
-
-function trimSegmentEndpoints(fromPoint, toPoint, trimDistance = 0) {
-  if (trimDistance <= 0) {
-    return { fromPoint, toPoint };
-  }
-
-  const segmentLength = Math.hypot(toPoint.x - fromPoint.x, toPoint.y - fromPoint.y);
-  const clampedTrim = Math.min(trimDistance, Math.max(0, segmentLength / 2 - 1));
-
-  if (clampedTrim <= 0) {
-    return { fromPoint, toPoint };
-  }
-
-  return {
-    fromPoint: pointOnSegment(fromPoint, toPoint, clampedTrim),
-    toPoint: pointOnSegment(toPoint, fromPoint, clampedTrim),
-  };
-}
-
-function getQuarticBezierPathPoints(fromPoint, toPoint, direction, trimDistance = 0) {
-  const trimmed = trimSegmentEndpoints(fromPoint, toPoint, trimDistance);
-  const start = trimmed.fromPoint;
-  const end = trimmed.toPoint;
-  const tangent = normalizeVector({
-    x: end.x - start.x,
-    y: end.y - start.y,
-  });
-  const segmentLength = Math.hypot(end.x - start.x, end.y - start.y);
-  const handleDistance = segmentLength * 0.24;
-  const controlPoint = getPathCurveMiddleControlPoint(start, end, direction);
-  const p1 = {
-    x: start.x + tangent.x * handleDistance,
-    y: start.y + tangent.y * handleDistance,
-  };
-  const p3 = {
-    x: end.x - tangent.x * handleDistance,
-    y: end.y - tangent.y * handleDistance,
-  };
-  const points = [];
-  const steps = Math.max(12, Math.round(segmentLength / Math.max(8, tile.width * 0.12)));
-
-  for (let index = 0; index <= steps; index += 1) {
-    const t = index / steps;
-    const inverse = 1 - t;
-    const weight0 = inverse ** 4;
-    const weight1 = 4 * inverse ** 3 * t;
-    const weight2 = 6 * inverse ** 2 * t ** 2;
-    const weight3 = 4 * inverse * t ** 3;
-    const weight4 = t ** 4;
-
-    points.push({
-      x:
-        weight0 * start.x +
-        weight1 * p1.x +
-        weight2 * controlPoint.x +
-        weight3 * p3.x +
-        weight4 * end.x,
-      y:
-        weight0 * start.y +
-        weight1 * p1.y +
-        weight2 * controlPoint.y +
-        weight3 * p3.y +
-        weight4 * end.y,
-    });
-  }
-
-  return points;
-}
-
-function strokePathSegment(fromPoint, toPoint, direction, style) {
-  const pathPoints = getQuarticBezierPathPoints(
-    fromPoint,
-    toPoint,
-    direction,
-    Number(style.trimDistance) || 0,
-  );
-
-  ctx.strokeStyle = style.strokeStyle;
-  ctx.lineWidth = style.lineWidth;
-  ctx.beginPath();
-  ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
-
-  for (let index = 1; index < pathPoints.length; index += 1) {
-    ctx.lineTo(pathPoints[index].x, pathPoints[index].y);
-  }
-
-  ctx.stroke();
-}
-
-function shouldRenderPathDirectionFromCell(cell, direction) {
-  const neighbor = getNeighborByDirection(cell, direction);
-
-  if (direction === "southEast") {
-    return !(
-      (
-        getPathStateBetween(cell, getCornerNeighbor(cell, "south")) &&
-        getPathStateBetween(cell, getCornerNeighbor(cell, "east"))
-      ) ||
-      (
-        neighbor &&
-        getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "north")) &&
-        getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "west"))
-      )
-    );
-  }
-
-  if (direction === "southWest") {
-    return !(
-      (
-        getPathStateBetween(cell, getCornerNeighbor(cell, "south")) &&
-        getPathStateBetween(cell, getCornerNeighbor(cell, "west"))
-      ) ||
-      (
-        neighbor &&
-        getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "north")) &&
-        getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "east"))
-      )
-    );
-  }
-
-  return true;
-}
-
-function drawPaths() {
-  const renderedDirections = ["east", "south", "southEast", "southWest"];
-  const nodeStates = new Map();
-  const nodeTouchCounts = new Map();
-  const crossingCaps = new Map();
-
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      const cell = map.cells[y][x];
-
-      if (!isCellVisibleToPlayer(cell)) {
-        continue;
-      }
-
-      for (const direction of renderedDirections) {
-        if (!shouldRenderPathDirectionFromCell(cell, direction)) {
-          continue;
-        }
-
-        const neighbor = getNeighborByDirection(cell, direction);
-        const pathState = getPathStateBetween(cell, neighbor);
-
-        if (!neighbor || !pathState || !isCellVisibleToPlayer(neighbor)) {
-          continue;
-        }
-
-        for (const endpointCell of [cell, neighbor]) {
-          const nodeKey = createCellKey(endpointCell.x, endpointCell.y);
-          const currentNodeState = nodeStates.get(nodeKey) || null;
-          const currentTouchCount = nodeTouchCounts.get(nodeKey) || 0;
-
-          nodeTouchCounts.set(nodeKey, currentTouchCount + 1);
-
-          if (pathState === "full" || !currentNodeState) {
-            nodeStates.set(nodeKey, pathState);
-          }
-        }
-      }
-    }
-  }
-
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      const cell = map.cells[y][x];
-      const nodeState = nodeStates.get(createCellKey(cell.x, cell.y));
-      const touchCount = nodeTouchCounts.get(createCellKey(cell.x, cell.y)) || 0;
-
-      if (!nodeState || touchCount < 2 || !isCellVisibleToPlayer(cell)) {
-        continue;
-      }
-
-      drawPathNode(getTileTopCenter(isoToScreen(cell.x, cell.y)), nodeState);
-    }
-  }
-
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      const cell = map.cells[y][x];
-
-      if (!isCellVisibleToPlayer(cell)) {
-        continue;
-      }
-
-      const fromScreen = isoToScreen(cell.x, cell.y);
-      const fromPoint = getTileTopCenter(fromScreen);
-
-      for (const direction of renderedDirections) {
-        if (!shouldRenderPathDirectionFromCell(cell, direction)) {
-          continue;
-        }
-
-        const neighbor = getNeighborByDirection(cell, direction);
-        const pathState = getPathStateBetween(cell, neighbor);
-
-        if (!neighbor || !pathState || !isCellVisibleToPlayer(neighbor)) {
-          continue;
-        }
-
-        const toPoint = getTileTopCenter(isoToScreen(neighbor.x, neighbor.y));
-
-        if (pathState === "full") {
-          strokePathSegment(fromPoint, toPoint, direction, {
-            strokeStyle: "rgba(12, 11, 10, 0.92)",
-            lineWidth: Math.max(3.8, tile.width * 0.095),
-            trimDistance: tile.width * 0.06,
-          });
-          strokePathSegment(fromPoint, toPoint, direction, {
-            strokeStyle: "rgba(254, 232, 111, 1)",
-            lineWidth: Math.max(2.2, tile.width * 0.065),
-          });
-        } else {
-          strokePathSegment(fromPoint, toPoint, direction, {
-            strokeStyle: "rgba(151, 124, 82, 0.28)",
-            lineWidth: Math.max(1.5, tile.width * 0.045),
-          });
-        }
-      }
-    }
-  }
-
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      const cell = map.cells[y][x];
-
-      if (!isCellVisibleToPlayer(cell)) {
-        continue;
-      }
-
-      const screen = isoToScreen(cell.x, cell.y);
-
-      for (const corner of getTileCorners(screen, 0)) {
-        const crossing = getPathCrossingAtCorner(cell, corner);
-
-        if (!crossing) {
-          continue;
-        }
-
-        const capKey = `${corner.point.x.toFixed(2)},${corner.point.y.toFixed(2)}`;
-        const existingCap = crossingCaps.get(capKey) || null;
-
-        if (crossing.pathState === "full" || !existingCap) {
-          crossingCaps.set(capKey, {
-            point: crossing.point,
-            pathState: crossing.pathState,
-          });
-        }
-      }
-    }
-  }
-
-  for (const cap of crossingCaps.values()) {
-    drawPathIntersectionCap(cap.point, cap.pathState);
-  }
-
-  ctx.restore();
 }
 
 function drawVisibleConstructibles(kind, items = getConstructibleCollectionForKind(kind)) {
@@ -13979,88 +13953,6 @@ function drawNativeSingleCellImageAtCell(image, cell, drawContext = ctx) {
   );
 }
 
-function drawFogBorders(cell, screen, lift) {
-  if (!isPlayMode()) return;
-
-  ctx.save();
-  ctx.strokeStyle = "rgba(9, 12, 11, 0.52)";
-  ctx.lineWidth = Math.max(10, tile.width * 0.19);
-  ctx.lineCap = "round";
-
-  for (const edge of getTileEdges(screen, lift)) {
-    const neighbor = getEdgeNeighbor(cell, edge.direction);
-
-    if (!neighbor || isCellVisibleToPlayer(neighbor)) continue;
-
-    ctx.beginPath();
-    ctx.moveTo(edge.start.x, edge.start.y);
-    ctx.lineTo(edge.end.x, edge.end.y);
-    ctx.stroke();
-  }
-
-  ctx.restore();
-}
-
-function getTileEdges(screen, lift) {
-  const top = { x: screen.x, y: screen.y - lift };
-  const right = {
-    x: screen.x + tile.width / 2,
-    y: screen.y + tile.height / 2 - lift,
-  };
-  const bottom = { x: screen.x, y: screen.y + tile.height - lift };
-  const left = {
-    x: screen.x - tile.width / 2,
-    y: screen.y + tile.height / 2 - lift,
-  };
-
-  return [
-    { direction: "northWest", start: top, end: left },
-    { direction: "northEast", start: top, end: right },
-    { direction: "southEast", start: right, end: bottom },
-    { direction: "southWest", start: left, end: bottom },
-  ];
-}
-
-function getTileCorners(screen, lift) {
-  const top = { x: screen.x, y: screen.y - lift };
-  const right = {
-    x: screen.x + tile.width / 2,
-    y: screen.y + tile.height / 2 - lift,
-  };
-  const bottom = { x: screen.x, y: screen.y + tile.height - lift };
-  const left = {
-    x: screen.x - tile.width / 2,
-    y: screen.y + tile.height / 2 - lift,
-  };
-
-  return [
-    {
-      direction: "north",
-      point: top,
-      edgePoints: [left, right],
-      edgeDirections: ["northWest", "northEast"],
-    },
-    {
-      direction: "east",
-      point: right,
-      edgePoints: [top, bottom],
-      edgeDirections: ["northEast", "southEast"],
-    },
-    {
-      direction: "south",
-      point: bottom,
-      edgePoints: [right, left],
-      edgeDirections: ["southEast", "southWest"],
-    },
-    {
-      direction: "west",
-      point: left,
-      edgePoints: [bottom, top],
-      edgeDirections: ["southWest", "northWest"],
-    },
-  ];
-}
-
 function getEdgeNeighbor(cell, direction) {
   const isOddRow = cell.y % 2 === 1;
   const offsets = {
@@ -14091,27 +13983,6 @@ function getCell(x, y) {
   if (y < 0 || y >= map.height || x < 0 || x >= map.width) return null;
 
   return map.cells[y]?.[x] || null;
-}
-
-function pointOnSegment(start, end, distanceFromStart) {
-  const direction = normalizeVector({
-    x: end.x - start.x,
-    y: end.y - start.y,
-  });
-
-  return {
-    x: start.x + direction.x * distanceFromStart,
-    y: start.y + direction.y * distanceFromStart,
-  };
-}
-
-function normalizeVector(vector) {
-  const length = Math.hypot(vector.x, vector.y) || 1;
-
-  return {
-    x: vector.x / length,
-    y: vector.y / length,
-  };
 }
 
 function lerp(a, b, t) {
@@ -14174,19 +14045,29 @@ function clearCanvasRect(drawContext, rect) {
 
 function renderStaticLayerToMain() {
   clearCanvasContext(ctx);
-  drawList = [];
+  tileHitAreas = [];
+  const renderRows = isPlayMode() ? visibleCellsByRow : map.cells;
 
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      drawTileTerrain(map.cells[y][x]);
+  for (const row of renderRows) {
+    if (!Array.isArray(row)) {
+      continue;
+    }
+
+    for (const cell of row) {
+      drawTileTerrain(cell);
+      recordTileHitArea(cell);
     }
   }
 
   drawPaths();
 
-  for (let y = 0; y < map.height; y += 1) {
-    for (let x = 0; x < map.width; x += 1) {
-      drawTileOverlays(map.cells[y][x]);
+  for (const row of renderRows) {
+    if (!Array.isArray(row)) {
+      continue;
+    }
+
+    for (const cell of row) {
+      drawTileOverlays(cell);
     }
   }
 
@@ -14401,8 +14282,8 @@ function pickTile(clientX, clientY) {
     y: clientY - rect.top,
   };
 
-  for (let i = drawList.length - 1; i >= 0; i -= 1) {
-    const candidate = drawList[i];
+  for (let i = tileHitAreas.length - 1; i >= 0; i -= 1) {
+    const candidate = tileHitAreas[i];
     if (pointInPolygon(point, candidate.points)) {
       return candidate.cell;
     }
@@ -14946,9 +14827,7 @@ function applyEditorFoodSelection(foodType) {
   const previousSnapshot = JSON.stringify(serializeCell(activeCell));
 
   if (!foodType) {
-    activeCell.foodType = null;
-    activeCell.foodCapacity = 0;
-    activeCell.foodAmount = 0;
+    clearGeneratedCellFood(activeCell);
   } else {
     const definition = getFoodDefinition(foodType);
 
@@ -14956,9 +14835,7 @@ function applyEditorFoodSelection(foodType) {
       return;
     }
 
-    activeCell.foodType = foodType;
-    activeCell.foodCapacity = getFoodTypeMaxAmount(foodType);
-    activeCell.foodAmount = activeCell.foodCapacity;
+    setGeneratedFoodResource(activeCell, foodType);
   }
 
   applySeasonStateToCell(activeCell);
@@ -14991,6 +14868,7 @@ function applyEditorResourceCurrentValue() {
       0,
       getCellPathWellKnownVisitsThreshold(activeCell),
     );
+    syncPathRenderableCellIndexForCell(activeCell);
   } else {
     activeCell.materialAmount = getEditorNumberInputValue(editorResourceCurrentInput, activeCell.materialAmount, 0);
   }
@@ -15031,6 +14909,7 @@ function applyEditorFoodTotalValue() {
   const previousAmount = clampNonNegativeNumber(activeCell.foodAmount, 999999, 0);
   activeCell.foodCapacity = getEditorNumberInputValue(editorFoodTotalInput, getCellFoodMaxAmount(activeCell), 0);
   activeCell.foodAmount = clampNumber(activeCell.foodAmount, 0, getCellFoodMaxAmount(activeCell), 0);
+  syncFoodResourceCellIndexForCell(activeCell);
   applySeasonStateToCell(activeCell);
 
   refreshAfterEditorMutation({
@@ -15261,7 +15140,7 @@ mainMenuOverlay.addEventListener("click", (event) => {
   if (action === "play") {
     void runMainMenuLoadingAction(async () => {
       await ensureVisualAssetsLoaded();
-      activateMode(interactionModes.play);
+      await activateMode(interactionModes.play);
     });
     return;
   }
@@ -15287,7 +15166,7 @@ mainMenuOverlay.addEventListener("click", (event) => {
   if (action === "edit") {
     void runMainMenuLoadingAction(async () => {
       await ensureVisualAssetsLoaded();
-      activateMode(interactionModes.edit);
+      await activateMode(interactionModes.edit);
     });
   }
 });
@@ -15307,6 +15186,7 @@ for (const button of newRandomMapButtons) {
     openMapGenerationPanel({
       targetMode: interactionModes.edit,
       returnFocusButton,
+      generationKind: "random",
     });
   });
 }
@@ -15315,8 +15195,13 @@ for (const button of newEmptyMapButtons) {
   button.addEventListener("click", () => {
     if (!isEditMode()) return;
 
+    const returnFocusButton = activeGameMenuButton || button;
     closeGameActionMenu();
-    startNewGeneratedState(interactionModes.edit, buildEmptyMapCells);
+    openMapGenerationPanel({
+      targetMode: interactionModes.edit,
+      returnFocusButton,
+      generationKind: "empty",
+    });
   });
 }
 
@@ -15333,6 +15218,18 @@ for (const button of nextUnitButtons) {
       defaultAction: unitActions.walk,
       scrollIntoView: true,
     });
+  });
+}
+
+for (const button of centerUnitOnMapButtons) {
+  button.addEventListener("click", () => {
+    const currentUnit = getSelectedUnit() || unit;
+
+    if (!currentUnit) {
+      return;
+    }
+
+    centerViewportOnUnit(currentUnit);
   });
 }
 
@@ -15491,7 +15388,7 @@ for (const button of saveStateButtons) {
     if (!interactionMode) return;
 
     closeGameActionMenu();
-    saveState(interactionMode);
+    void saveState(interactionMode);
   });
 }
 
@@ -15528,6 +15425,31 @@ for (const button of confirmMapGenerationButtons) {
   });
 }
 
+for (const input of mapGenerationSizePresetInputs) {
+  input.addEventListener("change", () => {
+    if (!input.checked) {
+      return;
+    }
+
+    const preset = mapGenerationSizePresets[input.value];
+
+    if (!preset) {
+      return;
+    }
+
+    syncMapGenerationSizeInputs(preset);
+  });
+}
+
+for (const input of [
+  mapGenerationWidthInput,
+  mapGenerationHeightInput,
+].filter(Boolean)) {
+  input.addEventListener("change", () => {
+    syncMapGenerationSizeInputs(getMapGenerationSizeFromInputs());
+  });
+}
+
 for (const input of [
   mapGenerationWaterInput,
   mapGenerationForestInput,
@@ -15561,7 +15483,7 @@ saveSlotInput?.addEventListener("input", () => {
   if (!slotPanelState) return;
 
   slotPanelState.value = sanitizeFileName(saveSlotInput.value);
-  renderSaveSlotList();
+  void renderSaveSlotList();
 });
 
 saveSlotInput?.addEventListener("keydown", (event) => {
@@ -15579,7 +15501,7 @@ saveSlotList?.addEventListener("click", (event) => {
   const slotName = button.dataset.slotName || "";
   slotPanelState.value = slotName;
   saveSlotInput.value = slotName;
-  renderSaveSlotList();
+  void renderSaveSlotList();
 
   if (slotPanelState.mode === "load") {
     void commitSaveSlotPanel();

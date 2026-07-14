@@ -337,7 +337,9 @@
               </div>
               <div class="panel-lines">
                 <div class="unit-action-summary" data-role="unit-task-row" hidden>
-                  <img class="unit-action-sprite" data-role="unit-action-sprite" alt="">
+                  <button class="unit-action-sprite-button" data-action="center-unit-on-map" type="button" disabled>
+                    <img class="unit-action-sprite" data-role="unit-action-sprite" alt="">
+                  </button>
                   <span class="unit-action-progress" data-role="unit-action-progress"></span>
                   <button class="menu-button panel-icon-button" data-action="toggle-gather-task-loop" type="button" hidden>
                     <span aria-hidden="true">↻</span>
@@ -541,34 +543,65 @@
           </div>
           <p class="slot-panel-subtitle" data-role="map-generation-subtitle"></p>
           <div class="map-generation-fields">
-            <label class="map-generation-field">
-              <span class="map-generation-field-header">
-                <span data-role="map-generation-water-label"></span>
-                <span data-role="map-generation-water-value"></span>
-              </span>
-              <input class="map-generation-range" data-action="map-generation-water" type="range" min="0" max="100" step="1">
-            </label>
-            <label class="map-generation-field">
-              <span class="map-generation-field-header">
-                <span data-role="map-generation-forest-label"></span>
-                <span data-role="map-generation-forest-value"></span>
-              </span>
-              <input class="map-generation-range" data-action="map-generation-forest" type="range" min="0" max="100" step="1">
-            </label>
-            <label class="map-generation-field">
-              <span class="map-generation-field-header">
-                <span data-role="map-generation-mountain-label"></span>
-                <span data-role="map-generation-mountain-value"></span>
-              </span>
-              <input class="map-generation-range" data-action="map-generation-mountain" type="range" min="0" max="100" step="1">
-            </label>
-            <label class="map-generation-field">
-              <span class="map-generation-field-header">
-                <span data-role="map-generation-food-label"></span>
-                <span data-role="map-generation-food-value"></span>
-              </span>
-              <input class="map-generation-range" data-action="map-generation-food" type="range" min="0" max="100" step="1">
-            </label>
+            <section class="map-generation-section">
+              <p class="map-generation-section-title" data-role="map-generation-size-title"></p>
+              <fieldset class="map-generation-size-presets">
+                <legend class="edit-field-label-hidden" data-role="map-generation-size-preset-label"></legend>
+                <label class="map-generation-size-preset">
+                  <input data-action="map-generation-size-preset" type="radio" name="mapGenerationSizePreset" value="small">
+                  <span data-role="map-generation-size-small-label"></span>
+                </label>
+                <label class="map-generation-size-preset">
+                  <input data-action="map-generation-size-preset" type="radio" name="mapGenerationSizePreset" value="normal">
+                  <span data-role="map-generation-size-normal-label"></span>
+                </label>
+                <label class="map-generation-size-preset">
+                  <input data-action="map-generation-size-preset" type="radio" name="mapGenerationSizePreset" value="big">
+                  <span data-role="map-generation-size-big-label"></span>
+                </label>
+              </fieldset>
+              <div class="map-generation-size-fields">
+                <label class="slot-panel-field map-generation-size-field">
+                  <span data-role="map-generation-width-label"></span>
+                  <input id="mapGenerationWidthInput" class="slot-panel-input" data-action="map-generation-width" type="number" min="16" max="512" step="1" inputmode="numeric">
+                </label>
+                <label class="slot-panel-field map-generation-size-field">
+                  <span data-role="map-generation-height-label"></span>
+                  <input id="mapGenerationHeightInput" class="slot-panel-input" data-action="map-generation-height" type="number" min="16" max="512" step="1" inputmode="numeric">
+                </label>
+              </div>
+            </section>
+            <section class="map-generation-section" data-role="map-generation-random-fields">
+              <p class="map-generation-section-title" data-role="map-generation-random-title"></p>
+              <label class="map-generation-field">
+                <span class="map-generation-field-header">
+                  <span data-role="map-generation-water-label"></span>
+                  <span data-role="map-generation-water-value"></span>
+                </span>
+                <input class="map-generation-range" data-action="map-generation-water" type="range" min="0" max="100" step="1">
+              </label>
+              <label class="map-generation-field">
+                <span class="map-generation-field-header">
+                  <span data-role="map-generation-forest-label"></span>
+                  <span data-role="map-generation-forest-value"></span>
+                </span>
+                <input class="map-generation-range" data-action="map-generation-forest" type="range" min="0" max="100" step="1">
+              </label>
+              <label class="map-generation-field">
+                <span class="map-generation-field-header">
+                  <span data-role="map-generation-mountain-label"></span>
+                  <span data-role="map-generation-mountain-value"></span>
+                </span>
+                <input class="map-generation-range" data-action="map-generation-mountain" type="range" min="0" max="100" step="1">
+              </label>
+              <label class="map-generation-field">
+                <span class="map-generation-field-header">
+                  <span data-role="map-generation-food-label"></span>
+                  <span data-role="map-generation-food-value"></span>
+                </span>
+                <input class="map-generation-range" data-action="map-generation-food" type="range" min="0" max="100" step="1">
+              </label>
+            </section>
           </div>
           <div class="slot-panel-actions">
             <button class="menu-button" data-action="confirm-map-generation" type="button"></button>
