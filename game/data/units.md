@@ -41,6 +41,7 @@ Supported fields:
 - `name`
 - `labels`
 - `stamina`
+- `carryingCapacity`
 - `foodConsumptionPerTurn`
 - `researchPointsPerTurn`
 - `allowedActions`
@@ -62,6 +63,7 @@ Example:
     "en": "Smurf"
   },
   "stamina": 2,
+  "carryingCapacity": 24,
   "foodConsumptionPerTurn": 1,
   "researchPointsPerTurn": 0,
   "allowedActions": ["walk", "play", "gatherFood", "plant"],
@@ -82,6 +84,16 @@ Example:
 `labels` is an optional map of localized default names by language id (`fr`, `en`, `es`, `ru`, ...).
 It is used for generated/default unit names. Explicit saved unit names still stay as they were saved.
 
+`carryingCapacity` is the maximum amount a unit can carry at once, regardless of resource type.
+It defaults to `24` and can be overridden per unit type or by a matching modifier.
+The current load is saved on the unit as `cargo: { "resourceType": "food", "amount": 8 }`;
+all food types share one load. Empty loads are saved as `null`. Existing saves without `cargo`
+load with an empty load, and old cargo `foodType` fields are ignored.
+Gathering fills cargo, not the village stockpile. A loaded unit can walk or gather more of the same
+resource category (food, stone, or lumber); a full unit can only walk. Landing adjacent to a completed
+building that stores that resource unloads as much as the shared stockpile can accept. Any remainder
+stays in cargo. Automatic travel between the resource and storage is not yet implemented.
+
 ## `types.<unitTypeId>`
 
 Per-type overrides merged over `default`.
@@ -93,6 +105,7 @@ Supported fields:
 - `name`
 - `labels`
 - `stamina`
+- `carryingCapacity`
 - `foodConsumptionPerTurn`
 - `researchPointsPerTurn`
 - `allowedActions`
@@ -172,6 +185,7 @@ Supported `set` fields:
 
 - `name`
 - `stamina`
+- `carryingCapacity`
 - `foodConsumptionPerTurn`
 - `researchPointsPerTurn`
 - `allowedActions`
@@ -277,6 +291,10 @@ Supported source ids inside `sources`:
 - `gatherFoodFish`
 - `gatherMaterialsLumber`
 - `gatherMaterialsStone`
+- `cargoIdle`, `cargoMove`, `cargoWork`
+- `cargoFoodIdle`, `cargoFoodMove`, `cargoFoodWork`
+- `cargoStoneIdle`, `cargoStoneMove`, `cargoStoneWork`
+- `cargoLumberIdle`, `cargoLumberMove`, `cargoLumberWork`
 
 Supported numeric fields:
 
@@ -361,6 +379,22 @@ So if you define only `W` for `idle`, east-facing renders will mirror it automat
 If `width` and `height` are omitted, the renderer derives them from the PNG canvas size, treating the asset as authored for 200% zoom. In that case the effective base size is `naturalWidth / 2` by `naturalHeight / 2`.
 
 If `anchorX` and `anchorY` are omitted, they default to bottom-center for the resolved sprite size.
+
+### Cargo sprites
+
+When a unit carries a positive amount, rendering tries the matching resource-specific cargo source first, then the generic cargo source. For movement and work, a cargo idle source is also tried before the usual sprite sources. Missing cargo sources therefore use the existing art. Cargo sources use the same direction fallback, frame arrays, canvas sizing, and image preloading as other sources.
+
+For example, add `sources.cargoFoodIdle.W` and `sources.cargoFoodMove.W` for a unit carrying food. Add `sources.cargoIdle.W` for an image shared by all carried resources. For a mounted unit, cargo sources must be defined in `vehicles.json` under the mounted render's `unit.sources`; normal unit cargo sources do not replace mounted art.
+
+```json
+"sources": {
+  "cargoIdle": { "W": "../assets/units/unit_cargo.png" },
+  "cargoMove": { "W": ["../assets/units/unit_cargo.png", "../assets/units/unit_cargo_step.png"] },
+  "cargoFoodIdle": { "W": "../assets/units/unit_cargo_food.png" }
+}
+```
+
+Add these entries alongside the existing `idle`, `move`, and action sources. The exporter in `tools/export_bacis_unit_batch.py` will need cargo presets once the new SVG layers exist.
 
 ### `actionContextSourceCandidates`
 

@@ -5,7 +5,6 @@ export function createOverlayRuntimeApi({
   baseTile,
   tile,
   ctx,
-  getCell,
   getEdgeNeighbor,
   getCornerNeighbor,
   getNeighborByDirection,
@@ -383,7 +382,10 @@ export function createOverlayRuntimeApi({
       return null;
     }
 
-    return getVisiblePathStateBetween(descriptor.fromCell, descriptor.toCell);
+    const pathState = getVisiblePathStateBetween(descriptor.fromCell, descriptor.toCell);
+    return pathState && shouldRenderPathDirectionFromCell(descriptor.fromCell, descriptor.direction)
+      ? pathState
+      : null;
   }
 
   function getPathDescriptorPoints(descriptor) {
@@ -587,37 +589,26 @@ export function createOverlayRuntimeApi({
   }
 
   function shouldRenderPathDirectionFromCell(cell, direction) {
-    const neighbor = getNeighborByDirection(cell, direction);
-
-    if (direction === "southEast") {
-      return !(
-        (
-          getPathStateBetween(cell, getCornerNeighbor(cell, "south")) &&
-          getPathStateBetween(cell, getCornerNeighbor(cell, "east"))
-        ) ||
-        (
-          neighbor &&
-          getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "north")) &&
-          getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "west"))
-        )
-      );
+    if (direction !== "east" && direction !== "south") {
+      return true;
     }
 
-    if (direction === "southWest") {
-      return !(
-        (
-          getPathStateBetween(cell, getCornerNeighbor(cell, "south")) &&
-          getPathStateBetween(cell, getCornerNeighbor(cell, "west"))
-        ) ||
-        (
-          neighbor &&
-          getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "north")) &&
-          getPathStateBetween(neighbor, getCornerNeighbor(neighbor, "east"))
-        )
-      );
+    const pathState = getPathStateBetween(cell, getNeighborByDirection(cell, direction));
+    if (!pathState) {
+      return false;
     }
 
-    return true;
+    const flankDirections = direction === "east"
+      ? ["northEast", "southEast"]
+      : ["southWest", "southEast"];
+
+    // Keep the cardinal crossing unless both visible diagonal sides can replace it.
+    return !flankDirections.every((flankDirection) => {
+      const flank = getEdgeNeighbor(cell, flankDirection);
+      const flankPathState = getPathStateBetween(cell, flank);
+      return isCellVisibleToPlayer(flank) && flankPathState &&
+        (pathState !== "full" || flankPathState === "full");
+    });
   }
 
   function drawPaths() {
@@ -737,11 +728,9 @@ export function createOverlayRuntimeApi({
     getCellPathPreviewVisitsThreshold,
     getCellVisitsCount,
     isWellKnownPathCell,
-    isPreviewPathCell,
     getPathCompletionPercent,
     syncPathRenderableCellIndexForCell,
     rebuildPathRenderableCellIndex,
-    getPathStateBetween,
     hasFullPathBetween,
     drawInspectorPathOverlay,
     drawFogBorders,

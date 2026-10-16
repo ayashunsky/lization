@@ -488,11 +488,6 @@ export function createBookRuntimeApi({
     return 74 + index * 10;
   }
 
-  function getBookSpreadIndexForPageNumber(pageNumber) {
-    const state = getBookStateForPageNumber(pageNumber);
-    return state ? getBookSpreadIndexForState(state) : null;
-  }
-
   function clearBookBookmarkSlotLayers() {
     if (!bookVisual) {
       return;

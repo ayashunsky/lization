@@ -75,6 +75,22 @@ export const spriteTaskSourceCandidateSets = Object.freeze({
 });
 
 const spriteSourceCandidateDefaultContextId = "default";
+const cargoResourceTypes = new Set(["food", "stone", "lumber"]);
+
+function getCargoSpriteSourceCandidates(currentUnit, variant) {
+  if (variant === "Work") {
+    return [];
+  }
+
+  const resourceType = currentUnit?.cargo?.resourceType;
+  if (!cargoResourceTypes.has(resourceType) || !(Number(currentUnit?.cargo?.amount) > 0)) {
+    return [];
+  }
+
+  const resourceName = resourceType[0].toUpperCase() + resourceType.slice(1);
+  const variants = variant === "Move" ? ["Move", "Idle"] : ["Idle"];
+  return variants.flatMap((name) => [`cargo${resourceName}${name}`, `cargo${name}`]);
+}
 
 function resolveAssetPath(path, manifestPath) {
   if (typeof path !== "string" || !path.trim()) {
@@ -418,11 +434,15 @@ export function createSpriteRuntimeApi({
   }
 
   function normalizeMountedSpriteLayerConfig(entry, manifestPath = vehicleManifestPath) {
-    return normalizeSpriteAnimationConfig(entry, {
+    const normalized = normalizeSpriteAnimationConfig(entry, {
       manifestPath,
       imageResolver: resolveVehicleAssetPath,
       extraNumericFields: ["offsetX", "offsetY"],
     });
+    if (entry?.moveSource === "idle" || entry?.moveSource === "move") {
+      normalized.moveSource = entry.moveSource;
+    }
+    return normalized;
   }
 
   function normalizeMountedRenderEntry(entry, manifestPath = vehicleManifestPath) {
@@ -547,6 +567,28 @@ export function createSpriteRuntimeApi({
 
   function getDirectionalSpriteSourceCandidates(variant) {
     return spriteDirectionalSourceCandidateSets[variant] || [];
+  }
+
+  function getCargoSpriteSourceResolution(currentUnit, spriteConfig, variant, directionId) {
+    const candidates = getCargoSpriteSourceCandidates(currentUnit, variant);
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const isMounted = Boolean(getMountedVehicle(currentUnit)) && currentUnit?.move?.mode !== "dismount";
+    const mountedCatalog = isMounted ? getMountedSpriteLayerConfig(currentUnit, "unit") : null;
+    return getFirstResolvedSpriteSource(mountedCatalog, candidates, directionId)
+      || getFirstResolvedSpriteSource(spriteConfig, candidates, directionId);
+  }
+
+  function getMovementSpriteSourceResolution(currentUnit, spriteConfig, directionId) {
+    const useIdle = spriteConfig?.moveSource === "idle";
+    return getCargoSpriteSourceResolution(currentUnit, spriteConfig, useIdle ? "Idle" : "Move", directionId)
+      || getFirstResolvedSpriteSource(
+        spriteConfig,
+        getDirectionalSpriteSourceCandidates(useIdle ? "stationary" : "move"),
+        directionId,
+      );
   }
 
   function getSpriteDefinedSourceEntry(
@@ -831,10 +873,16 @@ export function createSpriteRuntimeApi({
   }
 
   function getUnitTaskSpriteSourceResolution(currentUnit, spriteConfig) {
+    const directionId = getSpriteRenderDirection(currentUnit);
+    const cargoSource = getCargoSpriteSourceResolution(currentUnit, spriteConfig, "Work", directionId);
+    if (cargoSource) {
+      return cargoSource;
+    }
+
     return getFirstResolvedSpriteSource(
       spriteConfig,
       getUnitTaskSpriteSourceCandidates(currentUnit, spriteConfig),
-      getSpriteRenderDirection(currentUnit),
+      directionId,
     );
   }
 
@@ -848,22 +896,21 @@ export function createSpriteRuntimeApi({
     }
 
     if (currentUnit.move) {
-      return getFirstResolvedSpriteSource(
-        spriteConfig,
-        getDirectionalSpriteSourceCandidates("move"),
-        getSpriteRenderDirection(currentUnit),
-      );
+      const directionId = getSpriteRenderDirection(currentUnit);
+      return getMovementSpriteSourceResolution(currentUnit, spriteConfig, directionId);
     }
 
     if (isUnitWorking(currentUnit)) {
       return getUnitTaskSpriteSourceResolution(currentUnit, spriteConfig);
     }
 
-    return getFirstResolvedSpriteSource(
-      spriteConfig,
-      getDirectionalSpriteSourceCandidates("stationary"),
-      getSpriteRenderDirection(currentUnit),
-    );
+    const directionId = getSpriteRenderDirection(currentUnit);
+    return getCargoSpriteSourceResolution(currentUnit, spriteConfig, "Idle", directionId)
+      || getFirstResolvedSpriteSource(
+        spriteConfig,
+        getDirectionalSpriteSourceCandidates("stationary"),
+        directionId,
+      );
   }
 
   function getAnimatedTaskFrameOffset(currentUnit) {
@@ -899,11 +946,8 @@ export function createSpriteRuntimeApi({
         ? getMoveDirection(currentUnit.x, currentUnit.y, task.toX, task.toY)
         : (currentUnit?.facing || "west")
     );
-    const sourceResolution = getFirstResolvedSpriteSource(
-      spriteConfig,
-      getDirectionalSpriteSourceCandidates("move"),
-      getSpriteDirectionId(direction, "W"),
-    );
+    const directionId = getSpriteDirectionId(direction, "W");
+    const sourceResolution = getMovementSpriteSourceResolution(currentUnit, spriteConfig, directionId);
     return getSpriteResolvedImagePath(sourceResolution, 1);
   }
 
@@ -935,11 +979,13 @@ export function createSpriteRuntimeApi({
       return getAnimatedTaskSpriteImage(currentUnit, spriteConfig, frameIndex);
     }
 
-    const sourceResolution = getFirstResolvedSpriteSource(
-      spriteConfig,
-      getDirectionalSpriteSourceCandidates("stationary"),
-      getSpriteRenderDirection(currentUnit),
-    );
+    const directionId = getSpriteRenderDirection(currentUnit);
+    const sourceResolution = getCargoSpriteSourceResolution(currentUnit, spriteConfig, "Idle", directionId)
+      || getFirstResolvedSpriteSource(
+        spriteConfig,
+        getDirectionalSpriteSourceCandidates("stationary"),
+        directionId,
+      );
     return getSpriteResolvedImagePath(sourceResolution);
   }
 
@@ -953,11 +999,8 @@ export function createSpriteRuntimeApi({
   }
 
   function getMovingSpriteImage(currentUnit, spriteConfig, direction = "west", now = performance.now()) {
-    const sourceResolution = getFirstResolvedSpriteSource(
-      spriteConfig,
-      getDirectionalSpriteSourceCandidates("move"),
-      getSpriteDirectionId(direction, "W"),
-    );
+    const directionId = getSpriteDirectionId(direction, "W");
+    const sourceResolution = getMovementSpriteSourceResolution(currentUnit, spriteConfig, directionId);
     const moveFrames = sourceResolution?.paths || [];
     const fallbackImage = getSpriteResolvedImagePath(sourceResolution);
     const moveFrameSequence = Array.isArray(spriteConfig?.moveFrameSequence)
@@ -1045,8 +1088,6 @@ export function createSpriteRuntimeApi({
     imageRegistry,
     spriteConfig,
     mirrorX = false,
-    showShadow = true,
-    currentUnit = getCurrentUnit(),
   ) {
     const image = imageRegistry[imagePath];
     const renderSpec = getSpriteRenderSpec(spriteConfig);
@@ -1080,21 +1121,6 @@ export function createSpriteRuntimeApi({
     const drawY = groundY - resolvedAnchorY * zoom;
 
     drawContext.save();
-    if (showShadow) {
-      drawContext.fillStyle = "rgba(5, 8, 10, 0.28)";
-      drawContext.beginPath();
-      drawContext.ellipse(
-        renderScreen.x,
-        groundY + 2 * zoom,
-        tile.width * 0.15,
-        tile.height * 0.08,
-        0,
-        0,
-        Math.PI * 2,
-      );
-      drawContext.fill();
-    }
-
     if (image?.complete && image.naturalWidth > 0) {
       if (mirrorX) {
         drawContext.translate(drawX + drawWidth, drawY);
@@ -1126,7 +1152,6 @@ export function createSpriteRuntimeApi({
       getFirstResolvedSpriteSource(getRenderedUnitSpriteConfig(), spriteTaskSourceCandidateSets.idle, "W"),
     ),
     mirrorX = false,
-    showShadow = true,
     currentUnit = getCurrentUnit(),
   ) {
     return drawSpriteAtScreen(
@@ -1136,8 +1161,6 @@ export function createSpriteRuntimeApi({
       unitImages,
       getRenderedUnitSpriteConfig(currentUnit),
       mirrorX,
-      showShadow,
-      currentUnit,
     );
   }
 

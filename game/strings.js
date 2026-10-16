@@ -35,7 +35,6 @@ window.APP_LOCALIZATION = {
         work: "Travailler",
         gatherMaterials: "Recolter materiaux",
         buildHouse: "Construire",
-        demolish: "Demolir",
         load: "Charger",
         save: "Enregistrer",
         saveAs: "Enregistrer sous...",
@@ -43,9 +42,11 @@ window.APP_LOCALIZATION = {
         importFile: "Importer un fichier...",
         delete: "Supprimer",
         nextTurn: "Tour suivant",
+        pauseTurns: "Pause",
+        continueTurns: "Continuer",
         cancel: "Annuler",
         generate: "Generer",
-        loopGather: "Boucler recolte",
+        collectingContinuously: "Recolte en continu",
         centerUnitOnMap: "Centrer l'unite sur la carte",
         openBook: "Ouvrir livre",
         closeBook: "Fermer livre",
@@ -56,9 +57,6 @@ window.APP_LOCALIZATION = {
         previousMessage: "Message precedent",
         nextMessage: "Message suivant",
         close: "Fermer",
-      },
-      toggles: {
-        autoPass: "Auto",
       },
       audio: {
         musicToggle: "♫",
@@ -189,6 +187,8 @@ window.APP_LOCALIZATION = {
           `Case : ${x}, ${y} | ${terrainLabel}${variantLabel ? ` | ${variantLabel}` : ""}`,
         tileMenuTitle: (x, y) => `Case ${x}, ${y}`,
         unitTitleNone: "Aucune selection",
+        cargo: (amount, capacity, resourceLabel) =>
+          `Charge : ${resourceLabel ? `${resourceLabel} ` : ""}${amount}/${capacity}`,
         zoomLevel: (percent) => `${percent}%`,
       },
       situationMessages: {
@@ -260,7 +260,6 @@ window.APP_LOCALIZATION = {
         work: "Work",
         gatherMaterials: "Gather materials",
         buildHouse: "Build",
-        demolish: "Demolish",
         load: "Load",
         save: "Save",
         saveAs: "Save as...",
@@ -268,9 +267,11 @@ window.APP_LOCALIZATION = {
         importFile: "Import file...",
         delete: "Delete",
         nextTurn: "Next turn",
+        pauseTurns: "Pause",
+        continueTurns: "Continue",
         cancel: "Cancel",
         generate: "Generate",
-        loopGather: "Loop gathering",
+        collectingContinuously: "Continuous collection",
         centerUnitOnMap: "Center unit on map",
         openBook: "Open book",
         closeBook: "Close book",
@@ -281,9 +282,6 @@ window.APP_LOCALIZATION = {
         previousMessage: "Previous message",
         nextMessage: "Next message",
         close: "Close",
-      },
-      toggles: {
-        autoPass: "Auto",
       },
       audio: {
         musicToggle: "♫",
@@ -413,6 +411,8 @@ window.APP_LOCALIZATION = {
           `Tile: ${x}, ${y} | ${terrainLabel}${variantLabel ? ` | ${variantLabel}` : ""}`,
         tileMenuTitle: (x, y) => `Tile ${x}, ${y}`,
         unitTitleNone: "None selected",
+        cargo: (amount, capacity, resourceLabel) =>
+          `Load: ${resourceLabel ? `${resourceLabel} ` : ""}${amount}/${capacity}`,
         zoomLevel: (percent) => `${percent}%`,
       },
       situationMessages: {
@@ -484,7 +484,6 @@ window.APP_LOCALIZATION = {
         work: "Trabajar",
         gatherMaterials: "Recolectar materiales",
         buildHouse: "Construir",
-        demolish: "Demoler",
         load: "Cargar",
         save: "Guardar",
         saveAs: "Guardar como...",
@@ -492,9 +491,11 @@ window.APP_LOCALIZATION = {
         importFile: "Importar archivo...",
         delete: "Borrar",
         nextTurn: "Siguiente turno",
+        pauseTurns: "Pausar",
+        continueTurns: "Continuar",
         cancel: "Cancelar",
         generate: "Generar",
-        loopGather: "Repetir recoleccion",
+        collectingContinuously: "Recoleccion continua",
         centerUnitOnMap: "Centrar la unidad en el mapa",
         openBook: "Abrir libro",
         closeBook: "Cerrar libro",
@@ -505,9 +506,6 @@ window.APP_LOCALIZATION = {
         previousMessage: "Mensaje anterior",
         nextMessage: "Mensaje siguiente",
         close: "Cerrar",
-      },
-      toggles: {
-        autoPass: "Auto",
       },
       audio: {
         musicToggle: "♫",
@@ -637,6 +635,8 @@ window.APP_LOCALIZATION = {
           `Casilla: ${x}, ${y} | ${terrainLabel}${variantLabel ? ` | ${variantLabel}` : ""}`,
         tileMenuTitle: (x, y) => `Casilla ${x}, ${y}`,
         unitTitleNone: "Ninguna seleccion",
+        cargo: (amount, capacity, resourceLabel) =>
+          `Carga: ${resourceLabel ? `${resourceLabel} ` : ""}${amount}/${capacity}`,
         zoomLevel: (percent) => `${percent}%`,
       },
       situationMessages: {
@@ -708,7 +708,6 @@ window.APP_LOCALIZATION = {
         work: "Работать",
         gatherMaterials: "Собирать материалы",
         buildHouse: "Строить",
-        demolish: "Снести",
         load: "Загрузить",
         save: "Сохранить",
         saveAs: "Сохранить как...",
@@ -716,9 +715,11 @@ window.APP_LOCALIZATION = {
         importFile: "Импорт файла...",
         delete: "Удалить",
         nextTurn: "Следующий ход",
+        pauseTurns: "Пауза",
+        continueTurns: "Продолжить",
         cancel: "Отмена",
         generate: "Сгенерировать",
-        loopGather: "Повторять сбор",
+        collectingContinuously: "Непрерывный сбор",
         centerUnitOnMap: "Центрировать юнита на карте",
         openBook: "Открыть книгу",
         closeBook: "Закрыть книгу",
@@ -729,9 +730,6 @@ window.APP_LOCALIZATION = {
         previousMessage: "Предыдущее сообщение",
         nextMessage: "Следующее сообщение",
         close: "Закрыть",
-      },
-      toggles: {
-        autoPass: "Авто",
       },
       audio: {
         musicToggle: "♫",
@@ -861,6 +859,8 @@ window.APP_LOCALIZATION = {
           `Клетка: ${x}, ${y} | ${terrainLabel}${variantLabel ? ` | ${variantLabel}` : ""}`,
         tileMenuTitle: (x, y) => `Клетка ${x}, ${y}`,
         unitTitleNone: "Ничего не выбрано",
+        cargo: (amount, capacity, resourceLabel) =>
+          `Груз: ${resourceLabel ? `${resourceLabel} ` : ""}${amount}/${capacity}`,
         zoomLevel: (percent) => `${percent}%`,
       },
       situationMessages: {

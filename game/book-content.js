@@ -1,4 +1,5 @@
 import { clampNumber } from "./number-utils.js";
+import { createBookStockpileChartApi } from "./book-stockpile-chart.js";
 
 export function createBookContentApi({
   localizationApi,
@@ -35,6 +36,11 @@ export function createBookContentApi({
     getConstructibleLabel,
     getFoodDefinition,
     getResourceLabel,
+    getStockpileHistory,
+    getCurrentTurn,
+    formatTurnDate,
+    getSituationMessages,
+    getPopulation,
   } = bindingApi;
   const {
     bookPageContentHiddenClass,
@@ -43,6 +49,18 @@ export function createBookContentApi({
   } = pageApi;
 
   let bookTechArrowMarkerSequence = 0;
+  const {
+    enhanceWidget: enhanceBookStockpileChart,
+    refreshCharts: refreshBookStockpileCharts,
+  } = createBookStockpileChartApi({
+    getHistory: getStockpileHistory,
+    getCurrentTurn,
+    getResourceLabel,
+    getLanguage: getCurrentLanguage,
+    formatTurnDate,
+    getSituationMessages,
+    getPopulation,
+  });
 
   function getBookManifestPaths(language = getCurrentLanguage()) {
     const defaultBookLanguage = localization?.defaultLanguage || "fr";
@@ -996,6 +1014,10 @@ export function createBookContentApi({
       enhanceBookTechWidget(widget);
     }
 
+    for (const widget of pageBodyElement.querySelectorAll('[data-book-widget="stockpile-chart"]')) {
+      enhanceBookStockpileChart(widget);
+    }
+
     scheduleBookTechWidgetArrowRender(pageBodyElement);
 
     if (document.fonts?.ready) {
@@ -1095,5 +1117,6 @@ export function createBookContentApi({
     fillBookPageSideContent,
     getBookTargetPageIdFromLink,
     getBookTechWidgetTechnologyId,
+    refreshBookStockpileCharts,
   };
 }

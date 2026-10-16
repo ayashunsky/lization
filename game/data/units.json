@@ -10,9 +10,10 @@
       "ru": "Штрумф"
     },
     "stamina": 2,
+    "carryingCapacity": 12,
     "foodConsumptionPerTurn": 1,
     "researchPointsPerTurn": 0,
-    "allowedActions": ["walk", "play", "gatherFood", "plant", "gatherMaterials", "buildHouse", "demolish"],
+    "allowedActions": ["walk", "play", "gatherFood", "plant", "gatherMaterials", "buildHouse"],
     "plantedFoodCapacities": {
       "grain": 14
     },
@@ -33,9 +34,8 @@
     ],
     "workPointsPerTurn": {
       "buildHouse": 20,
-      "demolish": 25,
       "gatherFood": 4,
-      "gatherMaterials": 12
+      "gatherMaterials": 4
     }
   },
   "types": {
@@ -106,10 +106,9 @@
       "stamina": 1,
       "foodConsumptionPerTurn": 1,
       "researchPointsPerTurn": 0,
-      "allowedActions": ["walk", "play", "gatherFood", "plant", "gatherMaterials", "buildHouse", "demolish"],
+      "allowedActions": ["walk", "play", "gatherFood", "plant", "gatherMaterials", "buildHouse"],
       "workPointsPerTurn": {
         "buildHouse": 5,
-        "demolish": 5,
         "gatherFood": 2,
         "gatherMaterials": 2
       }
@@ -127,10 +126,9 @@
       "stamina": 2,
       "foodConsumptionPerTurn": 1,
       "researchPointsPerTurn": 0,
-      "allowedActions": ["walk", "play", "gatherFood", "plant", "gatherMaterials", "buildHouse", "demolish"],
+      "allowedActions": ["walk", "play", "gatherFood", "plant", "gatherMaterials", "buildHouse"],
       "workPointsPerTurn": {
         "buildHouse": 10,
-        "demolish": 12,
         "gatherMaterials": 6
       }
     },
@@ -157,7 +155,6 @@
       },
       "workPointsPerTurn": {
         "buildHouse": 1,
-        "demolish": 1,
         "gatherFood": 1,
         "gatherMaterials": 1
       }
@@ -174,7 +171,6 @@
       },
       "workPointsPerTurn": {
         "buildHouse": 1,
-        "demolish": 1,
         "gatherFood": 1,
         "gatherMaterials": 1
       }
@@ -201,11 +197,11 @@
         "ru": "Штрумф силач"
       },
       "stamina": 3,
+      "carryingCapacity": 24,
       "workPointsPerTurn": {
         "buildHouse": 25,
-        "demolish": 30,
-        "gatherFood": 4,
-        "gatherMaterials": 16
+        "gatherFood": 6,
+        "gatherMaterials": 6
       },
       "foodConsumptionPerTurn": 2,
       "modifiers": [
@@ -280,7 +276,7 @@
       { "type": "farceur", "quantity": 1 },
       { "type": "beta", "quantity": 1 },
       { "type": "maladroit", "quantity": 1 },
-      { "type": "grogon", "quantity": 1 },
+      { "type": "grognon", "quantity": 1 },
       { "type": "costaud", "quantity": 1 },
       { "type": "gourmand", "quantity": 1 },
       { "type": "cuisinier", "quantity": 1 },
@@ -288,7 +284,7 @@
       { "type": "grandSchtroumpf", "quantity": 1 }
     ],
     "ensurePresentByUnitCount": [
-      { "unitCount": 15, "types": ["grandSchtroumpf", "bricoleur"] }
+      { "unitCount": 4, "types": ["grandSchtroumpf", "bricoleur"] }
     ]
   },
   "spriteTypes": {
@@ -312,6 +308,16 @@
             "../assets/units/unit_front_step_1.png",
             "../assets/units/unit_front_step_2.png"
           ]
+        },
+        "cargoIdle": {
+          "W": "../assets/units/unit_cargo_w.png",
+          "N": "../assets/units/unit_cargo_n.png",
+          "S": "../assets/units/unit_cargo_s.png"
+        },
+        "cargoMove": {
+          "W": ["../assets/units/unit_cargo_w.png", "../assets/units/unit_cargo_step_w.png"],
+          "N": ["../assets/units/unit_cargo_step_n_1.png", "../assets/units/unit_cargo_step_n_2.png"],
+          "S": ["../assets/units/unit_cargo_step_s_1.png", "../assets/units/unit_cargo_step_s_2.png"]
         },
         "work": {
           "O": [
@@ -409,6 +415,16 @@
             "../assets/units/gs_front_step_2.png"
           ]
         },
+        "cargoIdle": {
+          "W": "../assets/units/gs_cargo_w.png",
+          "N": "../assets/units/gs_cargo_n.png",
+          "S": "../assets/units/gs_cargo_s.png"
+        },
+        "cargoMove": {
+          "W": ["../assets/units/gs_cargo_w.png", "../assets/units/gs_cargo_step_w.png"],
+          "N": ["../assets/units/gs_cargo_step_n_1.png", "../assets/units/gs_cargo_step_n_2.png"],
+          "S": ["../assets/units/gs_cargo_step_s_1.png", "../assets/units/gs_cargo_step_s_2.png"]
+        },
         "research": {
           "O": [
             "../assets/units/gs_research_1.png",
@@ -467,6 +483,16 @@
             "../assets/units/brico_back_step_2.png"
           ]
         },
+        "cargoIdle": {
+          "W": "../assets/units/brico_cargo_w.png",
+          "N": "../assets/units/brico_cargo_n.png",
+          "S": "../assets/units/brico_cargo_s.png"
+        },
+        "cargoMove": {
+          "W": ["../assets/units/brico_cargo_w.png", "../assets/units/brico_cargo_step_w.png"],
+          "N": ["../assets/units/brico_cargo_step_n_1.png", "../assets/units/brico_cargo_step_n_2.png"],
+          "S": ["../assets/units/brico_cargo_step_s_1.png", "../assets/units/brico_cargo_step_s_2.png"]
+        },
         "work": {
           "O": [
             "../assets/units/brico_work.png",
@@ -514,6 +540,16 @@
             "../assets/units/lune_front_step_1.png",
             "../assets/units/lune_front_step_2.png"
           ]
+        },
+        "cargoIdle": {
+          "W": "../assets/units/lune_cargo_w.png",
+          "N": "../assets/units/lune_cargo_n.png",
+          "S": "../assets/units/lune_cargo_s.png"
+        },
+        "cargoMove": {
+          "W": ["../assets/units/lune_cargo_w.png", "../assets/units/lune_cargo_step_w.png"],
+          "N": ["../assets/units/lune_cargo_step_n_1.png", "../assets/units/lune_cargo_step_n_2.png"],
+          "S": ["../assets/units/lune_cargo_step_s_1.png", "../assets/units/lune_cargo_step_s_2.png"]
         },
         "work": {
           "O": [
@@ -583,6 +619,16 @@
             "../assets/units/cuis_front_step_1.png",
             "../assets/units/cuis_front_step_2.png"
           ]
+        },
+        "cargoIdle": {
+          "W": "../assets/units/cuis_cargo_w.png",
+          "N": "../assets/units/cuis_cargo_n.png",
+          "S": "../assets/units/cuis_cargo_s.png"
+        },
+        "cargoMove": {
+          "W": ["../assets/units/cuis_cargo_w.png", "../assets/units/cuis_cargo_step_w.png"],
+          "N": ["../assets/units/cuis_cargo_step_n_1.png", "../assets/units/cuis_cargo_step_n_2.png"],
+          "S": ["../assets/units/cuis_cargo_step_s_1.png", "../assets/units/cuis_cargo_step_s_2.png"]
         },
         "dig": {
           "O": [

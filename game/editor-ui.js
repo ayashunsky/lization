@@ -112,7 +112,6 @@ export function createEditorUiApi({
   } = mutations;
 
   const {
-    canvas,
     editInspector,
     hoverReadouts,
     editorResearchOverlay,
@@ -1531,11 +1530,8 @@ export function createEditorUiApi({
     closeEditorDropdowns,
     updateEditorDropdownMenus,
     updateEditorResearchPanel,
-    openEditorResearchPanel,
     closeEditorResearchPanel,
-    applyEditorResearchStateChange,
     updateEditInspector,
-    openTileMenu,
     hideTileMenu,
     clearEditHoverState,
     handleEditCanvasMove,

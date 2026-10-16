@@ -24,17 +24,18 @@
       "rules": {
         "width": 1,
         "height": 1,
+        "villageBuilding": true,
         "walkable": false,
         "foundationActionAvailable": true,
-        "constructionCost": 100,
+        "constructionCost": 560,
         "buildCost": {
-          "stone": 20,
-          "lumber": 30
+          "stone": 25,
+          "lumber": 60
         },
         "resourceStorageCapacities": {
-          "stone": 120,
-          "lumber": 120,
-          "food": 120
+          "stone": 25,
+          "lumber": 60,
+          "food": 96
         },
         "constructionVisualThresholds": {
           "initialMax": 0.34,
@@ -85,12 +86,13 @@
           ["southEast"],
           ["southWest"]
         ],
+        "villageBuilding": true,
         "walkable": false,
         "foundationActionAvailable": true,
-        "constructionCost": 400,
+        "constructionCost": 1680,
         "buildCost": {
-          "stone": 80,
-          "lumber": 120
+          "stone": 90,
+          "lumber": 140
         },
         "constructionVisualThresholds": {
           "initialMax": 0.34,
@@ -104,7 +106,7 @@
       "visual": {
         "renderMode": "footprintImageNative",
         "constructionRenderMode": "footprintImageNative",
-        "nativeScaleAt100Zoom": 0.5,
+        "nativeScaleAt100Zoom": 0.6,
         "nativeOffsetYAt100Zoom": -10,
         "subtypes": [
           { "id": "laboratory_01", "image": "../assets/buildings/laboratory_01.png" }
@@ -148,12 +150,13 @@
           ["grass", "water"],
           ["grass"]
         ],
+        "villageBuilding": false,
         "walkable": true,
         "foundationActionAvailable": true,
-        "constructionCost": 400,
+        "constructionCost": 1920,
         "buildCost": {
-          "stone": 280,
-          "lumber": 20
+          "stone": 260,
+          "lumber": 40
         },
         "constructionVisualThresholds": {
           "initialMax": 0.34,
@@ -164,7 +167,7 @@
       "visual": {
         "renderMode": "footprintImageNative",
         "constructionRenderMode": "footprintImageNative",
-        "nativeScaleAt100Zoom": 0.5,
+        "nativeScaleAt100Zoom": 0.6,
         "nativeOffsetYAt100Zoom": 23,
         "subtypes": [
           { "id": "small_bridge_01", "image": "../assets/buildings/small_bridge_nw_se.png" }
@@ -218,12 +221,13 @@
           ["grass", "water"],
           ["grass"]
         ],
+        "villageBuilding": false,
         "walkable": true,
         "foundationActionAvailable": true,
-        "constructionCost": 400,
+        "constructionCost": 1920,
         "buildCost": {
-          "stone": 280,
-          "lumber": 20
+          "stone": 260,
+          "lumber": 40
         },
         "constructionVisualThresholds": {
           "initialMax": 0.34,
@@ -284,15 +288,16 @@
           ["southEast"],
           ["southWest"]
         ],
+        "villageBuilding": true,
         "walkable": false,
         "foundationActionAvailable": true,
-        "constructionCost": 400,
+        "constructionCost": 1440,
         "buildCost": {
-          "stone": 80,
-          "lumber": 120
+          "stone": 70,
+          "lumber": 130
         },
         "resourceStorageCapacities": {
-          "food": 5000
+          "food": 500
         }, 
         "constructionVisualThresholds": {
           "initialMax": 0.34,
@@ -321,6 +326,68 @@
         }
       }
     },
+    "workshop": {
+      "labels": {
+        "fr": "Atelier du Schtroumpf bricoleur",
+        "en": "Handy Smurf Workshop",
+        "es": "Taller del Pitufo Carpintero",
+        "ru": "Мастерская Штрумфа самоделкина"
+      },
+      "ui": {
+        "icon": "⚒"
+      },
+      "availability": {
+        "requiredTechs": ["diy"]
+      },
+      "rules": {
+        "width": 2,
+        "height": 3,
+        "footprint": [
+          [],
+          ["southWest"],
+          ["south"],
+          ["southEast"],
+          ["east" ],
+          ["northEast"]
+        ],
+        "villageBuilding": true,
+        "walkable": false,
+        "foundationActionAvailable": true,
+        "constructionCost": 1920,
+        "buildCost": {
+          "stone": 100,
+          "lumber": 180
+        },
+        "resourceStorageCapacities": {
+          "lumber": 500
+        },
+        "constructionVisualThresholds": {
+          "initialMax": 0.34,
+          "halfMax": 0.79
+        },
+        "abandonedDecayPerTurn": 0.025
+      },
+      "visual": {
+        "renderMode": "footprintImageNative",
+        "constructionRenderMode": "footprintImageNative",
+        "nativeScaleAt100Zoom": 0.55,
+        "nativeOffsetYAt100Zoom": -20,
+        "subtypes": [
+          { "id": "workshop_01", "image": "../assets/buildings/workshop.png" }
+        ],
+        "abandonedImage": "../assets/buildings/house_abandoned.png",
+        "constructionImages": {
+          "initial": "../assets/buildings/house_construct.png",
+          "half": "../assets/buildings/workshop_half.png"
+        },
+        "constructionStages": {
+          "initial": {
+            "renderMode": "perTile",
+            "yOffsetFactor": 0.2
+          }
+        }
+      }
+    },
     "well": {
       "labels": {
         "fr": "Puits",
@@ -337,12 +404,13 @@
       "rules": {
         "width": 1,
         "height": 1,
+        "villageBuilding": true,
         "walkable": false,
         "foundationActionAvailable": true,
-        "constructionCost": 100,
+        "constructionCost": 640,
         "buildCost": {
-          "stone": 100,
-          "lumber": 10
+          "stone": 45,
+          "lumber": 50
         },
         "constructionVisualThresholds": {
           "initialMax": 0.34,

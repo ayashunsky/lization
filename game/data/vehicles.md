@@ -16,6 +16,7 @@ Current runtime support includes:
 - vehicle-defined mounted movement terrains and mounted action lists
 - mounted multipliers for movement stamina cost and action work output
 - mounted pair-specific sprite overlays for unit+vehicle rendering
+- optional vehicle-owned cargo, with capacity and load retained after dismount
 
 ## File Shape
 
@@ -56,6 +57,7 @@ Use the same field meanings as buildings for now:
 - `rules.mounted.allowedActions`
 - `rules.mounted.movementTerrains`
 - `rules.mounted.multipliers`
+- `rules.cargoCapacity`
 - `rules.constructionCost`
 - `rules.buildCost`
 - `visual.renderMode`
@@ -63,8 +65,17 @@ Use the same field meanings as buildings for now:
 - `visual.constructionImages`
 - `visual.constructionStages`
 - `visual.mountedRenders`
+- `visual.cargoOverlay`
 
 Relative image paths are resolved relative to `game/data/vehicles.json`.
+
+## `rules.cargoCapacity`
+
+Optional positive number. A vehicle with this rule carries its own cargo; a vehicle without it (such as the boat) leaves cargo on the unit. Wheelbarrows currently have a capacity of 96, compared with the default unit capacity of 24.
+
+Mounting an empty carrier transfers a unit's load into it. A carrying unit cannot mount a carrier that already has cargo, or one with insufficient capacity. A unit without cargo can mount a loaded carrier and then gathers into that vehicle's remaining capacity. Dismounting leaves the cargo in the vehicle and removes the unit's cargo-based action restrictions. Vehicle cargo is saved with the vehicle.
+
+Older saves with a loaded rider on a wheelbarrow transfer that load to the wheelbarrow when loaded. Vehicles without `cargoCapacity` do not gain a cargo field in saves.
 
 ## `rules.mounted.allowedActions`
 
@@ -76,7 +87,7 @@ Rules:
 - if present, the mounted unit can use only the intersection of:
   - the unit's normal allowed actions
   - this mounted `allowedActions` list
-- `dismount` is added automatically at runtime when a valid dismount tile exists
+- `dismount` is added automatically at runtime when a valid dismount tile exists; vehicle-owned cargo does not hide it
 
 ## `rules.mounted.movementTerrains`
 
@@ -155,6 +166,7 @@ Supported fields inside each layer are the same as `spriteTypes.<spriteTypeId>` 
 
 - `offsetX`
 - `offsetY`
+- `moveSource` (`"move"` or `"idle"`, for the mounted unit layer)
 
 `offsetX` and `offsetY` are screen-space offsets expressed at 100% zoom and scaled with zoom at runtime.
 
@@ -162,9 +174,21 @@ Mounted `unit` and mounted `vehicle` layers now run through the same sprite reso
 
 For the mounted `unit` layer, missing fields fall back to the unit's normal sprite config. This makes it possible to override only the mounted move frames or only the placement offsets.
 
+Set `default.unit.moveSource` to `"idle"` to render each rider's own directional idle sprite while the vehicle moves, without repeating those sprites under `byUnitType`. Omitted or `"move"` uses movement frames. A `byUnitType` entry can override this choice.
+
 For the mounted `vehicle` layer, any sprite-style move animation is optional.
 
 If a mounted vehicle should remain visible while ridden, define a mounted `vehicle` layer for it. The mounted rendering path no longer falls back to the vehicle's normal constructible visual.
+
+## `visual.cargoOverlay`
+
+Optional bag-only images for cargo-carrying vehicles. `unmounted` is drawn behind a complete, unmounted vehicle using the normal single-tile asset alignment. `mountedByImage` maps each mounted vehicle-frame path to an overlay path; the overlay is drawn behind the vehicle and unit, using the mounted vehicle's anchor and mirroring. Keep each overlay canvas aligned with its corresponding mounted image. Both map keys and values are paths relative to `vehicles.json`.
+
+`mountedOffsetYAt100Zoom` optionally shifts all mounted cargo overlays vertically, scaled with zoom. The wheelbarrow uses it to reveal the bag above south-facing work sprites whose cart reaches the image's top edge.
+
+`mountedForegroundByImage` is an optional second overlay map drawn after the unit. Use only artwork already clipped to the visible portion of the load, for a mounted unit sprite that itself contains the vehicle foreground (the wheelbarrow's south-facing idle frame).
+
+The wheelbarrow overlays are generated from `vec/bacis.svg` by `tools/export_wheelbarrow_cargo.py`. Vehicles without this section have no cargo overlay.
 
 ## Minimal Example
 

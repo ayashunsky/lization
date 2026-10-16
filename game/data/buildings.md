@@ -168,6 +168,7 @@ Supported fields:
 - `footprint`
 - `placementTerrains`
 - `walkable`
+- `villageBuilding`
 - `foundationActionAvailable`
 - `constructionCost`
 - `buildCost.stone`
@@ -176,6 +177,16 @@ Supported fields:
 - `constructionVisualThresholds.initialMax`
 - `constructionVisualThresholds.halfMax`
 - `abandonedDecayPerTurn`
+
+### `villageBuilding`
+
+Set `rules.villageBuilding` to `true` for buildings that belong to the village.
+In play mode, a new village building must have at least one footprint tile within
+`buildingPlacement.villageMaxDistance` walking steps of a footprint tile of an
+existing **complete** village building. The distance is configured in
+`game/rules.js`. A missing `villageBuilding` field defaults to `false`.
+Non-village buildings (such as bridges) neither require a nearby village building
+nor count as one. The editor does not enforce this proximity rule.
 
 ### `footprint`
 

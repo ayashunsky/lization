@@ -41,6 +41,7 @@ const bookBookmarkFrontBar = document.querySelector("#bookBookmarkBarFront");
 const bookBookmarkBars = [bookBookmarkBackBar, bookBookmarkFrontBar].filter(Boolean);
 const unitActionBar = document.querySelector("#unitActionBar");
 const foundationActionMenu = document.querySelector("#foundationActionMenu");
+const unitTileActionMenu = document.querySelector("#unitTileActionMenu");
 const gameActionMenu = document.querySelector("#gameActionMenu");
 const saveSlotOverlay = document.querySelector("#saveSlotOverlay");
 const saveSlotPanel = document.querySelector("#saveSlotPanel");
@@ -64,11 +65,9 @@ const topBars = {
 };
 const hoverReadouts = [...document.querySelectorAll('[data-role="hover-readout"]')];
 const mapSizeReadouts = [...document.querySelectorAll('[data-role="map-size"]')];
-const tileMenu = document.querySelector("#tileMenu");
 const tileMenuTitle = document.querySelector("#tileMenuTitle");
 const variantMenuTitle = document.querySelector("#variantMenuTitle");
 const terrainMenuOptions = document.querySelector("#terrainMenuOptions");
-const variantMenu = document.querySelector("#variantMenu");
 const variantMenuOptions = document.querySelector("#variantMenuOptions");
 const seasonMenuOptions = document.querySelector("#seasonMenuOptions");
 const foodMenuOptions = document.querySelector("#foodMenuOptions");
@@ -113,7 +112,6 @@ const mapGenerationRandomFieldGroups = [...document.querySelectorAll('[data-role
 const editorResourcePanels = [...document.querySelectorAll('[data-role="editor-resource-panel"]')];
 const editorResourceTitleElements = [...document.querySelectorAll('[data-role="editor-resource-title"]')];
 const editorResourceSeparators = [...document.querySelectorAll('[data-role="editor-resource-separator"]')];
-const editorResourceCurrentFields = [...document.querySelectorAll('[data-role="editor-resource-current-field"]')];
 const editorResourceTotalFields = [...document.querySelectorAll('[data-role="editor-resource-total-field"]')];
 const editorFoodPanels = [...document.querySelectorAll('[data-role="editor-food-panel"]')];
 const editorBuildingPanels = [...document.querySelectorAll('[data-role="editor-building-panel"]')];
@@ -169,11 +167,13 @@ const unitBookPageButtons = [...document.querySelectorAll('[data-action="open-un
 const centerUnitOnMapButtons = [...document.querySelectorAll('[data-action="center-unit-on-map"]')];
 const unitActionSpriteImages = [...document.querySelectorAll('[data-role="unit-action-sprite"]')];
 const unitActionProgressReadouts = [...document.querySelectorAll('[data-role="unit-action-progress"]')];
+const unitCargoReadouts = [...document.querySelectorAll('[data-role="unit-cargo-readout"]')];
 const unitTaskRows = [...document.querySelectorAll('[data-role="unit-task-row"]')];
 const turnReadouts = [...document.querySelectorAll('[data-role="turn-readout"]')];
 const situationMessageDisplays = [...document.querySelectorAll('[data-role="situation-message-display"]')];
 const situationMessageBubbleElements = [...document.querySelectorAll('[data-role="situation-message-bubble"]')];
 const situationSpeakerHeadElements = [...document.querySelectorAll('[data-role="situation-speaker-head"]')];
+const situationMessageTurnElements = [...document.querySelectorAll('[data-role="situation-message-turn"]')];
 const situationMessageTextElements = [...document.querySelectorAll('[data-role="situation-message-text"]')];
 const situationMessageToggleLabelElements = [...document.querySelectorAll('[data-role="situation-message-toggle-label"]')];
 const resourceStoneCanvases = [...document.querySelectorAll('[data-role="resource-stone-canvas"]')];
@@ -185,10 +185,10 @@ const resourceFoodCaptions = [...document.querySelectorAll('[data-role="resource
 const fileReadouts = [...document.querySelectorAll('[data-role="file-readout"]')];
 const nextTurnButtons = [...document.querySelectorAll('[data-action="next-turn"]')];
 const nextUnitButtons = [...document.querySelectorAll('[data-action="select-next-unit"]')];
-const autoPassInputs = [...document.querySelectorAll('[data-action="auto-pass"]')];
+const turnAutoToggleButtons = [...document.querySelectorAll('[data-action="toggle-auto-turns"]')];
 const musicEnabledInputs = [...document.querySelectorAll('[data-action="music-enabled"]')];
 const musicVolumeInputs = [...document.querySelectorAll('[data-action="music-volume"]')];
-const gatherTaskLoopButtons = [...document.querySelectorAll('[data-action="toggle-gather-task-loop"]')];
+const gatherLoopIndicators = [...document.querySelectorAll('[data-role="gather-loop-indicator"]')];
 const cancelUnitTaskButtons = [...document.querySelectorAll('[data-action="cancel-unit-task"]')];
 const openBookOverlayButtons = [...document.querySelectorAll('[data-action="open-book-overlay"]')];
 const closeBookOverlayButtons = [...document.querySelectorAll('[data-action="close-book-overlay"]')];
@@ -199,7 +199,6 @@ const toggleSituationMessageButtons = [...document.querySelectorAll('[data-actio
 const previousSituationMessageButtons = [...document.querySelectorAll('[data-action="previous-situation-message"]')];
 const nextSituationMessageButtons = [...document.querySelectorAll('[data-action="next-situation-message"]')];
 const unitActionButtons = [...document.querySelectorAll('[data-action="select-unit-action"]')];
-const autoPassLabels = [...document.querySelectorAll('[data-role="auto-pass-label"]')];
 const musicToggleLabelElements = [...document.querySelectorAll('[data-role="music-toggle-label"]')];
 const musicVolumeLabelElements = [...document.querySelectorAll('[data-role="music-volume-label"]')];
 const slotNameLabels = [...document.querySelectorAll('[data-role="slot-name-label"]')];
@@ -261,7 +260,6 @@ const unitActions = {
   plant: "plant",
   gatherMaterials: "gatherMaterials",
   buildHouse: "buildHouse",
-  demolish: "demolish",
 };
 const unitUiActions = Object.freeze({
   work: "work",
@@ -365,8 +363,9 @@ const unitActionSpecs = Object.freeze({
       toX: destinationCell.x,
       toY: destinationCell.y,
       turnsRemaining: getGatherTaskDurationTurns(),
-      loop: false,
       allowDepletionOnCycleStart: true,
+      phase: "gather",
+      resourceId: destinationCell.foodType,
     } : null,
     serializeTask: (task) => serializeGatherUnitTask(task, "gatherFood"),
     preserveTask: (task) => serializeGatherUnitTask(task, "gatherFood"),
@@ -403,8 +402,9 @@ const unitActionSpecs = Object.freeze({
       toX: destinationCell.x,
       toY: destinationCell.y,
       turnsRemaining: getGatherTaskDurationTurns(),
-      loop: false,
       allowDepletionOnCycleStart: true,
+      phase: "gather",
+      resourceId: getCellMaterialResourceType(destinationCell),
     } : null,
     serializeTask: (task) => serializeGatherUnitTask(task, "gatherMaterials"),
     preserveTask: (task) => serializeGatherUnitTask(task, "gatherMaterials"),
@@ -429,23 +429,6 @@ const unitActionSpecs = Object.freeze({
     normalizeTask: (task, options) => normalizeBuildHouseUnitTask(task, options),
     resolveTask: (currentUnit) => resolveBuildHouseTask(currentUnit),
     queueTask: (options) => queueBuildHouseUnitAction(options),
-  }),
-  [unitActions.demolish]: Object.freeze({
-    id: unitActions.demolish,
-    taskType: "demolish",
-    countsAsWork: true,
-    usesTargetTaskDirection: true,
-    usesTargetGroundPoint: true,
-    createTask: ({ destinationCell } = {}) => destinationCell ? {
-      type: "demolish",
-      toX: destinationCell.x,
-      toY: destinationCell.y,
-    } : null,
-    serializeTask: (task) => serializeTargetedUnitTask(task, "demolish"),
-    preserveTask: (task) => serializeTargetedUnitTask(task, "demolish"),
-    normalizeTask: (task, options) => normalizeDemolishUnitTask(task, options),
-    resolveTask: (currentUnit) => resolveDemolishTask(currentUnit),
-    queueTask: (options) => queueDemolishUnitAction(options),
   }),
 });
 const unitActionIdsByTaskType = Object.freeze(
@@ -610,6 +593,7 @@ let openEditorDropdownId = null;
 let tileHitAreas = [];
 let visibleCellKeys = new Set();
 let visibleCellsByRow = [];
+let villageVicinityCells = null;
 let foodResourceCells = new Map();
 let didCenterInitialView = false;
 let zoomIndex = 1;
@@ -651,10 +635,13 @@ let turnReplayFinalStates = new Map();
 let turnReplayVehicleStartStates = new Map();
 let turnReplayVehicleFinalStates = new Map();
 let turnReplayMoveTargets = new Map();
-let selectedUnitAction = unitActions.walk;
+let selectedUnitAction = null;
+let unitTileActionTarget = null;
 let selectedFoundationConstructibleId = null;
+let pendingFoundationPlacement = null;
 let inspectedPlayCell = null;
 let stockpile = { stone: 0, lumber: 0, food: 0 };
+let stockpileHistory = [];
 let foodShortageTurns = 0;
 let situationMessages = [];
 let situationMessageVisible = false;
@@ -749,6 +736,7 @@ const resourceUiIcons = {
   food: "assets/resources/food_icon.png",
 };
 const stockpileResourceTypes = ["stone", "lumber", "food"];
+const stockpileHistoryIntervalTurns = 10;
 const defaultAudioSettings = {
   musicEnabled: true,
   volume: 0.55,
@@ -809,7 +797,6 @@ const {
   getConstructibleCountsByTypeForKind,
   getConstructibleImageRegistryForKind,
   getConstructibleRenderModeForKind,
-  getConstructibleSubtypeVariantsForKind,
   chooseConstructibleSubtypeForKind,
   getDefaultConstructibleDimensionForKind,
   getConstructibleBottomRowForKind,
@@ -826,11 +813,8 @@ const {
   getBuildingCompleteness,
   getConstructibleConstructionCostForKind,
   isConstructibleWalkableForKind,
-  getConstructibleConstructionThresholdsForKind,
   serializeConstructibleForKind,
-  markConstructibleCellsVisitedForKind,
   createConstructibleConstructionAtCellForKind,
-  normalizeConstructibleSubtypeForKind,
   normalizeConstructiblesStateForKind,
   constructibleOccupiesCell,
   getConstructiblesAtCellForKind,
@@ -866,6 +850,8 @@ const {
   markCellVisited,
   normalizeLinkedEntityId,
   normalizeBuildingState,
+  getVehicleCargoCapacity,
+  normalizeVehicleCargo,
   drawNativeSingleCellImageAtCell,
   isoToScreen,
 });
@@ -920,11 +906,9 @@ const {
   getCellPathPreviewVisitsThreshold,
   getCellVisitsCount,
   isWellKnownPathCell,
-  isPreviewPathCell,
   getPathCompletionPercent,
   syncPathRenderableCellIndexForCell,
   rebuildPathRenderableCellIndex,
-  getPathStateBetween,
   hasFullPathBetween,
   drawInspectorPathOverlay,
   drawFogBorders,
@@ -936,7 +920,6 @@ const {
   baseTile,
   tile,
   ctx,
-  getCell,
   getEdgeNeighbor,
   getCornerNeighbor,
   getNeighborByDirection,
@@ -963,7 +946,6 @@ const {
   tileImages,
   shoreOverlayImages,
   resourceOverlayImages,
-  getCell,
   getEdgeNeighbor,
   getCornerNeighbor,
   getTileEdges,
@@ -1045,6 +1027,7 @@ const {
   fillBookPageSideContent,
   getBookTargetPageIdFromLink,
   getBookTechWidgetTechnologyId,
+  refreshBookStockpileCharts,
 } = createBookContentApi({
   localizationApi: {
     localization,
@@ -1076,6 +1059,11 @@ const {
     getConstructibleLabel,
     getFoodDefinition,
     getResourceLabel,
+    getStockpileHistory: () => stockpileHistory,
+    getCurrentTurn: () => currentTurn,
+    formatTurnDate: formatJulianTurnDate,
+    getSituationMessages: () => situationMessages,
+    getPopulation: () => getUnits().length,
   },
   pageApi: {
     bookPageContentHiddenClass,
@@ -1210,12 +1198,9 @@ const {
   closeEditorDropdowns,
   updateEditorDropdownMenus,
   updateEditorResearchPanel,
-  openEditorResearchPanel,
   closeEditorResearchPanel,
-  applyEditorResearchStateChange,
   clearEditHoverState,
   updateEditInspector,
-  openTileMenu,
   hideTileMenu,
   handleEditCanvasMove,
   handleEditCanvasClick,
@@ -1259,7 +1244,6 @@ const {
   },
   dom: {
     elements: {
-      canvas,
       editInspector,
       hoverReadouts,
       editorResearchOverlay,
@@ -1719,6 +1703,7 @@ function normalizeUnitRulesConfig(entry) {
   const name = typeof unitEntry.name === "string" ? unitEntry.name.trim() : "";
   const labels = normalizeLocalizedLabelsMap(unitEntry.labels);
   const stamina = Number(unitEntry.stamina);
+  const carryingCapacity = Number(unitEntry.carryingCapacity);
   const foodConsumptionPerTurn = Number(unitEntry.foodConsumptionPerTurn);
   const researchPointsPerTurn = Number(unitEntry.researchPointsPerTurn);
   const allowedActions = normalizeUnitActionList(unitEntry.allowedActions);
@@ -1746,6 +1731,10 @@ function normalizeUnitRulesConfig(entry) {
 
   if (Number.isFinite(stamina)) {
     normalized.stamina = stamina;
+  }
+
+  if (Number.isFinite(carryingCapacity)) {
+    normalized.carryingCapacity = Math.max(0, carryingCapacity);
   }
 
   if (Number.isFinite(foodConsumptionPerTurn)) {
@@ -2183,6 +2172,24 @@ function normalizeBuildingVisualConfig(entry, manifestPath = buildingManifestPat
     manifestPath === vehicleManifestPath
       ? normalizeMountedRenderVariants(visual.mountedRenders, manifestPath)
       : undefined;
+  const cargoOverlay = manifestPath === vehicleManifestPath && visual.cargoOverlay
+    ? {
+        unmounted: imageResolver(visual.cargoOverlay.unmounted, manifestPath),
+        mountedOffsetYAt100Zoom: Number.isFinite(Number(visual.cargoOverlay.mountedOffsetYAt100Zoom))
+          ? Number(visual.cargoOverlay.mountedOffsetYAt100Zoom)
+          : 0,
+        mountedByImage: Object.fromEntries(
+          Object.entries(visual.cargoOverlay.mountedByImage || {})
+            .map(([source, overlay]) => [imageResolver(source, manifestPath), imageResolver(overlay, manifestPath)])
+            .filter(([source, overlay]) => source && overlay),
+        ),
+        mountedForegroundByImage: Object.fromEntries(
+          Object.entries(visual.cargoOverlay.mountedForegroundByImage || {})
+            .map(([source, overlay]) => [imageResolver(source, manifestPath), imageResolver(overlay, manifestPath)])
+            .filter(([source, overlay]) => source && overlay),
+        ),
+      }
+    : null;
 
   return {
     renderMode,
@@ -2209,6 +2216,7 @@ function normalizeBuildingVisualConfig(entry, manifestPath = buildingManifestPat
       },
     },
     ...(mountedRenders ? { mountedRenders } : {}),
+    ...(cargoOverlay ? { cargoOverlay } : {}),
   };
 }
 
@@ -2272,6 +2280,7 @@ function normalizeBuildingRulesEntry(entry) {
   const halfMax = Number(rulesEntry.constructionVisualThresholds?.halfMax);
   const abandonedDecayPerTurn = Number(rulesEntry.abandonedDecayPerTurn);
   const mounted = normalizeVehicleMountedRulesConfig(rulesEntry.mounted);
+  const cargoCapacity = Number(rulesEntry.cargoCapacity);
 
   return {
     width,
@@ -2280,6 +2289,7 @@ function normalizeBuildingRulesEntry(entry) {
     ...(placementTerrains && placementTerrains.some((terrainList) => Array.isArray(terrainList) && terrainList.length > 0)
       ? { placementTerrains }
       : {}),
+    villageBuilding: Boolean(rulesEntry.villageBuilding),
     walkable: Boolean(rulesEntry.walkable),
     foundationActionAvailable: Boolean(rulesEntry.foundationActionAvailable),
     constructionCost,
@@ -2289,6 +2299,9 @@ function normalizeBuildingRulesEntry(entry) {
     },
     ...(resourceStorageCapacities && Object.keys(resourceStorageCapacities).length > 0 ? { resourceStorageCapacities } : {}),
     ...(mounted ? { mounted } : {}),
+    ...(Number.isFinite(cargoCapacity) && cargoCapacity > 0
+      ? { cargoCapacity: clampNonNegativeNumber(cargoCapacity, 999999, 0) }
+      : {}),
     constructionVisualThresholds: {
       initialMax: Number.isFinite(initialMax) ? initialMax : 0.34,
       halfMax: Number.isFinite(halfMax) ? halfMax : 0.79,
@@ -2764,10 +2777,6 @@ function setSelectedResearchGoalTechnologyId(technologyId, { refresh = true } = 
   return Boolean(nextGoalTechnologyId);
 }
 
-function clearSelectedResearchGoalTechnologyId(options) {
-  return setSelectedResearchGoalTechnologyId(null, options);
-}
-
 function markTechnologyDiscovered(technologyId, { refresh = true } = {}) {
   const technology = getTechnologyDefinition(technologyId);
 
@@ -3055,6 +3064,10 @@ function setSituationMessageText(text) {
   setTextContent(situationMessageTextElements, text);
 }
 
+function setSituationMessageTurnText(text) {
+  setTextContent(situationMessageTurnElements, text);
+}
+
 function setBookTransientHintText(text) {
   setTextContent(bookTransientHintTextElements, text);
 }
@@ -3122,12 +3135,16 @@ function updateSituationMessagePanel({ restartTyping = false } = {}) {
 
   if (!shouldShowMessage) {
     clearSituationMessageTyping();
+    setSituationMessageTurnText("");
     setSituationMessageText("");
     updateSituationMessageControls();
     return;
   }
 
   const fullText = getSituationMessageText(viewedMessage);
+  setSituationMessageTurnText(
+    formatJulianTurnDate(clampInteger(viewedMessage.turn, 1, 999999, currentTurn)),
+  );
 
   if (!restartTyping) {
     setSituationMessageText(fullText);
@@ -3203,6 +3220,10 @@ function addSituationMessage(kind, data = {}, { reveal = true } = {}) {
   const entry = createSituationMessageEntry(kind, data);
 
   situationMessages.push(entry);
+
+  if (kind === "houseCompleted" || kind === "unitLeft") {
+    refreshBookStockpileCharts();
+  }
 
   if (reveal) {
     revealLatestSituationMessage({ restartTyping: true });
@@ -3393,7 +3414,7 @@ function queueUnitAction(action, options = {}) {
 function getUnitTaskInspectorPreviewMode(currentUnit) {
   const spec = getUnitTaskSpec(currentUnit);
 
-  if (spec?.inspectorPreview === "move") {
+  if (spec?.inspectorPreview === "move" || (isGatherTask(currentUnit?.task) && currentUnit.task.phase && currentUnit.task.phase !== "gather")) {
     return "move";
   }
 
@@ -3411,7 +3432,7 @@ function getUnitTaskInspectorProgressText(currentUnit) {
 }
 
 function isWorkingTask(task) {
-  return Boolean(getUnitActionSpec(task)?.countsAsWork);
+  return Boolean(getUnitActionSpec(task)?.countsAsWork) && (!isGatherTask(task) || !task.phase || task.phase === "gather");
 }
 
 function doesTaskUseTargetDirection(task) {
@@ -3491,22 +3512,6 @@ function canUnitUseSelectableAction(currentUnit = unit, action, context = getRul
   return canUnitUseAction(currentUnit, normalizedAction, context);
 }
 
-function getSelectableUnitActions(currentUnit = unit, context = getRuleContext()) {
-  const selectableActions = [
-    unitActions.walk,
-    unitActions.dismount,
-    unitActions.layFoundation,
-    unitActions.play,
-    unitActions.research,
-    unitActions.gatherFood,
-    unitActions.plant,
-    unitUiActions.work,
-    unitActions.demolish,
-  ];
-
-  return selectableActions.filter((action) => canUnitUseSelectableAction(currentUnit, action, context));
-}
-
 function doesSelectedUnitActionMatchTaskAction(selectedAction, taskAction) {
   return selectedAction === taskAction || (
     selectedAction === unitUiActions.work &&
@@ -3534,14 +3539,14 @@ function getUnitAllowedActions(currentUnit = unit, context = getRuleContext()) {
     const fallbackSet = new Set(fallbackActions);
 
     if (!mountedVehicle) {
-      return fallbackActions;
+      return filterUnitActionsForCargo(currentUnit, fallbackActions);
     }
 
     const mountedFallbackSet = mountedConfiguredSet
       ? new Set(fallbackActions.filter((action) => mountedConfiguredSet.has(action)))
       : fallbackSet;
     mountedFallbackSet.add(unitActions.dismount);
-    return orderedUnitActions.filter((action) => mountedFallbackSet.has(action));
+    return filterUnitActionsForCargo(currentUnit, orderedUnitActions.filter((action) => mountedFallbackSet.has(action)));
   }
 
   const configuredSet = new Set(configured.map((action) => normalizePendingUnitAction(action)).filter(Boolean));
@@ -3560,7 +3565,22 @@ function getUnitAllowedActions(currentUnit = unit, context = getRuleContext()) {
 
   const allowed = orderedUnitActions.filter((action) => configuredSet.has(action));
 
-  return allowed;
+  return filterUnitActionsForCargo(currentUnit, allowed);
+}
+
+function filterUnitActionsForCargo(currentUnit, actions) {
+  const cargo = getActiveCargo(currentUnit);
+  if (!cargo) {
+    return actions;
+  }
+
+  const canGatherMore = cargo.amount + quantityEpsilon < getActiveCargoCapacity(currentUnit);
+  const gatherAction = cargo.resourceType === "food" ? unitActions.gatherFood : unitActions.gatherMaterials;
+  const carriesInVehicle = getActiveCargoHolder(currentUnit) !== currentUnit;
+  return actions.filter((action) =>
+    action === unitActions.walk ||
+    (carriesInVehicle && action === unitActions.dismount) ||
+    (canGatherMore && action === gatherAction));
 }
 
 function canUnitUseAction(currentUnit = unit, action, context = getRuleContext()) {
@@ -3599,18 +3619,18 @@ function getUnitResearchPointsPerTurn(currentUnit = unit, context = getRuleConte
   return Math.max(0, configured);
 }
 
-function getPreferredUnitAction(currentUnit = getSelectedUnit(), preferredAction = unitActions.walk) {
+function getPreferredUnitAction(currentUnit = getSelectedUnit(), preferredAction = null) {
   const normalizedPreferred = normalizePendingSelectableUnitAction(preferredAction);
 
   if (!currentUnit) {
-    return normalizedPreferred || unitActions.walk;
+    return normalizedPreferred;
   }
 
   if (normalizedPreferred && canUnitUseSelectableAction(currentUnit, normalizedPreferred)) {
     return normalizedPreferred;
   }
 
-  return getSelectableUnitActions(currentUnit)[0] || null;
+  return null;
 }
 
 function isCellTargetUnitAction(action) {
@@ -3622,8 +3642,7 @@ function isCellTargetUnitAction(action) {
     action === unitActions.plant ||
     action === unitUiActions.work ||
     action === unitActions.gatherMaterials ||
-    action === unitActions.buildHouse ||
-    action === unitActions.demolish
+    action === unitActions.buildHouse
   );
 }
 
@@ -3664,11 +3683,201 @@ function getUnitActionLabel(action) {
     return strings.actions.buildHouse;
   }
 
-  if (action === unitActions.demolish) {
-    return strings.actions.demolish;
+  return strings.actions.walk;
+}
+
+function getUnitTileActionOptions(currentUnit, cell) {
+  const actions = [];
+  const construction = [];
+  const context = getRuleContext();
+  const adjacent = areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y);
+  const visible = isCellVisibleToPlayer(cell);
+
+  if (canUnitUseAction(currentUnit, unitActions.walk, context) && canAssignUnitMoveTarget(cell, currentUnit)) {
+    actions.push({ action: unitActions.walk, icon: "➜" });
   }
 
-  return strings.actions.walk;
+  if (visible && canUnitUseAction(currentUnit, unitActions.gatherFood, context) && canAssignGatherFoodTarget(cell, currentUnit)) {
+    actions.push({ action: unitActions.gatherFood, icon: "❀" });
+  }
+
+  if (visible && canUnitUseAction(currentUnit, unitActions.gatherMaterials, context) && canAssignGatherMaterialsTarget(cell, currentUnit)) {
+    actions.push({ action: unitActions.gatherMaterials, icon: "⚒" });
+  }
+
+  if (actions.some((option) => option.action === unitActions.gatherFood || option.action === unitActions.gatherMaterials)
+    && !actions.some((option) => option.action === unitActions.walk)) {
+    actions.unshift({ action: unitActions.walk, icon: "➜", disabled: true });
+  }
+
+  if (adjacent && canUnitUseAction(currentUnit, unitActions.dismount, context) && isValidUnitDismountTargetCell(currentUnit, cell)) {
+    actions.push({ action: unitActions.dismount, icon: "↧" });
+  }
+
+  if (adjacent && visible && canUnitUseAction(currentUnit, unitActions.plant, context) && canPlantAtCell(cell, currentUnit)) {
+    actions.push({ action: unitActions.plant, icon: "✿" });
+  }
+
+  if (adjacent && visible && canUnitUseAction(currentUnit, unitActions.buildHouse, context)) {
+    const targetMode = getBuildHouseTargetMode(cell, { ignoreAffordability: true });
+    if (targetMode?.mode === "construction") {
+      actions.push({ action: unitActions.buildHouse, icon: "⚒" });
+    } else if (targetMode?.mode === "new") {
+      const costStatus = getConstructibleBuildCostStatus("building", "house", context);
+      construction.push({
+        action: unitActions.buildHouse,
+        label: `${strings.actions.buildHouse}: ${getBuildingLabel("house")}`,
+        icon: getConstructibleTypeIcon("building", "house"),
+        costStatus,
+        disabled: !costStatus.affordable,
+      });
+    }
+  }
+
+  if (adjacent && visible && canUnitUseAction(currentUnit, unitActions.layFoundation, context)) {
+    for (const constructible of getFoundationConstructibleOptions(context)) {
+      const multiTile = isMultiTileConstructible(constructible);
+      const placementCells = multiTile ? getAdjacentCells(getCell(currentUnit.x, currentUnit.y)) : [cell];
+      let originCell = null;
+
+      for (const placementCell of placementCells) {
+        originCell = getConstructibleCandidateOriginsForPlacementCellForKind(
+          constructible.kind, placementCell, constructible.type,
+        ).find((origin) => canPlaceNewConstructibleConstructionOnCell(origin, constructible, currentUnit)
+          && doesConstructiblePlacementTouchUnit(origin, constructible, currentUnit));
+        if (originCell) break;
+      }
+
+      if (!originCell) continue;
+
+      const costStatus = getConstructibleBuildCostStatus(constructible.kind, constructible.type, context);
+      construction.push({
+        action: unitActions.layFoundation,
+        label: `${strings.actions.layFoundation}: ${getFoundationConstructibleLabel(constructible)}`,
+        icon: getFoundationConstructibleIcon(constructible),
+        constructible,
+        originCell: multiTile ? null : originCell,
+        costStatus,
+        disabled: !costStatus.affordable,
+      });
+    }
+  }
+
+  if (cell.x === currentUnit.x && cell.y === currentUnit.y) {
+    if (canUnitUseAction(currentUnit, unitActions.play, context)) {
+      actions.push({ action: unitActions.play, icon: "♪" });
+    }
+    if (canUnitUseAction(currentUnit, unitActions.research, context)) {
+      actions.push({ action: unitActions.research, icon: "✶" });
+    }
+  }
+
+  return { actions, construction };
+}
+
+function closeUnitTileActionMenu() {
+  if (unitTileActionMenu) {
+    unitTileActionMenu.hidden = true;
+    unitTileActionMenu.replaceChildren();
+  }
+  unitTileActionTarget = null;
+}
+
+function createUnitTileActionButton(option, index, group) {
+  const button = document.createElement("button");
+  const icon = document.createElement("span");
+  const copy = document.createElement("span");
+  const label = document.createElement("span");
+  button.type = "button";
+  button.className = "unit-tile-action-item";
+  button.setAttribute("role", "menuitem");
+  if (group === "construction") {
+    button.dataset.constructionIndex = String(index);
+  } else if (group === "context") {
+    button.dataset.contextIndex = String(index);
+  }
+  button.disabled = Boolean(option.disabled);
+  icon.className = "unit-tile-action-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = option.icon;
+  label.textContent = option.label || getUnitActionLabel(option.action);
+  copy.className = "unit-tile-action-copy";
+  copy.append(label);
+  if (option.costStatus) {
+    const costs = document.createElement("span");
+    costs.className = "unit-tile-action-costs";
+    for (const entry of option.costStatus.entries) {
+      const item = document.createElement("span");
+      const image = document.createElement("img");
+      item.className = `unit-tile-action-cost${entry.affordable ? "" : " is-missing"}`;
+      image.src = resourceUiIcons[entry.resourceType];
+      image.alt = "";
+      item.append(image, document.createTextNode(formatDisplayedQuantity(entry.required)));
+      costs.append(item);
+    }
+    copy.append(costs);
+    button.setAttribute("aria-label", `${label.textContent}: ${option.costStatus.entries.map((entry) =>
+      `${getResourceLabel(entry.resourceType)} ${formatDisplayedQuantity(entry.required)}`,
+    ).join(", ")}`);
+  }
+  button.append(icon, copy);
+  return button;
+}
+
+function positionUnitTileActionMenu(clientX, clientY) {
+  const margin = 8;
+  const width = unitTileActionMenu.offsetWidth;
+  const height = unitTileActionMenu.offsetHeight;
+  unitTileActionMenu.style.left = `${clamp(clientX, margin, Math.max(margin, window.innerWidth - width - margin))}px`;
+  unitTileActionMenu.style.top = `${clamp(clientY, margin, Math.max(margin, window.innerHeight - height - margin))}px`;
+}
+
+function openUnitTileActionMenu(currentUnit, cell, clientX, clientY, options) {
+  if (!unitTileActionMenu) return;
+  closeUnitTileActionMenu();
+  unitTileActionTarget = { unitId: currentUnit.id, x: cell.x, y: cell.y, options, clientX, clientY };
+
+  for (const [index, option] of options.actions.entries()) {
+    unitTileActionMenu.append(createUnitTileActionButton(option, index, "context"));
+  }
+
+  if (options.construction.length > 0) {
+    const toggle = createUnitTileActionButton({ icon: "▦", label: strings.actions.buildHouse }, 0, "toggle");
+    const submenu = document.createElement("div");
+    toggle.dataset.toggleConstruction = "true";
+    toggle.setAttribute("aria-expanded", "false");
+    submenu.className = "unit-tile-action-submenu";
+    submenu.hidden = true;
+    for (const [index, option] of options.construction.entries()) {
+      submenu.append(createUnitTileActionButton(option, index, "construction"));
+    }
+    unitTileActionMenu.append(toggle, submenu);
+  }
+
+  unitTileActionMenu.hidden = false;
+  positionUnitTileActionMenu(clientX, clientY);
+  unitTileActionMenu.querySelector("button:not(:disabled)")?.focus({ preventScroll: true });
+}
+
+function queueUnitTileAction(option, currentUnit, cell) {
+  if (option.action === unitActions.layFoundation) {
+    if (isMultiTileConstructible(option.constructible)) {
+      if (!setSelectedFoundationConstructible(option.constructible.id)) return false;
+      selectedUnitAction = unitActions.layFoundation;
+      pendingFoundationPlacement = { unitId: currentUnit.id, constructibleId: option.constructible.id };
+      playHoverCell = canShowBuildHouseCostHint(cell, currentUnit) ? cell : null;
+      updateUnitActionControls();
+      draw();
+      return true;
+    }
+
+    return queueUnitAction(option.action, {
+      currentUnit,
+      destinationCell: getCell(option.originCell.x, option.originCell.y),
+      constructible: option.constructible,
+    });
+  }
+  return queueUnitAction(option.action, { currentUnit, destinationCell: cell });
 }
 
 function ensureFoundationActionMenuButtons() {
@@ -3737,12 +3946,14 @@ function updateFoundationActionMenu() {
 }
 
 function applyStaticText() {
+  closeUnitTileActionMenu();
   document.documentElement.lang = currentLanguage;
   document.title = strings.app.title;
   viewport.setAttribute("aria-label", strings.aria.viewport);
   terrainMenuOptions.setAttribute("aria-label", strings.aria.terrainMenu);
   variantMenuOptions.setAttribute("aria-label", strings.aria.variantMenu);
   gameActionMenu?.setAttribute("aria-label", strings.aria.gameMenu);
+  unitTileActionMenu?.setAttribute("aria-label", strings.aria.unitActions);
   saveSlotPanel?.setAttribute("aria-label", strings.aria.saveSlots);
   mainMenuOverlay?.setAttribute("aria-label", strings.aria.mainMenu);
   unitActionBar?.setAttribute("aria-label", strings.aria.unitActions);
@@ -3757,7 +3968,6 @@ function applyStaticText() {
   setTextContent(saveStateAsButtons, strings.actions.saveAs);
   setTextContent(openMainMenuButtons, strings.actions.mainMenu);
   setTextContent(nextTurnButtons, strings.actions.nextTurn);
-  setTextContent(autoPassLabels, strings.toggles.autoPass);
   setTextContent(musicToggleLabelElements, strings.audio.musicToggle);
   setTextContent(musicVolumeLabelElements, strings.audio.volume);
   setTextContent(slotNameLabels, strings.saveSlots.slotName);
@@ -3819,8 +4029,8 @@ function applyStaticText() {
   setAttributeForElements(nextUnitButtons, "title", strings.actions.nextUnit);
   setAttributeForElements(unitBookPageButtons, "aria-label", strings.actions.openBook);
   setAttributeForElements(unitBookPageButtons, "title", strings.actions.openBook);
-  setAttributeForElements(gatherTaskLoopButtons, "aria-label", strings.actions.loopGather);
-  setAttributeForElements(gatherTaskLoopButtons, "title", strings.actions.loopGather);
+  setAttributeForElements(gatherLoopIndicators, "aria-label", strings.actions.collectingContinuously);
+  setAttributeForElements(gatherLoopIndicators, "title", strings.actions.collectingContinuously);
   setAttributeForElements(cancelUnitTaskButtons, "aria-label", strings.actions.cancel);
   setAttributeForElements(cancelUnitTaskButtons, "title", strings.actions.cancel);
   setAttributeForElements(openBookOverlayButtons, "aria-label", strings.actions.openBook);
@@ -4266,11 +4476,19 @@ function getTileInspectorInfoEntries(cell) {
     if (vehicle) {
       const completeness = Math.round(getBuildingCompleteness(vehicle) * 100);
       const vehicleLabel = getVehicleLabel(vehicle.type);
+      const cargo = normalizeVehicleCargo(vehicle.cargo, vehicle);
+      const cargoLabel = cargo
+        ? ` | ${strings.readouts.cargo(
+          formatDisplayedQuantity(cargo.amount),
+          formatDisplayedQuantity(getVehicleCargoCapacity(vehicle)),
+          getResourceLabel(cargo.resourceType),
+        )}`
+        : "";
       entries.push({
         kind: "vehicle",
         cell,
         vehicle,
-        label: completeness >= 100 ? vehicleLabel : `${vehicleLabel} ${completeness}%`,
+        label: `${completeness >= 100 ? vehicleLabel : `${vehicleLabel} ${completeness}%`}${cargoLabel}`,
       });
     }
 
@@ -4609,6 +4827,83 @@ function getDefaultUnitStamina(unitTypeId = getDefaultUnitTypeId(), context = ge
   return Math.max(1, clampNumber(configured, 1, 999, 2));
 }
 
+function getUnitCarryingCapacity(unitOrTypeId = getDefaultUnitTypeId(), context = getRuleContext()) {
+  return clampNonNegativeNumber(getEffectiveUnitConfig(unitOrTypeId, context).carryingCapacity, 999999, 24);
+}
+
+function normalizeCargo(cargo, capacity) {
+  const resourceType = cargo?.resourceType;
+  const amount = clampNonNegativeNumber(cargo?.amount, capacity, 0);
+
+  if (!stockpileResourceTypes.includes(resourceType) || amount <= 0) {
+    return null;
+  }
+
+  return { resourceType, amount };
+}
+
+function normalizeUnitCargo(cargo, unitOrTypeId = getDefaultUnitTypeId()) {
+  return normalizeCargo(cargo, getUnitCarryingCapacity(unitOrTypeId));
+}
+
+function getVehicleCargoCapacity(vehicleOrType) {
+  const type = typeof vehicleOrType === "string" ? vehicleOrType : vehicleOrType?.type;
+  return clampNonNegativeNumber(getConstructibleRules("vehicle", type)?.cargoCapacity, 999999, 0);
+}
+
+function normalizeVehicleCargo(cargo, vehicleOrType) {
+  return normalizeCargo(cargo, getVehicleCargoCapacity(vehicleOrType));
+}
+
+function getActiveCargoHolder(currentUnit) {
+  const vehicle = getMountedVehicle(currentUnit);
+  return vehicle && getVehicleCargoCapacity(vehicle) > 0 ? vehicle : currentUnit;
+}
+
+function getActiveCargoCapacity(currentUnit) {
+  const holder = getActiveCargoHolder(currentUnit);
+  return holder === currentUnit ? getUnitCarryingCapacity(currentUnit) : getVehicleCargoCapacity(holder);
+}
+
+function getActiveCargo(currentUnit) {
+  return normalizeCargo(getActiveCargoHolder(currentUnit)?.cargo, getActiveCargoCapacity(currentUnit));
+}
+
+function setActiveCargo(currentUnit, cargo) {
+  const holder = getActiveCargoHolder(currentUnit);
+  if (!holder) return;
+  holder.cargo = normalizeCargo(cargo, getActiveCargoCapacity(currentUnit));
+  invalidateStaticUnitsLayer();
+  if (holder !== currentUnit) invalidateStaticLayer();
+}
+
+function getActiveCargoRoom(currentUnit, resourceType) {
+  if (!currentUnit || !stockpileResourceTypes.includes(resourceType)) {
+    return 0;
+  }
+
+  const cargo = getActiveCargo(currentUnit);
+  if (cargo && cargo.resourceType !== resourceType) {
+    return 0;
+  }
+
+  return Math.max(0, getActiveCargoCapacity(currentUnit) - (cargo?.amount || 0));
+}
+
+function addToActiveCargo(currentUnit, resourceType, amount) {
+  const currentCargo = getActiveCargo(currentUnit);
+  const added = Math.min(clampNonNegativeNumber(amount, 999999, 0), getActiveCargoRoom(currentUnit, resourceType));
+  if (added <= 0) {
+    return 0;
+  }
+
+  setActiveCargo(currentUnit, {
+    resourceType,
+    amount: (currentCargo?.amount || 0) + added,
+  });
+  return added;
+}
+
 function getDefaultUnitName(unitTypeId = getDefaultUnitTypeId(), context = getRuleContext()) {
   const normalizedTypeId = normalizeUnitTypeId(unitTypeId);
   const resolvedConfig = getEffectiveUnitConfig(normalizedTypeId, context);
@@ -4849,16 +5144,8 @@ function canGatherTaskDepleteOnThisTurn(task) {
   return isGatherTaskCycleStart(task) && task?.allowDepletionOnCycleStart !== false;
 }
 
-function isLoopableGatherTask(task) {
+function isGatherTask(task) {
   return isTaskAction(task, unitActions.gatherFood) || isTaskAction(task, unitActions.gatherMaterials);
-}
-
-function isGatherTaskLoopEnabled(task) {
-  return isLoopableGatherTask(task) && Boolean(task?.loop);
-}
-
-function canContinueGatherTaskWithoutDepletion(remainingAmount, gatherAmount) {
-  return gatherAmount > 0 && remainingAmount > gatherAmount;
 }
 
 function getUnitFoodConsumptionPerTurn(currentUnit = unit, context = getRuleContext()) {
@@ -5105,6 +5392,31 @@ function addToStockpile(resourceType, amount) {
   const stored = nextAmount - currentAmount;
 
   stockpile[resourceType] = nextAmount;
+  return stored;
+}
+
+function unloadActiveCargoAtCell(currentUnit, cell) {
+  const cargo = getActiveCargo(currentUnit);
+  if (!cargo || !cell) {
+    return 0;
+  }
+
+  const hasStore = getAdjacentCells(cell).some((neighbor) => {
+    const building = getBuildingAtCell(neighbor.x, neighbor.y);
+    return building?.state === "complete" && getBuildingResourceStorageCapacity(building.type, cargo.resourceType) > 0;
+  });
+  if (!hasStore) {
+    return 0;
+  }
+
+  const stored = addToStockpile(cargo.resourceType, cargo.amount);
+  if (
+    isGatherTask(currentUnit.task) &&
+    hasSufficientQuantity(getCurrentStockpileAmount(cargo.resourceType), getResourceStorageCapacity(cargo.resourceType))
+  ) {
+    currentUnit.task.stopAfterDelivery = true;
+  }
+  setActiveCargo(currentUnit, null);
   return stored;
 }
 
@@ -5430,31 +5742,6 @@ function getVehicleTypeIcon(type) {
   return getConstructibleTypeIcon("vehicle", type);
 }
 
-function getBuildingFootprintRowStep() {
-  return 2;
-}
-
-function getMaxBuildingHeightAtY(y, mapHeight = map.height) {
-  const normalizedY = clampInteger(y, 0, Math.max(0, mapHeight - 1), 0);
-  return Math.max(1, Math.floor((mapHeight - 1 - normalizedY) / getBuildingFootprintRowStep()) + 1);
-}
-
-function getBuildingWidth(type) {
-  return getConstructibleDimensionForKind("building", type, "width");
-}
-
-function getBuildingHeight(type) {
-  return getConstructibleDimensionForKind("building", type, "height");
-}
-
-function getVehicleWidth(type) {
-  return getConstructibleDimensionForKind("vehicle", type, "width");
-}
-
-function getVehicleHeight(type) {
-  return getConstructibleDimensionForKind("vehicle", type, "height");
-}
-
 function getFoundationConstructibleOptions(context = getRuleContext()) {
   return [
     ...getConstructibleFoundationActionTypes("building", context)
@@ -5496,6 +5783,13 @@ function getSelectedFoundationConstructible() {
   }
 
   return availableOptions.find((option) => option.id === selectedFoundationConstructibleId) || availableOptions[0];
+}
+
+function getPendingFoundationPlacement(currentUnit = getSelectedUnit()) {
+  if (!currentUnit || pendingFoundationPlacement?.unitId !== currentUnit.id) return null;
+
+  const constructible = getSelectedFoundationConstructible();
+  return constructible?.id === pendingFoundationPlacement.constructibleId ? constructible : null;
 }
 
 function setSelectedFoundationConstructible(id) {
@@ -6226,6 +6520,10 @@ function applyUnitConfigModifiers(config, context = getRuleContext()) {
         resolved.stamina = set.stamina;
       }
 
+      if (Number.isFinite(set.carryingCapacity)) {
+        resolved.carryingCapacity = set.carryingCapacity;
+      }
+
       if (Number.isFinite(set.foodConsumptionPerTurn)) {
         resolved.foodConsumptionPerTurn = set.foodConsumptionPerTurn;
       }
@@ -6376,8 +6674,18 @@ function serializeGatherUnitTask(task, taskType) {
     toX: clampInteger(task?.toX, 0, map.width - 1, 0),
     toY: clampInteger(task?.toY, 0, map.height - 1, 0),
     turnsRemaining: getGatherTaskTurnsRemaining(task),
-    loop: Boolean(task?.loop),
     allowDepletionOnCycleStart: task?.allowDepletionOnCycleStart !== false,
+    phase: ["gather", "deliver", "return"].includes(task?.phase) ? task.phase : "gather",
+    resourceId: typeof task?.resourceId === "string" ? task.resourceId : "",
+    stopAfterDelivery: Boolean(task?.stopAfterDelivery),
+    ...(Number.isInteger(task?.deliveryX) && Number.isInteger(task?.deliveryY) ? {
+      deliveryX: clampInteger(task.deliveryX, 0, map.width - 1, 0),
+      deliveryY: clampInteger(task.deliveryY, 0, map.height - 1, 0),
+    } : {}),
+    ...(Number.isInteger(task?.returnX) && Number.isInteger(task?.returnY) ? {
+      returnX: clampInteger(task.returnX, 0, map.width - 1, 0),
+      returnY: clampInteger(task.returnY, 0, map.height - 1, 0),
+    } : {}),
   };
 }
 
@@ -6413,6 +6721,14 @@ function serializeStockpileState() {
     lumber: getCurrentStockpileAmount("lumber"),
     food: getCurrentStockpileAmount("food"),
   };
+}
+
+function recordStockpileHistoryForCurrentTurn() {
+  if (currentTurn % stockpileHistoryIntervalTurns !== 0) return;
+  if (stockpileHistory[stockpileHistory.length - 1]?.turn === currentTurn) return;
+
+  stockpileHistory.push({ turn: currentTurn, ...serializeStockpileState() });
+  refreshBookStockpileCharts();
 }
 
 function serializeSituationMessage(entry) {
@@ -6468,6 +6784,7 @@ function serializeUnit(currentUnit) {
       mountedVehicleId: normalizeLinkedEntityId(currentUnit.mountedVehicleId),
       staminaMax: getUnitMaxStamina(currentUnit),
       stamina: clampNumber(getUnitStamina(currentUnit), 0, 999, getUnitMaxStamina(currentUnit)),
+      cargo: normalizeUnitCargo(currentUnit.cargo, currentUnit),
       task: didReachDestination ? null : serializeTask(currentUnit.task),
     };
   }
@@ -6483,6 +6800,7 @@ function serializeUnit(currentUnit) {
     mountedVehicleId: normalizeLinkedEntityId(currentUnit.mountedVehicleId),
     staminaMax: getUnitMaxStamina(currentUnit),
     stamina: clampNumber(getUnitStamina(currentUnit), 0, 999, getUnitMaxStamina(currentUnit)),
+    cargo: normalizeUnitCargo(currentUnit.cargo, currentUnit),
     task: serializeTask(currentUnit.task),
   };
 }
@@ -6507,6 +6825,7 @@ function serializeCurrentState() {
     vehicles: serializeConstructibles("vehicle"),
     units: getUnits().map((currentUnit) => serializeUnit(currentUnit)).filter(Boolean),
     stockpile: serializeStockpileState(),
+    stockpileHistory: stockpileHistory.map((entry) => ({ ...entry })),
     research: serializeResearchState(),
     situationMessages: serializeSituationMessages(),
     foodShortageTurns: Math.max(0, clampInteger(foodShortageTurns, 0, 999999, 0)),
@@ -7487,7 +7806,7 @@ function applyGeneratedWaterResources(cells, normalizedSettings) {
   }
 
   const fishableTarget = Math.round(
-    waterCells.length * (0.06 + ((normalizedSettings.food / 100) ** 1.08) * 0.23),
+    waterCells.length * (0.004 + ((normalizedSettings.food / 100) ** 2.8) * 0.282),
   );
   const fishableCells = new Set(
     shuffleArrayInPlace([...waterCells])
@@ -7508,7 +7827,7 @@ function applyGeneratedFoodPatches(cells, width, height, normalizedSettings, cen
   );
   const forestCellCount = countGeneratedCells(cells, (cell) => cell.type === "forest");
   const grainTarget = Math.round(
-    grassCellCount * (0.025 + ((normalizedSettings.food / 100) ** 1.15) * 0.16),
+    grassCellCount * ((normalizedSettings.food / 100) ** 1.82 * 0.185),
   );
   const forestFoodTarget = Math.round(
     forestCellCount * (0.04 + ((normalizedSettings.food / 100) ** 1.05) * 0.18),
@@ -7732,6 +8051,7 @@ function createDefaultUnitState(cells, width, height, unitTypeOrOptions = getDef
           mountedVehicleId: null,
           staminaMax: getDefaultUnitStamina(unitType),
           stamina: getDefaultUnitStamina(unitType),
+          cargo: null,
           task: null,
           turnRoute: null,
         }
@@ -7766,7 +8086,54 @@ function canPlaceNewConstructibleConstructionOnCellForKind(kind, originCell, typ
   return placementEntries.every(({ cell, allowedTerrains }) => canCellHostConstructiblePlacement(kind, cell, allowedTerrains));
 }
 
+function getVillageVicinityCells() {
+  if (villageVicinityCells) {
+    return villageVicinityCells;
+  }
+
+  const cells = new Map();
+  const maxDistance = clampInteger(rules.buildingPlacement?.villageMaxDistance, 0, 9999, 1);
+
+  for (const building of buildings) {
+    if (building.state !== "complete" || !getConstructibleRulesForKind("building", building.type)?.villageBuilding) {
+      continue;
+    }
+
+    for (const occupiedCell of getConstructibleOccupiedCellsForKind("building", building)) {
+      for (let y = Math.max(0, occupiedCell.y - 2 * maxDistance); y <= Math.min(map.height - 1, occupiedCell.y + 2 * maxDistance); y += 1) {
+        for (let x = Math.max(0, occupiedCell.x - 2 * maxDistance); x <= Math.min(map.width - 1, occupiedCell.x + 2 * maxDistance); x += 1) {
+          if (walkingDistance(x, y, occupiedCell.x, occupiedCell.y) > maxDistance) {
+            continue;
+          }
+
+          const cell = getCell(x, y);
+          if (cell) {
+            cells.set(createCellKey(x, y), cell);
+          }
+        }
+      }
+    }
+  }
+
+  villageVicinityCells = cells;
+  return cells;
+}
+
+function hasNearbyCompletedVillageBuilding(originCell, type) {
+  return getConstructiblePlacementCellsForKind("building", originCell, type).some((cell) =>
+    getVillageVicinityCells().has(createCellKey(cell.x, cell.y)),
+  );
+}
+
 function canPlaceNewBuildingConstructionOnCell(originCell, type, currentUnit = null) {
+  if (
+    isPlayMode() &&
+    getConstructibleRulesForKind("building", type)?.villageBuilding &&
+    !hasNearbyCompletedVillageBuilding(originCell, type)
+  ) {
+    return false;
+  }
+
   return canPlaceNewConstructibleConstructionOnCellForKind("building", originCell, type, currentUnit);
 }
 
@@ -7774,24 +8141,8 @@ function canPlaceNewVehicleConstructionOnCell(originCell, type, currentUnit = nu
   return canPlaceNewConstructibleConstructionOnCellForKind("vehicle", originCell, type, currentUnit);
 }
 
-function markBuildingCellsVisited(building) {
-  markConstructibleCellsVisitedForKind("building", building);
-}
-
-function markVehicleCellsVisited(vehicle) {
-  markConstructibleCellsVisitedForKind("vehicle", vehicle);
-}
-
 function createBuildingConstructionAtCell(cell, type = "house", { spendResources = true } = {}) {
   return createConstructibleConstructionAtCellForKind("building", cell, type, { spendResources });
-}
-
-function createHouseConstructionAtCell(cell) {
-  return createBuildingConstructionAtCell(cell, "house");
-}
-
-function createVehicleConstructionAtCell(cell, type, { spendResources = true } = {}) {
-  return createConstructibleConstructionAtCellForKind("vehicle", cell, type, { spendResources });
 }
 
 function canAffordConstructibleConstruction(constructible, context = getRuleContext()) {
@@ -7869,7 +8220,7 @@ function markCellVisitedByUnit(cell, { invalidate = true } = {}) {
   return changed || didTouchPathIndex;
 }
 
-function createDefaultBuildingsState(cells, width, height, units) {
+function createDefaultBuildingsState(cells, width, height) {
   const centerCell = getGeneratedVillageCenterCell(cells, width, height);
 
   if (!centerCell) return [];
@@ -7921,7 +8272,7 @@ function createGeneratedState(
   const height = normalizedSize.height;
   const cells = buildCells(width, height, generationSettings);
   const centerCell = getGeneratedVillageCenterCell(cells, width, height);
-  const defaultBuildings = createDefaultBuildingsState(cells, width, height, []);
+  const defaultBuildings = createDefaultBuildingsState(cells, width, height);
   const blockedKeys = new Set(
     defaultBuildings.flatMap((building) =>
       getConstructibleOccupiedCellsForKind("building", building)
@@ -7952,6 +8303,7 @@ function createGeneratedState(
     vehicles: [],
     units,
     stockpile: createEmptyStockpile(),
+    stockpileHistory: [],
     research: createDefaultResearchState(),
     situationMessages: [createSituationMessageEntry("intro", {}, 1, 1)],
     foodShortageTurns: 0,
@@ -8388,11 +8740,12 @@ function normalizeGatherFoodUnitTask(task, { currentX, currentY } = {}) {
 
   const { toX, toY, destinationCell } = destination;
 
-  if (!areCellsAdjacent(currentX, currentY, toX, toY) || !hasGatherableFoodResource(destinationCell)) {
+  const phase = ["deliver", "return"].includes(task?.phase) ? task.phase : "gather";
+  if (phase === "gather" && (!areCellsAdjacent(currentX, currentY, toX, toY) || !hasGatherableFoodResource(destinationCell))) {
     return null;
   }
 
-  return serializeGatherUnitTask({ ...task, toX, toY }, "gatherFood");
+  return serializeGatherUnitTask({ ...task, toX, toY, phase, resourceId: task?.resourceId || destinationCell.foodType }, "gatherFood");
 }
 
 function normalizeGatherMaterialsUnitTask(task, { currentX, currentY } = {}) {
@@ -8404,11 +8757,12 @@ function normalizeGatherMaterialsUnitTask(task, { currentX, currentY } = {}) {
 
   const { toX, toY, destinationCell } = destination;
 
-  if (!areCellsAdjacent(currentX, currentY, toX, toY) || !hasMaterialResource(destinationCell)) {
+  const phase = ["deliver", "return"].includes(task?.phase) ? task.phase : "gather";
+  if (phase === "gather" && (!areCellsAdjacent(currentX, currentY, toX, toY) || !hasMaterialResource(destinationCell))) {
     return null;
   }
 
-  return serializeGatherUnitTask({ ...task, toX, toY }, "gatherMaterials");
+  return serializeGatherUnitTask({ ...task, toX, toY, phase, resourceId: task?.resourceId || getCellMaterialResourceType(destinationCell) }, "gatherMaterials");
 }
 
 function normalizePlantUnitTask(task, { currentX, currentY, currentUnit } = {}) {
@@ -8483,28 +8837,6 @@ function normalizeLayFoundationUnitTask(task, { currentX, currentY } = {}) {
   }, "layFoundation");
 }
 
-function normalizeDemolishUnitTask(task, { currentX, currentY } = {}) {
-  const destination = getNormalizedUnitTaskDestination(task, currentX, currentY);
-
-  if (!destination) {
-    return null;
-  }
-
-  const { toX, toY } = destination;
-
-  if (!areCellsAdjacent(currentX, currentY, toX, toY)) {
-    return null;
-  }
-
-  const building = getBuildingAtCell(toX, toY);
-
-  if (!building || building.state !== "abandoned") {
-    return null;
-  }
-
-  return serializeTargetedUnitTask({ toX, toY }, "demolish");
-}
-
 function normalizeTask(task, currentX, currentY, currentUnit = null) {
   const spec = getUnitActionSpec(task);
 
@@ -8556,6 +8888,14 @@ function normalizeStockpileState(rawStockpile) {
   };
 }
 
+function normalizeStockpileHistoryState(rawHistory) {
+  if (!Array.isArray(rawHistory)) return [];
+
+  return rawHistory
+    .filter((entry) => Number.isInteger(entry?.turn) && entry.turn >= 1 && entry.turn <= 999999)
+    .map((entry) => ({ turn: entry.turn, ...normalizeStockpileState(entry) }));
+}
+
 function normalizeBuildingState(state) {
   return ["complete", "construction", "abandoned"].includes(state)
     ? state
@@ -8603,6 +8943,7 @@ function normalizeUnitsState(rawUnits, mode) {
     const positionValidationUnit = {
       id: unitId,
       mountedVehicleId,
+      cargo: normalizeUnitCargo(sourceUnit?.cargo, sourceUnit?.unitType),
     };
 
     if (!canUnitEnter(cell, positionValidationUnit, occupiedKeys)) {
@@ -8636,6 +8977,7 @@ function normalizeUnitsState(rawUnits, mode) {
       mountedVehicleId,
       staminaMax,
       stamina: Math.max(0, clampNumber(sourceUnit?.stamina, 0, 999, staminaMax)),
+      cargo: normalizeUnitCargo(sourceUnit?.cargo, unitType),
       selected: false,
       task:
         mode !== interactionModes.play
@@ -8654,7 +8996,10 @@ function normalizeUnitsState(rawUnits, mode) {
       normalizedUnit.task = null;
     }
 
-    if (normalizedUnit.task && !canUnitUseAction(normalizedUnit, getTaskActionId(normalizedUnit.task))) {
+    const isCollectionTransport = isGatherTask(normalizedUnit.task) &&
+      (normalizedUnit.task.phase === "deliver" || normalizedUnit.task.phase === "return");
+    // Cargo may prevent a new gather order, but it must not cancel an active delivery or return.
+    if (normalizedUnit.task && !isCollectionTransport && !canUnitUseAction(normalizedUnit, getTaskActionId(normalizedUnit.task))) {
       normalizedUnit.task = null;
     }
 
@@ -8746,6 +9091,7 @@ function reconcileMountedVehicleStateLinks(vehicleState = vehicles, unitState = 
       continue;
     }
 
+    transferUnitCargoToVehicle(currentUnit, vehicle);
     vehicle.x = currentUnit.x;
     vehicle.y = currentUnit.y;
   }
@@ -8774,6 +9120,7 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   rebuildUnitOccupancyIndex();
   reconcileMountedVehicleStateLinks(vehicles, units);
   stockpile = normalizeStockpileState(nextState.stockpile);
+  stockpileHistory = normalizeStockpileHistoryState(nextState.stockpileHistory);
   situationMessages = normalizeSituationMessagesState(nextState.situationMessages);
   clampStockpileToCapacity();
   foodShortageTurns = Math.max(
@@ -8783,12 +9130,13 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   inspectedPlayCell = null;
   syncActiveUnit();
   selectedUnitAction = null;
+  pendingFoundationPlacement = null;
   currentTurn = Math.max(1, clampInteger(nextState.turn, 1, 999999, 1));
   syncSeasonConversionState({ includeCurrentTurn: false, rebuild: true });
   autoAdvanceTurns =
     typeof nextState.autoAdvanceTurns === "boolean" ? nextState.autoAdvanceTurns : true;
   situationMessageViewIndex = situationMessages.length > 0 ? situationMessages.length - 1 : -1;
-  setSituationMessageVisibility(situationMessages.length > 0);
+  setSituationMessageVisibility(false);
   clearSituationMessageTyping();
 
   setTextContent(mapSizeReadouts, strings.readouts.mapSize(map.width, map.height));
@@ -8803,12 +9151,20 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   });
 }
 
-async function loadFileIntoMode(fileName, mode, options) {
+function getAutosaveActiveFileName(state, fallbackName = null) {
+  if (Object.prototype.hasOwnProperty.call(state, "activeFileName")) {
+    return sanitizeFileName(state.activeFileName) || null;
+  }
+
+  return fallbackName === autosaveSlotName ? null : fallbackName;
+}
+
+async function loadFileIntoMode(fileName, mode, options, preloadedState = null) {
   const normalizedName = sanitizeFileName(fileName);
 
   if (!normalizedName) return false;
 
-  const state = await readSaveFile(normalizedName);
+  const state = preloadedState || await readSaveFile(normalizedName);
 
   if (!state) return false;
   if (!isCompatibleSaveState(state)) {
@@ -8817,9 +9173,12 @@ async function loadFileIntoMode(fileName, mode, options) {
   }
 
   const previousFileName = getCurrentFileName(mode);
+  const activeFileName = mode === interactionModes.play && normalizedName === autosaveSlotName
+    ? getAutosaveActiveFileName(state, previousFileName)
+    : normalizedName;
 
   try {
-    writeCurrentFileName(mode, normalizedName);
+    writeCurrentFileName(mode, activeFileName);
     applyStateSnapshot(state, mode, options);
     return true;
   } catch (error) {
@@ -8872,7 +9231,10 @@ function saveState(mode = interactionMode) {
 }
 
 async function autosavePlayState() {
-  return saveStateToFile(autosaveSlotName, interactionModes.play, { alertMode: "once" });
+  return writeSaveFile(autosaveSlotName, {
+    ...serializeCurrentState(),
+    activeFileName: getCurrentFileName(interactionModes.play),
+  }, { alertMode: "once" });
 }
 
 function getUnits() {
@@ -8926,31 +9288,24 @@ function removeUnitOccupancyEntry(currentUnit) {
   }
 }
 
-function getVehicles() {
-  return vehicles;
-}
-
 function hasAssignedTask(currentUnit) {
   return Boolean(currentUnit?.task);
 }
 
-function getDefaultActionForCompletedTask(currentUnit = getSelectedUnit()) {
-  return getPreferredUnitAction(currentUnit, unitActions.walk);
-}
-
-function applyCompletedTaskDefaultAction(currentUnit) {
+function clearSelectedActionForCompletedTask(currentUnit) {
   const selectedUnit = getSelectedUnit();
 
   if (selectedUnit && selectedUnit !== currentUnit) {
     return;
   }
 
-  selectedUnitAction = getDefaultActionForCompletedTask(currentUnit);
+  selectedUnitAction = null;
+  pendingFoundationPlacement = null;
 }
 
 function getCurrentSelectedUnitAction(currentUnit = getSelectedUnit()) {
   if (!currentUnit) {
-    return normalizeSelectableUnitAction(selectedUnitAction);
+    return normalizePendingSelectableUnitAction(selectedUnitAction);
   }
 
   return getPreferredUnitAction(currentUnit, selectedUnitAction);
@@ -9075,7 +9430,7 @@ function getNextIdleUnit(fromUnit = getSelectedUnit()) {
 
 function selectNextIdleUnit({
   fromUnit = getSelectedUnit(),
-  defaultAction = unitActions.walk,
+  defaultAction = null,
   scrollIntoView = true,
 } = {}) {
   const nextIdleUnit = getNextIdleUnit(fromUnit);
@@ -9103,6 +9458,10 @@ function canAdvanceTurn() {
   );
 }
 
+function canManuallyAdvanceTurn() {
+  return canAdvanceTurn() && (!autoAdvanceTurns || getIdleUnits().length > 0);
+}
+
 function updateTurnReadout() {
   setTextContent(turnReadouts, strings.readouts.turn(currentTurn, formatJulianTurnDate(currentTurn)));
 }
@@ -9110,8 +9469,8 @@ function updateTurnReadout() {
 function updateTurnControls() {
   updateTurnReadout();
   updateStockpileReadout();
-  setCheckedState(autoPassInputs, autoAdvanceTurns);
-  setDisabledState(nextTurnButtons, !canAdvanceTurn());
+  setTextContent(turnAutoToggleButtons, autoAdvanceTurns ? strings.actions.pauseTurns : strings.actions.continueTurns);
+  setDisabledState(nextTurnButtons, !canManuallyAdvanceTurn());
   const shouldHighlight = !autoAdvanceTurns && canAdvanceTurn() && everyUnitHasOngoingTask();
 
   for (const button of nextTurnButtons) {
@@ -9214,6 +9573,7 @@ function assignUnitTask(task, currentUnit = getSelectedUnit()) {
   if (!currentUnit || currentUnit.move || !task || isReplayPhase()) return false;
 
   clearQueuedAutoAdvanceFrame();
+  pendingFoundationPlacement = null;
 
   currentUnit.task = task;
   currentUnit.turnRoute = null;
@@ -9303,10 +9663,14 @@ function queueResearchUnitAction({ currentUnit = getSelectedUnit() } = {}) {
 }
 
 function queueGatherFoodUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
-  if (!currentUnit || currentUnit.move || !canGatherFoodFromCell(destinationCell, currentUnit)) return false;
+  if (!currentUnit || currentUnit.move || !canAssignGatherFoodTarget(destinationCell, currentUnit)) return false;
   if (!canUnitUseAction(currentUnit, unitActions.gatherFood)) return false;
 
-  return assignUnitTask(createUnitTaskForAction(unitActions.gatherFood, { destinationCell }), currentUnit);
+  const task = createUnitTaskForAction(unitActions.gatherFood, { destinationCell });
+  if (!areCellsAdjacent(currentUnit.x, currentUnit.y, destinationCell.x, destinationCell.y)) {
+    task.phase = "return";
+  }
+  return assignUnitTask(task, currentUnit);
 }
 
 function queuePlantUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
@@ -9317,10 +9681,14 @@ function queuePlantUnitAction({ currentUnit = getSelectedUnit(), destinationCell
 }
 
 function queueGatherMaterialsUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
-  if (!currentUnit || currentUnit.move || !canGatherMaterialsFromCell(destinationCell, currentUnit)) return false;
+  if (!currentUnit || currentUnit.move || !canAssignGatherMaterialsTarget(destinationCell, currentUnit)) return false;
   if (!canUnitUseAction(currentUnit, unitActions.gatherMaterials)) return false;
 
-  return assignUnitTask(createUnitTaskForAction(unitActions.gatherMaterials, { destinationCell }), currentUnit);
+  const task = createUnitTaskForAction(unitActions.gatherMaterials, { destinationCell });
+  if (!areCellsAdjacent(currentUnit.x, currentUnit.y, destinationCell.x, destinationCell.y)) {
+    task.phase = "return";
+  }
+  return assignUnitTask(task, currentUnit);
 }
 
 function queueBuildHouseUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
@@ -9378,23 +9746,6 @@ function queueLayFoundationUnitAction({
   );
 }
 
-function queueDemolishUnitAction({ currentUnit = getSelectedUnit(), destinationCell } = {}) {
-  if (
-    !currentUnit ||
-    currentUnit.move ||
-    !canUnitUseAction(currentUnit, unitActions.demolish) ||
-    !areCellsAdjacent(currentUnit.x, currentUnit.y, destinationCell.x, destinationCell.y)
-  ) {
-    return false;
-  }
-
-  const building = getBuildingAtCell(destinationCell.x, destinationCell.y);
-
-  if (!building || building.state !== "abandoned") return false;
-
-  return assignUnitTask(createUnitTaskForAction(unitActions.demolish, { destinationCell }), currentUnit);
-}
-
 function canAssignUnitMoveTarget(destinationCell, currentUnit = getSelectedUnit()) {
   if (!currentUnit || !destinationCell) {
     return false;
@@ -9417,10 +9768,6 @@ function canAssignUnitMoveTarget(destinationCell, currentUnit = getSelectedUnit(
 
 function queueUnitMoveTask(destinationCell, currentUnit = getSelectedUnit()) {
   return queueUnitAction(unitActions.walk, { currentUnit, destinationCell });
-}
-
-function queueUnitDismountTask(destinationCell, currentUnit = getSelectedUnit()) {
-  return queueUnitAction(unitActions.dismount, { currentUnit, destinationCell });
 }
 
 function queueUnitPlayTask(currentUnit = getSelectedUnit()) {
@@ -9446,45 +9793,8 @@ function queueUnitResearchTask(currentUnit = getSelectedUnit()) {
   return queueUnitAction(unitActions.research, { currentUnit });
 }
 
-function queueUnitGatherFoodTask(destinationCell, currentUnit = getSelectedUnit()) {
-  return queueUnitAction(unitActions.gatherFood, { currentUnit, destinationCell });
-}
-
-function queueUnitPlantTask(destinationCell, currentUnit = getSelectedUnit()) {
-  return queueUnitAction(unitActions.plant, { currentUnit, destinationCell });
-}
-
-function queueUnitGatherMaterialsTask(destinationCell, currentUnit = getSelectedUnit()) {
-  return queueUnitAction(unitActions.gatherMaterials, { currentUnit, destinationCell });
-}
-
-function queueUnitWorkTask(destinationCell, currentUnit = getSelectedUnit()) {
-  if (!currentUnit || currentUnit.move) {
-    return false;
-  }
-
-  if (!canUnitUseWorkUiAction(currentUnit)) {
-    return false;
-  }
-
-  return queueUnitBuildHouseTask(destinationCell, currentUnit)
-    || queueUnitGatherMaterialsTask(destinationCell, currentUnit);
-}
-
-function queueUnitBuildHouseTask(destinationCell, currentUnit = getSelectedUnit()) {
-  return queueUnitAction(unitActions.buildHouse, { currentUnit, destinationCell });
-}
-
-function queueUnitLayFoundationTask(destinationCell, currentUnit = getSelectedUnit()) {
-  return queueUnitAction(unitActions.layFoundation, { currentUnit, destinationCell });
-}
-
-function queueUnitDemolishTask(destinationCell, currentUnit = getSelectedUnit()) {
-  return queueUnitAction(unitActions.demolish, { currentUnit, destinationCell });
-}
-
 function clearCompletedTask(currentUnit) {
-  applyCompletedTaskDefaultAction(currentUnit);
+  clearSelectedActionForCompletedTask(currentUnit);
   currentUnit.task = null;
   currentUnit.turnRoute = null;
   invalidateStaticUnitsLayer();
@@ -9501,19 +9811,9 @@ function cancelUnitTask(currentUnit = getSelectedUnit() || unit) {
   currentUnit.lastStepFromY = null;
 
   if (currentUnit.selected) {
-    selectedUnitAction = unitActions.walk;
+    selectedUnitAction = null;
   }
 
-  refreshAfterUnitTaskChange({ autoAdvance: true });
-  return true;
-}
-
-function toggleGatherTaskLoop(currentUnit = getSelectedUnit() || unit) {
-  if (!currentUnit?.task || currentUnit.move || isReplayPhase() || !isLoopableGatherTask(currentUnit.task)) {
-    return false;
-  }
-
-  currentUnit.task.loop = !Boolean(currentUnit.task.loop);
   refreshAfterUnitTaskChange({ autoAdvance: true });
   return true;
 }
@@ -9545,9 +9845,237 @@ function exhaustMaterialResource(cell) {
   invalidateStaticLayer();
 }
 
+function isCollectionSourceUsable(cell, task) {
+  if (!cell || !task?.resourceId) return false;
+
+  if (task.type === "gatherFood") {
+    return cell.foodType === task.resourceId && hasGatherableFoodResource(cell)
+      && cell.foodAmount > 1 + quantityEpsilon;
+  }
+
+  return getCellMaterialResourceType(cell) === task.resourceId;
+}
+
+function isCollectionSourceUsableOnArrival(cell, task) {
+  return isCollectionSourceUsable(cell, task) || Boolean(
+    task?.type === "gatherFood" && task.allowDepletionOnCycleStart &&
+    cell?.foodType === task.resourceId && hasGatherableFoodResource(cell),
+  );
+}
+
+function findNextCollectionSource(task) {
+  const previousCell = getCell(task.toX, task.toY);
+  const candidates = [previousCell, ...getAdjacentCells(previousCell)]
+    .filter((cell) => isCollectionSourceUsable(cell, task));
+
+  const amountField = task.type === "gatherFood" ? "foodAmount" : "materialAmount";
+  candidates.sort((left, right) => right[amountField] - left[amountField]);
+  return candidates[0] || null;
+}
+
+function setNextCollectionSource(currentUnit) {
+  const task = currentUnit.task;
+  const nextSource = findNextCollectionSource(task);
+
+  if (!nextSource) return false;
+  task.toX = nextSource.x;
+  task.toY = nextSource.y;
+  task.turnsRemaining = getGatherTaskDurationTurns();
+  task.allowDepletionOnCycleStart = false;
+  delete task.returnX;
+  delete task.returnY;
+  currentUnit.turnRoute = null;
+  return true;
+}
+
+function setCollectionPhase(currentUnit, phase) {
+  currentUnit.task.phase = phase;
+  currentUnit.turnRoute = null;
+  invalidateStaticUnitsLayer();
+}
+
+function beginCollectionDelivery(currentUnit, stopAfterDelivery = false) {
+  const task = currentUnit.task;
+
+  if (!getActiveCargo(currentUnit)) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+
+  task.stopAfterDelivery = stopAfterDelivery;
+  delete task.deliveryX;
+  delete task.deliveryY;
+  delete task.returnX;
+  delete task.returnY;
+  setCollectionPhase(currentUnit, "deliver");
+}
+
+function finishCollectionGather(currentUnit, sourceExhausted = false) {
+  const task = currentUnit.task;
+  const source = getCell(task.toX, task.toY);
+  const resourceType = task.type === "gatherFood" ? "food" : task.resourceId;
+  const canContinueHere = isCollectionSourceUsable(source, task);
+  const needsNextSource = sourceExhausted || !canContinueHere;
+
+  if (needsNextSource && !setNextCollectionSource(currentUnit)) {
+    beginCollectionDelivery(currentUnit, true);
+    return;
+  }
+
+  if (getActiveCargoRoom(currentUnit, resourceType) <= quantityEpsilon) {
+    beginCollectionDelivery(currentUnit);
+    return;
+  }
+
+  if (task.turnsRemaining <= 0) {
+    task.turnsRemaining = getGatherTaskDurationTurns();
+    task.allowDepletionOnCycleStart = false;
+  }
+
+  if (!areCellsAdjacent(currentUnit.x, currentUnit.y, task.toX, task.toY)) {
+    setCollectionPhase(currentUnit, "return");
+  }
+  invalidateStaticLayer();
+}
+
+function canUseCollectionDestination(currentUnit, cell) {
+  if (canUnitEnter(cell, currentUnit)) return true;
+  if (getActiveCargoHolder(currentUnit) !== currentUnit && getActiveCargo(currentUnit)) return false;
+  return getUnitCellPassabilityState(cell, currentUnit, {
+    requireUnmounted: true,
+    forbidVehicles: true,
+  }).canOccupy;
+}
+
+function findCollectionDeliveryCell(currentUnit, resourceType) {
+  const candidates = new Map();
+
+  for (const building of buildings) {
+    if (building?.state !== "complete" || getBuildingResourceStorageCapacity(building.type, resourceType) <= 0) continue;
+    const footprint = getConstructiblePlacementCells(getCell(building.x, building.y), {
+      kind: "building", type: building.type,
+    });
+
+    for (const occupiedCell of footprint) {
+      for (const neighbor of getAdjacentCells(occupiedCell)) {
+        if (canUseCollectionDestination(currentUnit, neighbor)) {
+          candidates.set(createCellKey(neighbor.x, neighbor.y), neighbor);
+        }
+      }
+    }
+  }
+
+  return [...candidates.values()].sort((left, right) =>
+    walkingDistance(currentUnit.x, currentUnit.y, left.x, left.y)
+    - walkingDistance(currentUnit.x, currentUnit.y, right.x, right.y))[0] || null;
+}
+
+function resolveCollectionTransport(currentUnit) {
+  const task = currentUnit.task;
+  const cargo = getActiveCargo(currentUnit);
+
+  if (task.stopAfterDelivery && !cargo) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+
+  if (task.phase === "deliver") {
+    if (cargo) unloadActiveCargoAtCell(currentUnit, getCell(currentUnit.x, currentUnit.y));
+    if (!getActiveCargo(currentUnit)) {
+      if (task.stopAfterDelivery) {
+        clearCompletedTask(currentUnit);
+      } else {
+        delete task.deliveryX;
+        delete task.deliveryY;
+        setCollectionPhase(currentUnit, "return");
+      }
+      return;
+    }
+
+    let destination = getCell(task.deliveryX, task.deliveryY);
+    if (!destination || !canUseCollectionDestination(currentUnit, destination)) {
+      destination = findCollectionDeliveryCell(currentUnit, cargo.resourceType);
+      currentUnit.turnRoute = null;
+    }
+    if (!destination) {
+      clearCompletedTask(currentUnit);
+      return;
+    }
+    task.deliveryX = destination.x;
+    task.deliveryY = destination.y;
+    const result = moveUnitTowardCellForTurn(currentUnit, { toX: destination.x, toY: destination.y }, {
+      stopWhenUnloaded: true,
+    });
+
+    if (result === "blocked" || (result === "arrived" && getActiveCargo(currentUnit))) {
+      clearCompletedTask(currentUnit);
+    } else if (!getActiveCargo(currentUnit)) {
+      if (task.stopAfterDelivery) clearCompletedTask(currentUnit);
+      else {
+        delete task.deliveryX;
+        delete task.deliveryY;
+        setCollectionPhase(currentUnit, "return");
+      }
+    }
+    return;
+  }
+
+  if (!isCollectionSourceUsableOnArrival(getCell(task.toX, task.toY), task) && !setNextCollectionSource(currentUnit)) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+  if (areCellsAdjacent(currentUnit.x, currentUnit.y, task.toX, task.toY)) {
+    delete task.returnX;
+    delete task.returnY;
+    setCollectionPhase(currentUnit, "gather");
+    return;
+  }
+
+  const source = getCell(task.toX, task.toY);
+  let destination = getCell(task.returnX, task.returnY);
+  if (!destination || !areCellsAdjacent(destination.x, destination.y, source.x, source.y)
+    || !canUseCollectionDestination(currentUnit, destination)) {
+    destination = getAdjacentCells(source)
+      .filter((cell) => canUseCollectionDestination(currentUnit, cell))
+      .sort((left, right) =>
+        walkingDistance(currentUnit.x, currentUnit.y, left.x, left.y)
+        - walkingDistance(currentUnit.x, currentUnit.y, right.x, right.y))[0];
+    currentUnit.turnRoute = null;
+  }
+  if (!destination) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+
+  task.returnX = destination.x;
+  task.returnY = destination.y;
+  const result = moveUnitTowardCellForTurn(currentUnit, { toX: destination.x, toY: destination.y });
+  if (result === "blocked") clearCompletedTask(currentUnit);
+  else if (areCellsAdjacent(currentUnit.x, currentUnit.y, task.toX, task.toY)) {
+    delete task.returnX;
+    delete task.returnY;
+    setCollectionPhase(currentUnit, "gather");
+  }
+}
+
 function resolveGatherFoodTask(currentUnit) {
+  if (currentUnit.task?.phase && currentUnit.task.phase !== "gather") {
+    resolveCollectionTransport(currentUnit);
+    return;
+  }
   const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
 
+  if (!canUnitUseAction(currentUnit, unitActions.gatherFood)) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+  if (!hasGatherableFoodResource(targetCell) || targetCell.foodType !== currentUnit.task.resourceId) {
+    if (!setNextCollectionSource(currentUnit)) beginCollectionDelivery(currentUnit, true);
+    else if (!areCellsAdjacent(currentUnit.x, currentUnit.y, currentUnit.task.toX, currentUnit.task.toY)) {
+      setCollectionPhase(currentUnit, "return");
+    }
+    return;
+  }
   if (!canGatherFoodFromCell(targetCell, currentUnit)) {
     clearCompletedTask(currentUnit);
     return;
@@ -9555,25 +10083,28 @@ function resolveGatherFoodTask(currentUnit) {
 
   const canDepleteThisTurn = canGatherTaskDepleteOnThisTurn(currentUnit.task);
   const currentFoodAmount = clampNonNegativeNumber(targetCell.foodAmount, 999999, 0);
+  const cargoRoom = getActiveCargoRoom(currentUnit, "food");
+  const workPoints = getUnitWorkPointsPerTurn("gatherFood", currentUnit);
+  if (workPoints <= quantityEpsilon) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
   const gatherAmount = Math.min(
-    getUnitWorkPointsPerTurn("gatherFood"),
-    currentFoodAmount,
+    workPoints,
+    Math.max(0, currentFoodAmount - (canDepleteThisTurn ? 0 : 1)),
+    cargoRoom,
   );
 
   if (gatherAmount <= 0) {
-    exhaustFoodResource(targetCell);
-    clearCompletedTask(currentUnit);
-    invalidateStaticLayer();
-    return;
-  }
-
-  if (!canDepleteThisTurn && !canContinueGatherTaskWithoutDepletion(currentFoodAmount, gatherAmount)) {
-    clearCompletedTask(currentUnit);
+    if (currentFoodAmount <= 0) {
+      exhaustFoodResource(targetCell);
+    }
+    finishCollectionGather(currentUnit, currentFoodAmount <= 0);
     return;
   }
 
   targetCell.foodAmount = Math.max(0, currentFoodAmount - gatherAmount);
-  addToStockpile("food", gatherAmount);
+  addToActiveCargo(currentUnit, "food", gatherAmount);
   turnReplayHadWork = true;
   currentUnit.stamina = 0;
   currentUnit.task.turnsRemaining = Math.max(0, getGatherTaskTurnsRemaining(currentUnit.task) - 1);
@@ -9581,19 +10112,8 @@ function resolveGatherFoodTask(currentUnit) {
 
   if (targetCell.foodAmount <= 0) {
     exhaustFoodResource(targetCell);
-    clearCompletedTask(currentUnit);
-  } else if (currentUnit.task.turnsRemaining <= 0) {
-    if (isGatherTaskLoopEnabled(currentUnit.task) && canContinueGatherTaskWithoutDepletion(targetCell.foodAmount, gatherAmount)) {
-      currentUnit.task.turnsRemaining = getGatherTaskDurationTurns();
-      currentUnit.task.allowDepletionOnCycleStart = false;
-      invalidateStaticLayer();
-    } else {
-      clearCompletedTask(currentUnit);
-      invalidateStaticLayer();
-    }
-  } else {
-    invalidateStaticLayer();
   }
+  finishCollectionGather(currentUnit, targetCell.foodAmount <= 0);
 }
 
 function resolvePlantTask(currentUnit) {
@@ -9633,36 +10153,51 @@ function resolvePlantTask(currentUnit) {
 }
 
 function resolveGatherMaterialsTask(currentUnit) {
+  if (currentUnit.task?.phase && currentUnit.task.phase !== "gather") {
+    resolveCollectionTransport(currentUnit);
+    return;
+  }
   const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
 
+  if (!canUnitUseAction(currentUnit, unitActions.gatherMaterials)) {
+    clearCompletedTask(currentUnit);
+    return;
+  }
+  if (!hasMaterialResource(targetCell) || getCellMaterialResourceType(targetCell) !== currentUnit.task.resourceId) {
+    if (!setNextCollectionSource(currentUnit)) beginCollectionDelivery(currentUnit, true);
+    else if (!areCellsAdjacent(currentUnit.x, currentUnit.y, currentUnit.task.toX, currentUnit.task.toY)) {
+      setCollectionPhase(currentUnit, "return");
+    }
+    return;
+  }
   if (!canGatherMaterialsFromCell(targetCell, currentUnit)) {
     clearCompletedTask(currentUnit);
     return;
   }
 
   const materialType = getCellMaterialResourceType(targetCell);
-  const canDepleteThisTurn = canGatherTaskDepleteOnThisTurn(currentUnit.task);
   const currentMaterialAmount = clampNonNegativeNumber(targetCell.materialAmount, 999999, 0);
-  const gatherAmount = Math.min(
-    getUnitWorkPointsPerTurn("gatherMaterials"),
-    currentMaterialAmount,
-  );
-
-  if (!materialType || gatherAmount <= 0) {
-    if (targetCell) {
-      exhaustMaterialResource(targetCell);
-    }
+  const workPoints = getUnitWorkPointsPerTurn("gatherMaterials", currentUnit);
+  if (workPoints <= quantityEpsilon) {
     clearCompletedTask(currentUnit);
     return;
   }
+  const gatherAmount = Math.min(
+    workPoints,
+    currentMaterialAmount,
+    getActiveCargoRoom(currentUnit, materialType),
+  );
 
-  if (!canDepleteThisTurn && !canContinueGatherTaskWithoutDepletion(currentMaterialAmount, gatherAmount)) {
-    clearCompletedTask(currentUnit);
+  if (!materialType || gatherAmount <= 0) {
+    if (targetCell && currentMaterialAmount <= 0) {
+      exhaustMaterialResource(targetCell);
+    }
+    finishCollectionGather(currentUnit, currentMaterialAmount <= 0);
     return;
   }
 
   targetCell.materialAmount = Math.max(0, currentMaterialAmount - gatherAmount);
-  addToStockpile(materialType, gatherAmount);
+  addToActiveCargo(currentUnit, materialType, gatherAmount);
   turnReplayHadWork = true;
   currentUnit.stamina = 0;
   currentUnit.task.turnsRemaining = Math.max(0, getGatherTaskTurnsRemaining(currentUnit.task) - 1);
@@ -9670,19 +10205,8 @@ function resolveGatherMaterialsTask(currentUnit) {
 
   if (targetCell.materialAmount <= 0) {
     exhaustMaterialResource(targetCell);
-    clearCompletedTask(currentUnit);
-  } else if (currentUnit.task.turnsRemaining <= 0) {
-    if (isGatherTaskLoopEnabled(currentUnit.task) && canContinueGatherTaskWithoutDepletion(targetCell.materialAmount, gatherAmount)) {
-      currentUnit.task.turnsRemaining = getGatherTaskDurationTurns();
-      currentUnit.task.allowDepletionOnCycleStart = false;
-      invalidateStaticLayer();
-    } else {
-      clearCompletedTask(currentUnit);
-      invalidateStaticLayer();
-    }
-  } else {
-    invalidateStaticLayer();
   }
+  finishCollectionGather(currentUnit, targetCell.materialAmount <= 0);
 }
 
 function resolveBuildHouseTask(currentUnit) {
@@ -9751,41 +10275,6 @@ function resolveLayFoundationTask(currentUnit) {
   clearCompletedTask(currentUnit);
 }
 
-function resolveDemolishTask(currentUnit) {
-  const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
-
-  if (!targetCell || !areCellsAdjacent(currentUnit.x, currentUnit.y, targetCell.x, targetCell.y)) {
-    clearCompletedTask(currentUnit);
-    return;
-  }
-
-  const building = getBuildingAtCell(targetCell.x, targetCell.y);
-
-  if (!building || building.state !== "abandoned") {
-    clearCompletedTask(currentUnit);
-    return;
-  }
-
-  const nextCompleteness = clamp(
-    getBuildingCompleteness(building) +
-      -getBuildingWorkCompletenessDelta("demolish", building.type),
-    0,
-    1,
-  );
-
-  turnReplayHadWork = true;
-  building.state = "abandoned";
-  building.completeness = nextCompleteness;
-  currentUnit.stamina = 0;
-  invalidateStaticLayer();
-
-  if (nextCompleteness <= 0) {
-    buildings = buildings.filter((candidate) => candidate !== building);
-    clampStockpileToCapacity();
-    clearCompletedTask(currentUnit);
-  }
-}
-
 function resolvePerformTask(currentUnit) {
   turnReplayHadWork = true;
   currentUnit.stamina = 0;
@@ -9818,6 +10307,7 @@ function resolveDismountTask(currentUnit) {
   }
 
   currentUnit.stamina = Math.max(0, getUnitStamina(currentUnit) - moveCost);
+  const dismountedVehicle = getMountedVehicle(currentUnit);
 
   if (!applyUnitDismount(currentUnit, targetCell, { updateSelectedAction: false, refreshPresentation: false, setLastStepFromOrigin: true })) {
     clearCompletedTask(currentUnit);
@@ -9831,6 +10321,9 @@ function resolveDismountTask(currentUnit) {
     direction: getMoveDirection(originCell.x, originCell.y, targetCell.x, targetCell.y),
     toX: targetCell.x,
     toY: targetCell.y,
+    cargo: normalizeUnitCargo(currentUnit.cargo, currentUnit),
+    vehicleId: dismountedVehicle?.id || null,
+    vehicleCargo: dismountedVehicle ? normalizeVehicleCargo(dismountedVehicle.cargo, dismountedVehicle) : null,
   });
 
   clearCompletedTask(currentUnit);
@@ -9872,9 +10365,18 @@ function resolveUnitTask(currentUnit) {
     return;
   }
 
+  if (isGatherTask(currentUnit.task) && (!currentUnit.task.phase || currentUnit.task.phase === "gather")) {
+    const resourceType = currentUnit.task.type === "gatherFood" ? "food" : currentUnit.task.resourceId;
+    if (getActiveCargo(currentUnit) && getActiveCargoRoom(currentUnit, resourceType) <= quantityEpsilon) {
+      beginCollectionDelivery(currentUnit);
+      return;
+    }
+  }
+
   const spec = getUnitActionSpec(currentUnit.task);
 
-  if (!spec?.resolveTask) {
+  if (!spec?.resolveTask || (getActiveCargo(currentUnit) && currentUnit.task.phase !== "deliver" && currentUnit.task.phase !== "return" &&
+    !getUnitAllowedActions(currentUnit).includes(spec.id))) {
     clearCompletedTask(currentUnit);
     return;
   }
@@ -9883,15 +10385,26 @@ function resolveUnitTask(currentUnit) {
 }
 
 function resolveMoveTaskForTurn(currentUnit) {
+  const result = moveUnitTowardCellForTurn(currentUnit, currentUnit.task);
+
+  if (result === "arrived" || result === "blocked") {
+    clearCompletedTask(currentUnit);
+  }
+}
+
+function moveUnitTowardCellForTurn(currentUnit, destination, { stopWhenUnloaded = false } = {}) {
   const context = getRuleContext();
 
-  while (isTaskAction(currentUnit?.task, unitActions.walk) && getUnitStamina(currentUnit) > 0) {
-    if (currentUnit.x === currentUnit.task.toX && currentUnit.y === currentUnit.task.toY) {
-      clearCompletedTask(currentUnit);
-      return;
+  if (isGatherTask(currentUnit.task)) {
+    turnReplayMoveTargets.set(currentUnit.id, { toX: destination.toX, toY: destination.toY });
+  }
+
+  while (getUnitStamina(currentUnit) > 0) {
+    if (currentUnit.x === destination.toX && currentUnit.y === destination.toY) {
+      return "arrived";
     }
 
-    let nextMove = getNextMoveStep(currentUnit, currentUnit.task);
+    let nextMove = getNextMoveStep(currentUnit, destination);
 
     if (
       nextMove &&
@@ -9907,16 +10420,17 @@ function resolveMoveTaskForTurn(currentUnit) {
       )
     ) {
       currentUnit.turnRoute = null;
-      nextMove = getNextMoveStep(currentUnit, currentUnit.task);
+      nextMove = getNextMoveStep(currentUnit, destination);
     }
 
     if (!nextMove) {
-      clearCompletedTask(currentUnit);
-      return;
+      return "blocked";
     }
 
     if (nextMove.type === "dismount") {
       currentUnit.stamina = Math.max(0, getUnitStamina(currentUnit) - (nextMove.moveCost || 0));
+      const dismountedVehicle = getMountedVehicle(currentUnit);
+      const hadCargo = Boolean(getActiveCargo(currentUnit));
 
       if (!applyUnitDismount(currentUnit, nextMove.cell, { updateSelectedAction: false, refreshPresentation: false, setLastStepFromOrigin: true })) {
         currentUnit.turnRoute = null;
@@ -9930,13 +10444,19 @@ function resolveMoveTaskForTurn(currentUnit) {
         direction: nextMove.direction,
         toX: currentUnit.x,
         toY: currentUnit.y,
+        cargo: normalizeUnitCargo(currentUnit.cargo, currentUnit),
+        vehicleId: dismountedVehicle?.id || null,
+        vehicleCargo: dismountedVehicle ? normalizeVehicleCargo(dismountedVehicle.cargo, dismountedVehicle) : null,
       });
 
-      if (currentUnit.x === currentUnit.task.toX && currentUnit.y === currentUnit.task.toY) {
-        applyCompletedTaskDefaultAction(currentUnit);
-        currentUnit.task = null;
+      if (currentUnit.x === destination.toX && currentUnit.y === destination.toY) {
         currentUnit.turnRoute = null;
-        return;
+        return "arrived";
+      }
+
+      if (stopWhenUnloaded && hadCargo && !getActiveCargo(currentUnit)) {
+        currentUnit.turnRoute = null;
+        return "unloaded";
       }
 
       continue;
@@ -9960,6 +10480,13 @@ function resolveMoveTaskForTurn(currentUnit) {
       mountedVehicle.y = currentUnit.y;
     }
 
+    const destinationCell = getCell(currentUnit.x, currentUnit.y);
+
+    markCellVisitedByUnit(destinationCell);
+    maybeMountUnitAtCurrentCell(currentUnit);
+    const hadCargo = Boolean(getActiveCargo(currentUnit));
+    unloadActiveCargoAtCell(currentUnit, destinationCell);
+    const arrivedVehicle = getMountedVehicle(currentUnit);
     turnReplayHadMove = true;
     turnReplayQueue.push({
       type: "moveStep",
@@ -9967,20 +10494,23 @@ function resolveMoveTaskForTurn(currentUnit) {
       direction: currentUnit.facing,
       toX: currentUnit.x,
       toY: currentUnit.y,
+      cargo: normalizeUnitCargo(currentUnit.cargo, currentUnit),
+      vehicleId: arrivedVehicle?.id || null,
+      vehicleCargo: arrivedVehicle ? normalizeVehicleCargo(arrivedVehicle.cargo, arrivedVehicle) : null,
     });
 
-    const destinationCell = getCell(currentUnit.x, currentUnit.y);
-
-    markCellVisitedByUnit(destinationCell);
-    maybeMountUnitAtCurrentCell(currentUnit);
-
-    if (currentUnit.x === currentUnit.task.toX && currentUnit.y === currentUnit.task.toY) {
-      applyCompletedTaskDefaultAction(currentUnit);
-      currentUnit.task = null;
+    if (currentUnit.x === destination.toX && currentUnit.y === destination.toY) {
       currentUnit.turnRoute = null;
-      return;
+      return "arrived";
+    }
+
+    if (stopWhenUnloaded && hadCargo && !getActiveCargo(currentUnit)) {
+      currentUnit.turnRoute = null;
+      return "unloaded";
     }
   }
+
+  return "moving";
 }
 
 function resetUnitsForTurn() {
@@ -10126,6 +10656,8 @@ function captureReplayUnitStates() {
       lastStepFromX: currentUnit.lastStepFromX ?? null,
       lastStepFromY: currentUnit.lastStepFromY ?? null,
       mountedVehicleId: normalizeLinkedEntityId(currentUnit.mountedVehicleId),
+      cargo: normalizeUnitCargo(currentUnit.cargo, currentUnit),
+      task: serializeTask(currentUnit.task),
     });
   }
 
@@ -10144,6 +10676,7 @@ function captureReplayVehicleStates() {
       x: vehicle.x,
       y: vehicle.y,
       riderUnitId: normalizeLinkedEntityId(vehicle.riderUnitId),
+      ...(getVehicleCargoCapacity(vehicle) > 0 ? { cargo: normalizeVehicleCargo(vehicle.cargo, vehicle) } : {}),
     });
   }
 
@@ -10184,6 +10717,8 @@ function applyReplayUnitStates(states) {
     currentUnit.lastStepFromX = state.lastStepFromX;
     currentUnit.lastStepFromY = state.lastStepFromY;
     currentUnit.mountedVehicleId = normalizeLinkedEntityId(state.mountedVehicleId);
+    currentUnit.cargo = state.cargo ? { ...state.cargo } : null;
+    currentUnit.task = state.task ? { ...state.task } : null;
     currentUnit.move = null;
   }
 }
@@ -10199,6 +10734,9 @@ function applyReplayVehicleStates(states) {
     vehicle.x = state.x;
     vehicle.y = state.y;
     vehicle.riderUnitId = normalizeLinkedEntityId(state.riderUnitId);
+    if (getVehicleCargoCapacity(vehicle) > 0) {
+      vehicle.cargo = state.cargo ? { ...state.cargo } : null;
+    }
   }
 }
 
@@ -10302,7 +10840,12 @@ function startNextReplayEvent() {
       },
       replayEvent.direction,
       replayUnit,
-      { mode: "dismount" },
+      {
+        mode: "dismount",
+        cargoOnArrival: replayEvent.cargo,
+        vehicleIdOnArrival: replayEvent.vehicleId,
+        vehicleCargoOnArrival: replayEvent.vehicleCargo,
+      },
     );
     return;
   }
@@ -10326,6 +10869,11 @@ function startNextReplayEvent() {
     },
     replayEvent.direction,
     replayUnit,
+    {
+      cargoOnArrival: replayEvent.cargo,
+      vehicleIdOnArrival: replayEvent.vehicleId,
+      vehicleCargoOnArrival: replayEvent.vehicleCargo,
+    },
   );
 }
 
@@ -10367,6 +10915,7 @@ function resolveTurn() {
   }
 
   applyVillageEconomyForTurn();
+  recordStockpileHistoryForCurrentTurn();
   turnReplayFinalStates = captureReplayUnitStates();
   turnReplayVehicleFinalStates = captureReplayVehicleStates();
   void autosavePlayState();
@@ -10377,7 +10926,7 @@ function updateBuildingsForTurn() {
   const nextBuildings = [];
 
   for (const building of buildings) {
-    if (building.state !== "abandoned" || isBuildingTargetedByDemolishTask(building)) {
+    if (building.state !== "abandoned") {
       nextBuildings.push(building);
       continue;
     }
@@ -10407,9 +10956,11 @@ function updateBuildingsForTurn() {
 }
 
 function advanceTurn({ userInitiated = false } = {}) {
-  if (!canAdvanceTurn()) return;
+  if (userInitiated ? !canManuallyAdvanceTurn() : !canAdvanceTurn()) return;
 
   clearPendingAutoAdvance();
+  setSituationMessageVisibility(false);
+  updateSituationMessagePanel();
 
   if (userInitiated) {
     assignPlayTasksToEligibleIdleUnitsForManualTurnAdvance();
@@ -10541,6 +11092,11 @@ function getVehicleImagePaths() {
   return [
     ...getStructureImagePaths(vehicleCatalog),
     ...getMountedRenderLayerImagePaths(vehicleCatalog, "vehicle"),
+    ...Object.values(vehicleCatalog).flatMap((spec) => [
+      spec.cargoOverlay?.unmounted,
+      ...Object.values(spec.cargoOverlay?.mountedByImage || {}),
+      ...Object.values(spec.cargoOverlay?.mountedForegroundByImage || {}),
+    ]).filter(Boolean),
   ];
 }
 
@@ -10982,6 +11538,8 @@ function getUnitCellPassabilityState(
   } else if (constructibleState.walkableVehicle) {
     if (effectiveMountedVehicleId && constructibleState.walkableVehicle.id !== effectiveMountedVehicleId) {
       terrainOrStructurePassable = false;
+    } else if (!canTransferUnitCargoToVehicle(effectiveUnit, constructibleState.walkableVehicle)) {
+      terrainOrStructurePassable = false;
     } else if (
       constructibleState.walkableVehicle.riderUnitId &&
       constructibleState.walkableVehicle.riderUnitId !== effectiveUnit?.id
@@ -11013,16 +11571,6 @@ function getUnitCellPassabilityState(
   };
 }
 
-function isBuildingTargetedByDemolishTask(building) {
-  if (!building) return false;
-
-  return getUnits().some(
-    (currentUnit) =>
-      isTaskAction(currentUnit?.task, unitActions.demolish) &&
-      buildingOccupiesCell(building, currentUnit.task.toX, currentUnit.task.toY),
-  );
-}
-
 function findAdjacentSpawnCell(x, y) {
   const originCell = getCell(x, y);
 
@@ -11040,12 +11588,12 @@ function findAdjacentSpawnCell(x, y) {
   ]) {
     const neighbor = getNeighborByDirection(originCell, direction);
 
-    if (getUnitCellPassabilityState(neighbor).terrainOrStructurePassable) {
+    if (getUnitCellPassabilityState(neighbor).canOccupy) {
       return neighbor;
     }
   }
 
-  return null;
+  return findNearestPassableCell(x, y);
 }
 
 function getUnitSpawnPoolEntryRemainingQuantity(entry, context = getRuleContext()) {
@@ -11157,6 +11705,7 @@ function spawnUnitFromHouse(building, unitTypeId = getNextHouseSpawnUnitTypeId()
     homeBuildingId: building.id,
     staminaMax: getDefaultUnitStamina(unitType),
     stamina: getDefaultUnitStamina(unitType),
+    cargo: null,
     selected: false,
     task: null,
     move: null,
@@ -11175,28 +11724,6 @@ function spawnUnitFromHouse(building, unitTypeId = getNextHouseSpawnUnitTypeId()
 
   invalidateStaticUnitsLayer();
   return spawnedUnit;
-}
-
-function makeMap() {
-  map.cells = buildGeneratedMapCells(map.width, map.height);
-  rebuildVisibleCellIndex(map.cells);
-  rebuildFoodResourceCellIndex(map.cells);
-  rebuildPathRenderableCellIndex(map.cells);
-  setTextContent(mapSizeReadouts, strings.readouts.mapSize(map.width, map.height));
-  invalidateStaticLayer();
-}
-
-function initializeUnit() {
-  const spawn = createDefaultUnitState(map.cells, map.width, map.height);
-
-  units = spawn
-    ? [{ ...spawn, selected: false, move: null, turnRoute: null, lastStepFromX: null, lastStepFromY: null }]
-    : [];
-  rebuildUnitOccupancyIndex();
-  syncActiveUnit();
-
-  invalidateStaticUnitsLayer();
-  updateUnitReadout();
 }
 
 function findNearestPassableCell(startX, startY, currentUnit = null, occupiedKeys = null) {
@@ -11257,7 +11784,28 @@ function canMountVehicle(currentUnit, vehicle) {
     return false;
   }
 
-  return vehicleOccupiesCell(vehicle, currentUnit.x, currentUnit.y);
+  return canTransferUnitCargoToVehicle(currentUnit, vehicle) &&
+    vehicleOccupiesCell(vehicle, currentUnit.x, currentUnit.y);
+}
+
+function canTransferUnitCargoToVehicle(currentUnit, vehicle) {
+  const capacity = getVehicleCargoCapacity(vehicle);
+  if (capacity <= 0) return true;
+
+  const unitCargo = normalizeUnitCargo(currentUnit?.cargo, currentUnit);
+  if (!unitCargo) return true;
+
+  return !normalizeVehicleCargo(vehicle.cargo, vehicle) && unitCargo.amount <= capacity + quantityEpsilon;
+}
+
+function transferUnitCargoToVehicle(currentUnit, vehicle) {
+  const cargo = normalizeUnitCargo(currentUnit?.cargo, currentUnit);
+  if (!cargo || getVehicleCargoCapacity(vehicle) <= 0) return true;
+  if (!canTransferUnitCargoToVehicle(currentUnit, vehicle)) return false;
+
+  vehicle.cargo = cargo;
+  currentUnit.cargo = null;
+  return true;
 }
 
 function mountUnitOnVehicle(currentUnit, vehicle, { refreshPresentation = true } = {}) {
@@ -11267,6 +11815,10 @@ function mountUnitOnVehicle(currentUnit, vehicle, { refreshPresentation = true }
 
   if (currentUnit.mountedVehicleId === vehicle.id && vehicle.riderUnitId === currentUnit.id) {
     return true;
+  }
+
+  if (!transferUnitCargoToVehicle(currentUnit, vehicle)) {
+    return false;
   }
 
   currentUnit.mountedVehicleId = vehicle.id;
@@ -11295,10 +11847,6 @@ function maybeMountUnitAtCurrentCell(currentUnit, options = {}) {
   }
 
   return mountUnitOnVehicle(currentUnit, vehicle, options);
-}
-
-function findUnitDismountCell(currentUnit) {
-  return getUnitDismountTargetCells(currentUnit)[0] || null;
 }
 
 function applyUnitDismount(
@@ -11330,9 +11878,12 @@ function applyUnitDismount(
   currentUnit.lastStepFromX = setLastStepFromOrigin ? originX : null;
   currentUnit.lastStepFromY = setLastStepFromOrigin ? originY : null;
   markCellVisitedByUnit(destinationCell);
+  if (!isReplayPhase()) {
+    unloadActiveCargoAtCell(currentUnit, destinationCell);
+  }
 
   if (updateSelectedAction) {
-    selectedUnitAction = getPreferredUnitAction(currentUnit, unitActions.walk);
+    selectedUnitAction = null;
   }
 
   invalidateStaticLayer();
@@ -11345,18 +11896,18 @@ function applyUnitDismount(
   return true;
 }
 
-function dismountUnit(currentUnit = getSelectedUnit(), destinationCell = null) {
-  const resolvedDestinationCell =
-    destinationCell && Number.isInteger(destinationCell.x) && Number.isInteger(destinationCell.y)
-      ? getCell(destinationCell.x, destinationCell.y)
-      : findUnitDismountCell(currentUnit);
-
-  return applyUnitDismount(currentUnit, resolvedDestinationCell);
-}
-
 function updateUnitReadout() {
   const selectedUnit = getSelectedUnit();
   const displayedUnit = selectedUnit || unit;
+  const cargo = displayedUnit ? getActiveCargo(displayedUnit) : null;
+  const showCargo = Boolean(displayedUnit && (selectedUnit || getUnits().length === 1));
+  setTextContent(unitCargoReadouts, showCargo
+    ? strings.readouts.cargo(
+      formatDisplayedQuantity(cargo?.amount),
+      formatDisplayedQuantity(getActiveCargoCapacity(displayedUnit)),
+      cargo ? getResourceLabel(cargo.resourceType) : "",
+    )
+    : "");
   const setCenterButtonState = (currentUnit = null, unitName = "") => {
     const label = unitName
       ? `${strings.actions.centerUnitOnMap}: ${unitName}`
@@ -11374,11 +11925,9 @@ function updateUnitReadout() {
       button.disabled = disabled || isReplayPhase();
     }
   };
-  const setLoopButtonState = (visible, active = false, disabled = false) => {
-    for (const button of gatherTaskLoopButtons) {
-      button.hidden = !visible;
-      button.disabled = !visible || disabled || isReplayPhase();
-      button.setAttribute("aria-pressed", visible && active ? "true" : "false");
+  const setLoopIndicatorVisible = (visible) => {
+    for (const indicator of gatherLoopIndicators) {
+      indicator.hidden = !visible;
     }
   };
   const setActionSprite = (imagePath) => {
@@ -11396,7 +11945,7 @@ function updateUnitReadout() {
     for (const row of unitTaskRows) {
       row.hidden = true;
     }
-    setLoopButtonState(false, false, true);
+    setLoopIndicatorVisible(false);
     setCancelButtonState(false, true);
   };
   const showTaskRow = (
@@ -11406,8 +11955,6 @@ function updateUnitReadout() {
       cancelVisible = false,
       cancelDisabled = false,
       loopVisible = false,
-      loopActive = false,
-      loopDisabled = false,
     } = {},
   ) => {
     setActionSprite(imagePath);
@@ -11415,7 +11962,7 @@ function updateUnitReadout() {
     for (const row of unitTaskRows) {
       row.hidden = false;
     }
-    setLoopButtonState(loopVisible, loopActive, loopDisabled);
+    setLoopIndicatorVisible(loopVisible);
     setCancelButtonState(cancelVisible, cancelDisabled);
   };
   const setUnitTitle = (text) => setTextContent(unitTitleReadouts, text);
@@ -11452,19 +11999,19 @@ function updateUnitReadout() {
   updateUnitBookPageButtons(displayedUnit, unitName);
 
   if (displayedUnit.move) {
-    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit));
+    setTaskAndRefresh(getUnitInspectorSpriteImage(displayedUnit), "", {
+      loopVisible: isGatherTask(displayedUnit.task) && !displayedUnit.task.stopAfterDelivery,
+    });
     return;
   }
 
   if (displayedUnit.task) {
-    const showLoopButton = isLoopableGatherTask(displayedUnit.task);
     setTaskAndRefresh(
       getUnitInspectorSpriteImage(displayedUnit),
       getUnitTaskInspectorProgressText(displayedUnit),
       {
         cancelVisible: true,
-        loopVisible: showLoopButton,
-        loopActive: showLoopButton && isGatherTaskLoopEnabled(displayedUnit.task),
+        loopVisible: isGatherTask(displayedUnit.task) && !displayedUnit.task.stopAfterDelivery,
       },
     );
     return;
@@ -11485,7 +12032,12 @@ function updateUnitActionControls() {
 
   const selectedUnit = getSelectedUnit();
   const shouldShow = isPlayMode() && !mainMenuOpen && Boolean(selectedUnit);
-  unitActionBar.hidden = !shouldShow;
+  unitActionBar.hidden = true;
+
+  if (!shouldShow || selectedUnit?.move || isReplayPhase() ||
+    (unitTileActionTarget && unitTileActionTarget.unitId !== selectedUnit.id)) {
+    closeUnitTileActionMenu();
+  }
 
   if (!shouldShow) {
     updateFoundationActionMenu();
@@ -11517,6 +12069,9 @@ function updateUnitActionControls() {
 function selectUnit(currentUnit, { scrollIntoView = false, defaultAction = null } = {}) {
   if (!currentUnit) return false;
 
+  closeUnitTileActionMenu();
+  pendingFoundationPlacement = null;
+
   let didChange = false;
 
   for (const candidate of getUnits()) {
@@ -11529,7 +12084,7 @@ function selectUnit(currentUnit, { scrollIntoView = false, defaultAction = null 
   }
 
   unit = currentUnit;
-  selectedUnitAction = getPreferredUnitAction(currentUnit, defaultAction ?? unitActions.walk);
+  selectedUnitAction = getPreferredUnitAction(currentUnit, defaultAction);
   inspectedPlayCell = null;
 
   if (scrollIntoView) {
@@ -11628,6 +12183,7 @@ function resetTileReadout() {
 }
 
 function clearUnitSelectionState({ syncActive = true } = {}) {
+  pendingFoundationPlacement = null;
   let didChange = false;
 
   for (const currentUnit of getUnits()) {
@@ -11647,6 +12203,7 @@ function clearUnitSelectionState({ syncActive = true } = {}) {
 }
 
 function clearUnitSelection() {
+  closeUnitTileActionMenu();
   if (!clearUnitSelectionState()) return;
 
   refreshAfterUnitSelectionChange({ drawNow: false });
@@ -11705,7 +12262,22 @@ async function activateMode(nextMode) {
     setInteractionMode(nextMode, { drawNow: false });
   }
 
-  await loadCurrentFileForMode(nextMode);
+  let resumedAutosave = false;
+  if (nextMode === interactionModes.play) {
+    const autosaveState = await readSaveFile(autosaveSlotName);
+    const currentFileName = getCurrentFileName(nextMode);
+    if (
+      isCompatibleSaveState(autosaveState) &&
+      (!currentFileName || currentFileName === autosaveSlotName ||
+        getAutosaveActiveFileName(autosaveState, currentFileName) === currentFileName)
+    ) {
+      resumedAutosave = await loadFileIntoMode(autosaveSlotName, nextMode, undefined, autosaveState);
+    }
+  }
+
+  if (!resumedAutosave) {
+    await loadCurrentFileForMode(nextMode);
+  }
 
   if (shouldRevealAfterLoad) {
     setInteractionMode(nextMode);
@@ -11722,15 +12294,15 @@ function startNewGeneratedState(
 ) {
   if (!mode) return false;
 
+  writeCurrentFileName(mode, null);
   setInteractionMode(mode);
   applyStateSnapshot(createGeneratedState(mode, buildCells, generationSettings, generationSize), mode);
 
   if (mode === interactionModes.play) {
-    void saveStateToFile(autosaveSlotName, interactionModes.play, { alertMode: "once" });
+    void autosavePlayState();
     return true;
   }
 
-  writeCurrentFileName(mode, null);
   if (mode === interactionModes.edit) {
     setEditStateDirty(true);
   }
@@ -11748,6 +12320,10 @@ function getUnitTargetCells() {
   }
 
   const action = getCurrentSelectedUnitAction();
+
+  if (action === unitActions.layFoundation && getPendingFoundationPlacement(selectedUnit)) {
+    return getHoveredFoundationPlacementCells(selectedUnit);
+  }
 
   if (
     selectedUnit.task &&
@@ -11770,20 +12346,6 @@ function getUnitTargetCells() {
     return getUnitDismountTargetCells(selectedUnit);
   }
 
-  if (action === unitActions.layFoundation) {
-    const constructible = getSelectedFoundationConstructible();
-
-    if (constructible && isMultiTileConstructible(constructible)) {
-      return getHoveredFoundationPlacementCells(selectedUnit);
-    }
-
-    return getFoundationPlacementCells(selectedUnit);
-  }
-
-  if (action === unitActions.demolish) {
-    return getDemolishableAdjacentCells(selectedUnit);
-  }
-
   if (action === unitActions.gatherFood) {
     return getGatherFoodCells(selectedUnit);
   }
@@ -11801,13 +12363,6 @@ function getUnitTargetCells() {
 
 function getUnitTargetStyle() {
   const action = getCurrentSelectedUnitAction();
-
-  if (action === unitActions.demolish) {
-    return {
-      fill: "rgba(196, 90, 92, 0.2)",
-      stroke: "rgba(236, 150, 152, 0.7)",
-    };
-  }
 
   if (action === unitActions.buildHouse) {
     return {
@@ -12153,10 +12708,6 @@ function canPlaceNewHouseConstructionOnCell(cell) {
   return canPlaceNewBuildingConstructionOnCell(cell, "house");
 }
 
-function canStartNewHouseConstructionOnCell(cell) {
-  return isBuildingTypeAvailable("house") && canPlaceNewHouseConstructionOnCell(cell) && canAffordConstructibleType("building", "house");
-}
-
 function getConstructionEntityAtCell(cell, { kind = null, type = null } = {}) {
   if (!cell) {
     return null;
@@ -12175,18 +12726,6 @@ function getConstructionEntityAtCell(cell, { kind = null, type = null } = {}) {
   }
 
   return null;
-}
-
-function canContinueConstructionOnCell(cell, { kind = null, type = null } = {}) {
-  if (!cell) {
-    return false;
-  }
-
-  const structure = getConstructionEntityAtCell(cell, { kind, type });
-  return Boolean(
-    structure &&
-      structure.state === "construction",
-  );
 }
 
 function getBuildHouseTargetMode(cell, { ignoreAffordability = false } = {}) {
@@ -12232,53 +12771,6 @@ function doesConstructiblePlacementTouchUnit(originCell, constructible, currentU
   );
 }
 
-function getFoundationPlacementCells(currentUnit = unit, constructible = getSelectedFoundationConstructible()) {
-  if (
-    !currentUnit ||
-    !constructible ||
-    (
-      constructible.kind === "building"
-        ? !isBuildingTypeAvailable(constructible.type)
-        : !isVehicleTypeAvailable(constructible.type)
-    )
-  ) {
-    return [];
-  }
-
-  const originCell = getCell(currentUnit.x, currentUnit.y);
-
-  if (!originCell) {
-    return [];
-  }
-
-  const candidates = [];
-  const seenKeys = new Set();
-
-  for (const adjacentCell of getAdjacentCells(originCell)) {
-    for (const candidateOrigin of getConstructibleCandidateOriginsForPlacementCellForKind(
-      constructible.kind,
-      adjacentCell,
-      constructible.type,
-    )) {
-      const key = createCellKey(candidateOrigin.x, candidateOrigin.y);
-
-      if (seenKeys.has(key)) {
-        continue;
-      }
-
-      seenKeys.add(key);
-
-      if (!canPlaceNewConstructibleConstructionOnCell(candidateOrigin, constructible, currentUnit)) {
-        continue;
-      }
-
-      candidates.push(candidateOrigin);
-    }
-  }
-
-  return candidates;
-}
-
 function getHoveredFoundationPlacementCells(currentUnit = getSelectedUnit(), originCell = playHoverCell) {
   const constructible = getSelectedFoundationConstructible();
 
@@ -12307,19 +12799,19 @@ function getHoveredFoundationPlacementCells(currentUnit = getSelectedUnit(), ori
   return getConstructiblePlacementCells(originCell, constructible);
 }
 
-function getDemolishableAdjacentCells(currentUnit = unit) {
-  const originCell = currentUnit ? getCell(currentUnit.x, currentUnit.y) : null;
-
-  return getAdjacentCells(originCell).filter((cell) => {
-    const building = getBuildingAtCell(cell.x, cell.y);
-    return Boolean(building && building.state === "abandoned");
-  });
-}
-
 function canGatherFoodFromCell(cell, currentUnit = unit) {
   if (!cell || !currentUnit) return false;
 
-  return hasGatherableFoodResource(cell) && areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y);
+  return hasGatherableFoodResource(cell)
+    && getActiveCargoRoom(currentUnit, "food") > quantityEpsilon
+    && areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y);
+}
+
+function canAssignGatherFoodTarget(cell, currentUnit = unit) {
+  return Boolean(cell && currentUnit && hasGatherableFoodResource(cell)
+    && getActiveCargoRoom(currentUnit, "food") > quantityEpsilon
+    && (areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y)
+      || getAdjacentCells(cell).some((neighbor) => canUseCollectionDestination(currentUnit, neighbor))));
 }
 
 function canPlantAtCell(cell, currentUnit = unit) {
@@ -12358,7 +12850,17 @@ function canPlantAtCell(cell, currentUnit = unit) {
 function canGatherMaterialsFromCell(cell, currentUnit = unit) {
   if (!cell || !currentUnit) return false;
 
-  return hasMaterialResource(cell) && areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y);
+  return hasMaterialResource(cell)
+    && getActiveCargoRoom(currentUnit, getCellMaterialResourceType(cell)) > quantityEpsilon
+    && areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y);
+}
+
+function canAssignGatherMaterialsTarget(cell, currentUnit = unit) {
+  const resourceType = getCellMaterialResourceType(cell);
+  return Boolean(currentUnit && resourceType
+    && getActiveCargoRoom(currentUnit, resourceType) > quantityEpsilon
+    && (areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y)
+      || getAdjacentCells(cell).some((neighbor) => canUseCollectionDestination(currentUnit, neighbor))));
 }
 
 function getGatherFoodCells(currentUnit = unit) {
@@ -12430,6 +12932,51 @@ function canPlannerStateOccupyDestination(currentUnit, cell, destinationCell, mo
   return canUnitEnter(destinationCell, createPlannerUnitState(currentUnit, cell, mountedVehicleId));
 }
 
+function getPlannerAccessibleCellKeys(plannerUnit, cell, destinationCell) {
+  const accessibleKeys = new Set([createCellKey(cell.x, cell.y)]);
+
+  for (const neighbor of getAdjacentCells(cell)) {
+    if (canUnitEnter(neighbor, plannerUnit)) {
+      accessibleKeys.add(createCellKey(neighbor.x, neighbor.y));
+    }
+  }
+
+  if (plannerUnit.mountedVehicleId && !canUnitEnter(destinationCell, plannerUnit)) {
+    for (const dismountCell of getUnitDismountTargetCells(plannerUnit, cell)) {
+      accessibleKeys.add(createCellKey(dismountCell.x, dismountCell.y));
+    }
+  }
+
+  return accessibleKeys;
+}
+
+function isPlannerDeadEndStep(currentUnit, cell, mountedVehicleId, destinationCell, accessibleFromCurrent) {
+  if (cell.x === destinationCell.x && cell.y === destinationCell.y) {
+    return false;
+  }
+
+  const nextPlannerUnit = createPlannerUnitState(currentUnit, cell, mountedVehicleId);
+
+  for (const neighbor of getAdjacentCells(cell)) {
+    if (
+      !accessibleFromCurrent.has(createCellKey(neighbor.x, neighbor.y)) &&
+      canUnitEnter(neighbor, nextPlannerUnit)
+    ) {
+      return false;
+    }
+  }
+
+  if (nextPlannerUnit.mountedVehicleId && !canUnitEnter(destinationCell, nextPlannerUnit)) {
+    for (const dismountCell of getUnitDismountTargetCells(nextPlannerUnit, cell)) {
+      if (!accessibleFromCurrent.has(createCellKey(dismountCell.x, dismountCell.y))) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 function buildTurnRoutes(
   currentUnit,
   cell,
@@ -12457,6 +13004,8 @@ function buildTurnRoutes(
     return steps.length > 0 ? [{ steps }] : [];
   }
 
+  const accessibleFromCurrent = getPlannerAccessibleCellKeys(plannerUnit, cell, destinationCell);
+
   if (shouldConsiderAutomaticDismount) {
     for (const dismountCell of getUnitDismountTargetCells(plannerUnit, cell)) {
       const direction = getMoveDirection(cell.x, cell.y, dismountCell.x, dismountCell.y);
@@ -12469,6 +13018,10 @@ function buildTurnRoutes(
       const dismountStateKey = createTurnRouteStateKey(dismountCell, null);
 
       if (visitedKeys.has(dismountStateKey)) {
+        continue;
+      }
+
+      if (isPlannerDeadEndStep(currentUnit, dismountCell, null, destinationCell, accessibleFromCurrent)) {
         continue;
       }
 
@@ -12509,7 +13062,9 @@ function buildTurnRoutes(
     if (
       steps.length === 0 &&
       neighbor.x === currentUnit.lastStepFromX &&
-      neighbor.y === currentUnit.lastStepFromY
+      neighbor.y === currentUnit.lastStepFromY &&
+      walkingDistance(neighbor.x, neighbor.y, destinationCell.x, destinationCell.y) >=
+        walkingDistance(cell.x, cell.y, destinationCell.x, destinationCell.y)
     ) {
       continue;
     }
@@ -12518,6 +13073,10 @@ function buildTurnRoutes(
     const neighborKey = createTurnRouteStateKey(neighbor, nextMountedVehicleId);
 
     if (visitedKeys.has(neighborKey)) {
+      continue;
+    }
+
+    if (isPlannerDeadEndStep(currentUnit, neighbor, nextMountedVehicleId, destinationCell, accessibleFromCurrent)) {
       continue;
     }
 
@@ -12553,7 +13112,32 @@ function buildTurnRoutes(
   return routes;
 }
 
-function chooseBestTurnRoute(routes, destinationCell) {
+const diagonalTurnStepDirections = new Set(["northEast", "northWest", "southEast", "southWest"]);
+
+function compareTurnRouteDirectionPreference(steps, otherSteps, previousDirection) {
+  if (previousDirection) {
+    const directions = getMovementDirections();
+    const previousIndex = directions.indexOf(previousDirection);
+    const stepIndex = directions.indexOf(steps[0].direction);
+    const otherStepIndex = directions.indexOf(otherSteps[0].direction);
+    const stepTurn = Math.abs(stepIndex - previousIndex);
+    const otherStepTurn = Math.abs(otherStepIndex - previousIndex);
+    const difference = Math.min(otherStepTurn, directions.length - otherStepTurn)
+      - Math.min(stepTurn, directions.length - stepTurn);
+
+    if (difference !== 0) return difference;
+  }
+
+  for (let index = 0; index < Math.min(steps.length, otherSteps.length); index += 1) {
+    const difference = Number(diagonalTurnStepDirections.has(steps[index].direction))
+      - Number(diagonalTurnStepDirections.has(otherSteps[index].direction));
+    if (difference !== 0) return difference;
+  }
+
+  return 0;
+}
+
+function chooseBestTurnRoute(routes, destinationCell, previousDirection) {
   let bestRoute = null;
   let bestDistance = Number.POSITIVE_INFINITY;
   let bestFirstStepDistance = Number.POSITIVE_INFINITY;
@@ -12583,7 +13167,13 @@ function chooseBestTurnRoute(routes, destinationCell) {
       (
         finalDistance === bestDistance &&
         firstStepDistance === bestFirstStepDistance &&
-        route.steps.length > bestStepCount
+        route.steps.length < bestStepCount
+      ) ||
+      (
+        finalDistance === bestDistance &&
+        firstStepDistance === bestFirstStepDistance &&
+        route.steps.length === bestStepCount &&
+        bestRoute && compareTurnRouteDirectionPreference(route.steps, bestRoute, previousDirection) > 0
       )
     ) {
       bestDistance = finalDistance;
@@ -12598,6 +13188,11 @@ function chooseBestTurnRoute(routes, destinationCell) {
 
 function getPlannedTurnRoute(currentUnit, task, originCell, destinationCell) {
   if (!currentUnit.turnRoute?.length) {
+    const previousDirection = Number.isInteger(currentUnit.lastStepFromX)
+      && Number.isInteger(currentUnit.lastStepFromY)
+      && areCellsAdjacent(currentUnit.lastStepFromX, currentUnit.lastStepFromY, originCell.x, originCell.y)
+      ? getMoveDirection(currentUnit.lastStepFromX, currentUnit.lastStepFromY, originCell.x, originCell.y)
+      : null;
     const context = getRuleContext();
     const routes = buildTurnRoutes(
       currentUnit,
@@ -12607,7 +13202,7 @@ function getPlannedTurnRoute(currentUnit, task, originCell, destinationCell) {
       context,
       new Set([createTurnRouteStateKey(originCell, currentUnit?.mountedVehicleId)]),
     );
-    currentUnit.turnRoute = chooseBestTurnRoute(routes, destinationCell) || null;
+    currentUnit.turnRoute = chooseBestTurnRoute(routes, destinationCell, previousDirection) || null;
   }
 
   return currentUnit.turnRoute;
@@ -12629,16 +13224,28 @@ function getNextMoveStep(currentUnit, task) {
 }
 
 function handlePlayModeClick(cell) {
+  closeUnitTileActionMenu();
   hideTileMenu();
 
   if (isReplayPhase()) {
     return;
   }
 
-  const selectedUnit = getSelectedUnit();
   const movingUnit = getMovingUnit();
 
   if (movingUnit) return;
+
+  const selectedUnit = getSelectedUnit();
+  const selectedConstructible = getPendingFoundationPlacement(selectedUnit);
+  if (
+    selectedUnit && cell &&
+    getCurrentSelectedUnitAction(selectedUnit) === unitActions.layFoundation &&
+    isMultiTileConstructible(selectedConstructible) &&
+    getHoveredFoundationPlacementCells(selectedUnit, cell).length > 0
+  ) {
+    queueLayFoundationUnitAction({ currentUnit: selectedUnit, destinationCell: cell, constructible: selectedConstructible });
+    return;
+  }
 
   if (!cell) {
     if (isPlayTileInspectionActive()) {
@@ -12656,7 +13263,6 @@ function handlePlayModeClick(cell) {
   }
 
   const clickedUnit = getUnitAtCell(cell.x, cell.y);
-  const action = selectedUnit ? getCurrentSelectedUnitAction() : null;
 
   if (clickedUnit) {
     const wasSelected = clickedUnit.selected;
@@ -12672,76 +13278,6 @@ function handlePlayModeClick(cell) {
 
     selectUnit(clickedUnit);
     return;
-  }
-
-  if (selectedUnit) {
-    if (action === unitActions.play) {
-      return;
-    }
-
-    if (action === unitActions.research) {
-      draw();
-      return;
-    }
-
-    if (action === unitActions.gatherFood) {
-      if (queueUnitGatherFoodTask(cell, selectedUnit)) {
-        return;
-      }
-    }
-
-    if (action === unitActions.plant) {
-      if (queueUnitPlantTask(cell, selectedUnit)) {
-        return;
-      }
-    }
-
-    if (action === unitUiActions.work) {
-      if (queueUnitWorkTask(cell, selectedUnit)) {
-        return;
-      }
-    }
-
-    if (action === unitActions.gatherMaterials) {
-      if (queueUnitGatherMaterialsTask(cell, selectedUnit)) {
-        return;
-      }
-    }
-
-    if (action === unitActions.buildHouse) {
-      if (queueUnitBuildHouseTask(cell, selectedUnit)) {
-        return;
-      }
-    }
-
-    if (action === unitActions.layFoundation) {
-      if (queueUnitLayFoundationTask(cell, selectedUnit)) {
-        return;
-      }
-    }
-
-    if (action === unitActions.demolish) {
-      if (queueUnitDemolishTask(cell, selectedUnit)) {
-        return;
-      }
-    }
-
-    if (action === unitActions.dismount) {
-      if (queueUnitDismountTask(cell, selectedUnit)) {
-        return;
-      }
-    }
-
-    if (action === unitActions.walk) {
-      if (queueUnitMoveTask(cell, selectedUnit)) {
-        return;
-      }
-    }
-
-    if (action) {
-      draw();
-      return;
-    }
   }
 
   inspectedPlayCell = isCellVisibleToPlayer(cell) ? cell : null;
@@ -12767,9 +13303,129 @@ function startUnitMove(
     direction: direction || getMoveDirection(currentUnit.x, currentUnit.y, destinationCell.x, destinationCell.y),
     startedAt: performance.now(),
     mode: options.mode || "move",
+    cargoOnArrival: options.cargoOnArrival || null,
+    vehicleIdOnArrival: options.vehicleIdOnArrival || null,
+    vehicleCargoOnArrival: options.vehicleCargoOnArrival || null,
   };
   unit = currentUnit;
+
+  if (!shouldAnimateUnitMoveStep(currentUnit)) {
+    completeUnitMove(currentUnit);
+    return;
+  }
+
   refreshAfterUnitTaskChange({ scheduleAnimationPlayback: true });
+}
+
+function getViewportCanvasBounds({ marginX = 0, marginY = 0 } = {}) {
+  if (!viewport) {
+    return null;
+  }
+
+  return {
+    left: viewport.scrollLeft - marginX,
+    top: viewport.scrollTop - marginY,
+    right: viewport.scrollLeft + viewport.clientWidth + marginX,
+    bottom: viewport.scrollTop + viewport.clientHeight + marginY,
+  };
+}
+
+function isScreenPointNearViewport(screen, { marginX = tile.width * 1.5, marginY = tile.height * 3 } = {}) {
+  if (!screen) {
+    return false;
+  }
+
+  const bounds = getViewportCanvasBounds({ marginX, marginY });
+
+  if (!bounds || viewport.clientWidth <= 0 || viewport.clientHeight <= 0) {
+    return true;
+  }
+
+  return (
+    screen.x >= bounds.left &&
+    screen.x <= bounds.right &&
+    screen.y >= bounds.top &&
+    screen.y <= bounds.bottom
+  );
+}
+
+function shouldAnimateUnitMoveStep(currentUnit = unit) {
+  if (!currentUnit?.move || interactionMode !== interactionModes.play) {
+    return true;
+  }
+
+  const fromScreen = getCellScreenPositionForUnitRendering(
+    getCell(currentUnit.move.fromX, currentUnit.move.fromY),
+  );
+  const toScreen = getCellScreenPositionForUnitRendering(
+    getCell(currentUnit.move.toX, currentUnit.move.toY),
+  );
+
+  if (!fromScreen || !toScreen) {
+    return true;
+  }
+
+  return (
+    isScreenPointNearViewport(fromScreen) ||
+    isScreenPointNearViewport(toScreen)
+  );
+}
+
+function completeUnitMove(currentUnit = unit) {
+  if (!currentUnit?.move) {
+    return { continuedReplay: false };
+  }
+
+  const completedMove = currentUnit.move;
+  const moveFromX = completedMove.fromX;
+  const moveFromY = completedMove.fromY;
+
+  if (completedMove.mode === "dismount") {
+    applyUnitDismount(
+      currentUnit,
+      getCell(completedMove.toX, completedMove.toY),
+      {
+        updateSelectedAction: false,
+        refreshPresentation: false,
+        setLastStepFromOrigin: true,
+      },
+    );
+  } else {
+    currentUnit.x = completedMove.toX;
+    currentUnit.y = completedMove.toY;
+    updateUnitOccupancyEntry(currentUnit, moveFromX, moveFromY);
+    currentUnit.facing = completedMove.direction || currentUnit.facing;
+    currentUnit.lastStepFromX = moveFromX;
+    currentUnit.lastStepFromY = moveFromY;
+    const mountedVehicle = getMountedVehicle(currentUnit);
+
+    if (mountedVehicle) {
+      mountedVehicle.x = currentUnit.x;
+      mountedVehicle.y = currentUnit.y;
+    } else {
+      maybeMountUnitAtCurrentCell(currentUnit);
+    }
+  }
+
+  currentUnit.cargo = completedMove.cargoOnArrival ? { ...completedMove.cargoOnArrival } : null;
+  const cargoVehicle = getVehicleById(completedMove.vehicleIdOnArrival);
+  if (cargoVehicle && getVehicleCargoCapacity(cargoVehicle) > 0) {
+    cargoVehicle.cargo = completedMove.vehicleCargoOnArrival
+      ? { ...completedMove.vehicleCargoOnArrival }
+      : null;
+  }
+  currentUnit.move = null;
+
+  syncActiveUnit(currentUnit.id);
+  refreshAfterWorldAndUnitTaskChange({ drawNow: false });
+
+  if (isReplayPhase()) {
+    startNextReplayEvent();
+    return { continuedReplay: true };
+  }
+
+  maybeAutoAdvanceTurn();
+  return { continuedReplay: false };
 }
 
 function scheduleAnimation() {
@@ -12827,49 +13483,12 @@ function stepAnimations(now) {
     const progress = getUnitMoveProgress(movingUnit, now);
 
     if (progress >= 1) {
-      const completedMove = movingUnit.move;
-      const moveFromX = completedMove.fromX;
-      const moveFromY = completedMove.fromY;
-
-      if (completedMove.mode === "dismount") {
-        applyUnitDismount(
-          movingUnit,
-          getCell(completedMove.toX, completedMove.toY),
-          {
-            updateSelectedAction: false,
-            refreshPresentation: false,
-            setLastStepFromOrigin: true,
-          },
-        );
-      } else {
-        movingUnit.x = completedMove.toX;
-        movingUnit.y = completedMove.toY;
-        updateUnitOccupancyEntry(movingUnit, moveFromX, moveFromY);
-        movingUnit.facing = completedMove.direction || movingUnit.facing;
-        movingUnit.lastStepFromX = moveFromX;
-        movingUnit.lastStepFromY = moveFromY;
-        const mountedVehicle = getMountedVehicle(movingUnit);
-
-        if (mountedVehicle) {
-          mountedVehicle.x = movingUnit.x;
-          mountedVehicle.y = movingUnit.y;
-        } else {
-          maybeMountUnitAtCurrentCell(movingUnit);
-        }
-      }
-
-      movingUnit.move = null;
-
-      syncActiveUnit(movingUnit.id);
-      refreshAfterWorldAndUnitTaskChange({ drawNow: false });
+      const { continuedReplay } = completeUnitMove(movingUnit);
       needsFullDraw = true;
 
-      if (isReplayPhase()) {
-        startNextReplayEvent();
+      if (continuedReplay) {
         return;
       }
-
-      maybeAutoAdvanceTurn();
     } else {
       needsAnotherFrame = true;
     }
@@ -13085,7 +13704,7 @@ function getConstructionHintBuildingType(currentUnit = getSelectedUnit(), cell =
   }
 
   if (action === unitActions.layFoundation) {
-    const constructible = getSelectedFoundationConstructible();
+    const constructible = getPendingFoundationPlacement(currentUnit);
 
     if (
       constructible &&
@@ -13348,26 +13967,45 @@ function drawInspectedPlayCellMarker(drawContext = ctx) {
   drawContext.restore();
 }
 
+function getUnitMoveTaskLineTarget(currentUnit, selectedUnit = getSelectedUnit()) {
+  if (!currentUnit) return null;
+
+  const task = currentUnit.task;
+  const isWalk = isTaskAction(task, unitActions.walk);
+  const isSelectedCollection = currentUnit === selectedUnit && isGatherTask(task)
+    && (task.phase === "deliver" || task.phase === "return");
+
+  if (!isWalk && !isSelectedCollection) return null;
+
+  const replaying = isReplayPhase();
+  let target = replaying ? turnReplayMoveTargets.get(currentUnit.id) || null : null;
+
+  if (!replaying) {
+    if (isWalk) {
+      target = task;
+    } else {
+      const toX = task.phase === "deliver" ? task.deliveryX : task.returnX;
+      const toY = task.phase === "deliver" ? task.deliveryY : task.returnY;
+      if (Number.isInteger(toX) && Number.isInteger(toY)) target = { toX, toY };
+    }
+  }
+
+  return target && (target.toX !== currentUnit.x || target.toY !== currentUnit.y || currentUnit.move)
+    ? target
+    : null;
+}
+
 function drawUnitMoveTaskLines(now = performance.now(), drawContext = ctx) {
   if (interactionMode !== interactionModes.play) {
     return;
   }
 
-  const movingUnits = getUnits().filter((currentUnit) => {
-    if (!currentUnit) {
-      return false;
-    }
-
-    const moveTarget = isReplayPhase()
-      ? turnReplayMoveTargets.get(currentUnit.id) || null
-      : (isTaskAction(currentUnit.task, unitActions.walk) ? currentUnit.task : null);
-
-    if (!moveTarget) {
-      return false;
-    }
-
-    return moveTarget.toX !== currentUnit.x || moveTarget.toY !== currentUnit.y || Boolean(currentUnit.move);
-  });
+  const selectedUnit = getSelectedUnit();
+  const movingUnits = [];
+  for (const currentUnit of getUnits()) {
+    const moveTarget = getUnitMoveTaskLineTarget(currentUnit, selectedUnit);
+    if (moveTarget) movingUnits.push({ currentUnit, moveTarget });
+  }
 
   if (movingUnits.length === 0) {
     return;
@@ -13378,12 +14016,9 @@ function drawUnitMoveTaskLines(now = performance.now(), drawContext = ctx) {
   drawContext.lineCap = "round";
   drawContext.lineJoin = "round";
 
-  for (const currentUnit of movingUnits) {
-    const moveTarget = isReplayPhase()
-      ? turnReplayMoveTargets.get(currentUnit.id) || null
-      : currentUnit.task;
+  for (const { currentUnit, moveTarget } of movingUnits) {
     const fromScreen = getUnitScreenPosition(currentUnit, now);
-    const destinationCell = moveTarget ? getCell(moveTarget.toX, moveTarget.toY) : null;
+    const destinationCell = getCell(moveTarget.toX, moveTarget.toY);
 
     if (!fromScreen || !destinationCell) {
       continue;
@@ -13419,10 +14054,11 @@ function drawUnitMoveTaskLines(now = performance.now(), drawContext = ctx) {
   drawContext.restore();
 }
 
-function getSelectedUnitMarkerState(now = performance.now()) {
+function getSelectedUnitMarkerState() {
   const selectedUnit = getSelectedUnit();
 
   if (interactionMode !== interactionModes.play || !selectedUnit) return null;
+  if (isReplayPhase() || getMovingUnit()?.move) return null;
 
   const screen = getUnitScreenPosition(selectedUnit);
 
@@ -13534,6 +14170,7 @@ function drawMovingUnit(now = performance.now(), drawContext = ctx) {
 
   if (!screen) return;
 
+  let cargoForeground = null;
   if (movingUnit.move?.mode === "dismount" && dismountVehicleScreen) {
     const mountedVehicle = getMountedVehicle(movingUnit);
 
@@ -13543,16 +14180,16 @@ function drawMovingUnit(now = performance.now(), drawContext = ctx) {
       drawMountedVehicleAtScreen(dismountVehicleScreen, movingUnit, drawContext, { now });
     }
   } else {
-    drawMountedVehicleAtScreen(screen, movingUnit, drawContext, { now });
+    cargoForeground = drawMountedVehicleAtScreen(screen, movingUnit, drawContext, { now });
   }
   drawUnitAtScreen(
     screen,
     drawContext,
     imagePath,
     shouldMirrorUnitImage(imagePath, movingUnit),
-    !movingUnit.selected,
     movingUnit,
   );
+  drawMountedVehicleCargoForegroundAtScreen(screen, cargoForeground, drawContext);
 }
 
 function drawStationaryUnits(drawContext = ctx, frameIndex = 0) {
@@ -13566,16 +14203,16 @@ function drawStationaryUnits(drawContext = ctx, frameIndex = 0) {
       continue;
     }
 
-    drawMountedVehicleAtScreen(screen, stationaryUnit, drawContext, { frameIndex });
+    const cargoForeground = drawMountedVehicleAtScreen(screen, stationaryUnit, drawContext, { frameIndex });
 
     drawUnitAtScreen(
       screen,
       drawContext,
       imagePath,
       shouldMirrorUnitImage(imagePath, stationaryUnit),
-      !stationaryUnit.selected,
       stationaryUnit,
     );
+    drawMountedVehicleCargoForegroundAtScreen(screen, cargoForeground, drawContext);
   }
 }
 
@@ -13617,19 +14254,57 @@ function drawMountedVehicleAtScreen(
     return;
   }
 
+  const mirrorX = shouldMirrorSpriteImage(imagePath, currentUnit, mountedVehicleSpriteConfig);
+  const cargoOverlay = mountedVehicle.cargo?.amount > 0
+    ? getConstructibleSpecForKind("vehicle", mountedVehicle.type)?.cargoOverlay
+    : null;
+  const cargoSpriteConfig = cargoOverlay ? {
+    ...mountedVehicleSpriteConfig,
+    offsetY: (mountedVehicleSpriteConfig.offsetY || 0) + cargoOverlay.mountedOffsetYAt100Zoom,
+  } : null;
+  if (cargoOverlay) {
+    const overlayPath = cargoOverlay?.mountedByImage?.[imagePath];
+    if (overlayPath && vehicleImages[overlayPath]?.complete) {
+      drawSpriteAtScreen(
+        screen,
+        drawContext,
+        overlayPath,
+        vehicleImages,
+        cargoSpriteConfig,
+        mirrorX,
+      );
+    }
+  }
   drawSpriteAtScreen(
     screen,
     drawContext,
     imagePath,
     vehicleImages,
     mountedVehicleSpriteConfig,
-    shouldMirrorSpriteImage(imagePath, currentUnit, mountedVehicleSpriteConfig),
-    false,
-    currentUnit,
+    mirrorX,
+  );
+  const foregroundPath = cargoOverlay?.mountedForegroundByImage?.[imagePath];
+  return foregroundPath && vehicleImages[foregroundPath]?.complete
+    ? { foregroundPath, spriteConfig: cargoSpriteConfig, mirrorX }
+    : null;
+}
+
+function drawMountedVehicleCargoForegroundAtScreen(screen, foreground, drawContext = ctx) {
+  if (!foreground) return;
+
+  drawSpriteAtScreen(
+    screen,
+    drawContext,
+    foreground.foregroundPath,
+    vehicleImages,
+    foreground.spriteConfig,
+    foreground.mirrorX,
   );
 }
 
 function getGatherTaskProgressText(task) {
+  if (task?.phase === "deliver") return "→";
+  if (task?.phase === "return") return "←";
   const gatherDurationTurns = getGatherTaskDurationTurns();
   const completedTurns = clampInteger(
     gatherDurationTurns - clampInteger(task?.turnsRemaining, 0, gatherDurationTurns, gatherDurationTurns),
@@ -13655,14 +14330,6 @@ function getPlayInspectorOccupiedWidth() {
   }
 
   return playInspector.offsetWidth + 18;
-}
-
-function getEditInspectorOccupiedWidth() {
-  if (!isEditMode() || mainMenuOpen || !editInspector || editInspector.hidden) {
-    return 0;
-  }
-
-  return editInspector.offsetWidth + 18;
 }
 
 function getViewportVisualCenter() {
@@ -13846,6 +14513,43 @@ function drawTileOverlays(cell) {
   drawFogBorders(cell, screen, lift);
 }
 
+function drawVillageBoundary() {
+  if (!isPlayMode()) {
+    return;
+  }
+
+  const villageCells = getVillageVicinityCells();
+  if (villageCells.size === 0) {
+    return;
+  }
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.strokeStyle = "#5b2d86";
+  ctx.lineWidth = Math.max(1.5, 3 * zoomLevels[zoomIndex]);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  for (const cell of villageCells.values()) {
+    if (!isCellVisibleToPlayer(cell)) {
+      continue;
+    }
+
+    for (const edge of getTileEdges(isoToScreen(cell.x, cell.y), 0)) {
+      const neighbor = getEdgeNeighbor(cell, edge.direction);
+      if (neighbor && (villageCells.has(createCellKey(neighbor.x, neighbor.y)) || !isCellVisibleToPlayer(neighbor))) {
+        continue;
+      }
+
+      ctx.moveTo(edge.start.x, edge.start.y);
+      ctx.lineTo(edge.end.x, edge.end.y);
+    }
+  }
+
+  ctx.stroke();
+  ctx.restore();
+}
+
 function recordTileHitArea(cell) {
   if (!cell) {
     return;
@@ -13991,6 +14695,7 @@ function lerp(a, b, t) {
 
 function invalidateStaticLayer() {
   staticLayerDirty = true;
+  villageVicinityCells = null;
 }
 
 function invalidateStaticUnitsLayer() {
@@ -14071,6 +14776,7 @@ function renderStaticLayerToMain() {
     }
   }
 
+  drawVillageBoundary();
   drawVisibleConstructibles("building", buildings);
   drawVisibleConstructibles("vehicle", vehicles);
   staticLayerDirty = false;
@@ -14112,20 +14818,8 @@ function hasVisibleUnitMoveTaskLines() {
     return false;
   }
 
-  return getUnits().some((currentUnit) => {
-    if (!currentUnit) {
-      return false;
-    }
-
-    const moveTarget = isReplayPhase()
-      ? turnReplayMoveTargets.get(currentUnit.id) || null
-      : (isTaskAction(currentUnit.task, unitActions.walk) ? currentUnit.task : null);
-
-    return Boolean(
-      moveTarget &&
-      (moveTarget.toX !== currentUnit.x || moveTarget.toY !== currentUnit.y || currentUnit.move),
-    );
-  });
+  const selectedUnit = getSelectedUnit();
+  return getUnits().some((currentUnit) => Boolean(getUnitMoveTaskLineTarget(currentUnit, selectedUnit)));
 }
 
 function hasInteractionLayerContent() {
@@ -14168,8 +14862,8 @@ function drawInteractionLayer(now = performance.now()) {
   interactionLayerHadContent = true;
 }
 
-function drawSelectionRingLayer(now = performance.now()) {
-  const markerState = getSelectedUnitMarkerState(now);
+function drawSelectionRingLayer() {
+  const markerState = getSelectedUnitMarkerState();
   const nextBounds = getSelectedUnitMarkerBounds(markerState);
   const clearBounds = mergeCanvasRects(selectionRingBounds, nextBounds);
 
@@ -14231,7 +14925,7 @@ function drawAnimatedFrame(now = performance.now(), { redrawInteraction = false 
   }
 
   if (shouldRedrawSelectionRing) {
-    drawSelectionRingLayer(now);
+    drawSelectionRingLayer();
   }
 
   drawActorsLayer(now);
@@ -14252,7 +14946,7 @@ function draw(now = performance.now()) {
     interactionMode === interactionModes.play ? getWorkingUnitFrameIndex(now) : 0,
   );
   drawInteractionLayer(now);
-  drawSelectionRingLayer(now);
+  drawSelectionRingLayer();
   drawActorsLayer(now);
   drawOverlayLayer();
 }
@@ -14383,6 +15077,7 @@ function applyEditorUnitSelection(unitTypeId) {
     currentUnit.name = getDefaultUnitName(currentUnit.unitType);
     currentUnit.staminaMax = getDefaultUnitStamina(currentUnit.unitType);
     currentUnit.stamina = clampNumber(currentUnit.stamina, 0, 999, currentUnit.staminaMax);
+    currentUnit.cargo = normalizeUnitCargo(currentUnit.cargo, currentUnit);
 
     if (currentUnit.task && !canUnitUseAction(currentUnit, getTaskActionId(currentUnit.task))) {
       currentUnit.task = null;
@@ -14594,6 +15289,7 @@ function placeEditorUnitAtCell(cell, unitTypeId) {
     mountedVehicleId: null,
     staminaMax,
     stamina: staminaMax,
+    cargo: null,
     selected: false,
     task: null,
     move: null,
@@ -14780,6 +15476,28 @@ overlayCanvas.addEventListener("click", (event) => {
   if (!isEditMode()) return;
 
   handleEditCanvasClick(event, clickedCell);
+});
+
+overlayCanvas.addEventListener("contextmenu", (event) => {
+  if (!isPlayMode() || event.button !== 2) return;
+
+  event.preventDefault();
+  closeUnitTileActionMenu();
+  if (mainMenuOpen || isReplayPhase() || getMovingUnit() || (bookOverlay && !bookOverlay.hidden)) return;
+
+  const selectedUnit = getSelectedUnit();
+  const clickedCell = pickTile(event.clientX, event.clientY);
+  if (!selectedUnit || !clickedCell) return;
+
+  const options = getUnitTileActionOptions(selectedUnit, clickedCell);
+  if (options.actions.length === 1 && options.actions[0].action === unitActions.walk && options.construction.length === 0) {
+    queueUnitMoveTask(clickedCell, selectedUnit);
+    return;
+  }
+
+  if (options.actions.length > 0 || options.construction.length > 0) {
+    openUnitTileActionMenu(selectedUnit, clickedCell, event.clientX, event.clientY, options);
+  }
 });
 
 overlayCanvas.addEventListener("mouseleave", () => {
@@ -14970,6 +15688,14 @@ document.addEventListener("pointerdown", (event) => {
   }
 
   if (
+    unitTileActionMenu &&
+    !unitTileActionMenu.hidden &&
+    !unitTileActionMenu.contains(event.target)
+  ) {
+    closeUnitTileActionMenu();
+  }
+
+  if (
     gameActionMenu &&
     !gameActionMenu.hidden &&
     !gameActionMenu.contains(event.target) &&
@@ -15018,6 +15744,12 @@ document.addEventListener("keydown", (event) => {
 
   if (gameActionMenu && !gameActionMenu.hidden) {
     closeGameActionMenu({ restoreFocus: true });
+    return;
+  }
+
+  if (unitTileActionMenu && !unitTileActionMenu.hidden) {
+    closeUnitTileActionMenu();
+    overlayCanvas.focus({ preventScroll: true });
     return;
   }
 
@@ -15215,7 +15947,6 @@ for (const button of nextUnitButtons) {
   button.addEventListener("click", () => {
     if (isReplayPhase()) return;
     selectNextIdleUnit({
-      defaultAction: unitActions.walk,
       scrollIntoView: true,
     });
   });
@@ -15274,13 +16005,15 @@ for (const button of unitActionButtons) {
     }
 
     if (isCellTargetUnitAction(action) && currentAction === action) {
-      selectedUnitAction = getPreferredUnitAction(selectedUnit, unitActions.walk);
+      selectedUnitAction = null;
+      pendingFoundationPlacement = null;
       updateUnitActionControls();
       draw();
       return;
     }
 
     selectedUnitAction = action;
+    pendingFoundationPlacement = null;
     updateUnitActionControls();
     draw();
   });
@@ -15298,9 +16031,30 @@ if (foundationActionMenu) {
   });
 }
 
-for (const button of gatherTaskLoopButtons) {
-  button.addEventListener("click", () => {
-    toggleGatherTaskLoop();
+if (unitTileActionMenu) {
+  unitTileActionMenu.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    const target = unitTileActionTarget;
+    if (!button || !target || button.disabled) return;
+
+    if (button.dataset.toggleConstruction) {
+      const submenu = unitTileActionMenu.querySelector(".unit-tile-action-submenu");
+      submenu.hidden = !submenu.hidden;
+      button.setAttribute("aria-expanded", submenu.hidden ? "false" : "true");
+      positionUnitTileActionMenu(target.clientX, target.clientY);
+      if (!submenu.hidden) submenu.querySelector("button:not(:disabled)")?.focus({ preventScroll: true });
+      return;
+    }
+
+    const currentUnit = getSelectedUnit();
+    const cell = getCell(target.x, target.y);
+    const option = button.dataset.constructionIndex !== undefined
+      ? target.options.construction[Number(button.dataset.constructionIndex)]
+      : target.options.actions[Number(button.dataset.contextIndex)];
+    closeUnitTileActionMenu();
+    if (!currentUnit || currentUnit.id !== target.unitId || !cell || !option ||
+      currentUnit.move || isReplayPhase()) return;
+    queueUnitTileAction(option, currentUnit, cell);
   });
 }
 
@@ -15508,9 +16262,9 @@ saveSlotList?.addEventListener("click", (event) => {
   }
 });
 
-for (const input of autoPassInputs) {
-  input.addEventListener("change", (event) => {
-    autoAdvanceTurns = event.target.checked;
+for (const button of turnAutoToggleButtons) {
+  button.addEventListener("click", () => {
+    autoAdvanceTurns = !autoAdvanceTurns;
     updateTurnControls();
     maybeAutoAdvanceTurn();
   });

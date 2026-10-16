@@ -9,7 +9,6 @@ export function createTerrainRuntimeApi(deps) {
     tileImages,
     shoreOverlayImages,
     resourceOverlayImages,
-    getCell,
     getEdgeNeighbor,
     getCornerNeighbor,
     getTileEdges,

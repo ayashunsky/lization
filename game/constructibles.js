@@ -33,6 +33,8 @@ export function createConstructiblesApi(deps) {
     markCellVisited,
     normalizeLinkedEntityId,
     normalizeBuildingState,
+    getVehicleCargoCapacity,
+    normalizeVehicleCargo,
     drawNativeSingleCellImageAtCell,
     isoToScreen,
   } = deps;
@@ -564,7 +566,12 @@ export function createConstructiblesApi(deps) {
       completeness: getBuildingCompleteness(constructible),
       constructionCost: getConstructibleConstructionCostForKind(normalizedKind, constructible.type),
       ...(normalizedKind === "vehicle"
-        ? { riderUnitId: normalizeLinkedEntityId(constructible.riderUnitId) }
+        ? {
+          riderUnitId: normalizeLinkedEntityId(constructible.riderUnitId),
+          ...(getVehicleCargoCapacity(constructible.type) > 0
+            ? { cargo: normalizeVehicleCargo(constructible.cargo, constructible.type) }
+            : {}),
+        }
         : {}),
     };
   }
@@ -632,7 +639,12 @@ export function createConstructiblesApi(deps) {
       walkable: isConstructibleWalkableForKind(normalizedKind, type),
       completeness: 0,
       constructionCost: getConstructibleConstructionCostForKind(normalizedKind, type),
-      ...(normalizedKind === "vehicle" ? { riderUnitId: null } : {}),
+      ...(normalizedKind === "vehicle"
+        ? {
+          riderUnitId: null,
+          ...(getVehicleCargoCapacity(type) > 0 ? { cargo: null } : {}),
+        }
+        : {}),
     };
 
     getConstructibleCollectionForKind(normalizedKind).push(constructible);
@@ -710,7 +722,12 @@ export function createConstructiblesApi(deps) {
         completeness: getBuildingCompleteness(sourceConstructible),
         constructionCost: getConstructibleConstructionCostForKind(normalizedKind, type),
         ...(normalizedKind === "vehicle"
-          ? { riderUnitId: normalizeLinkedEntityId(sourceConstructible.riderUnitId) }
+          ? {
+            riderUnitId: normalizeLinkedEntityId(sourceConstructible.riderUnitId),
+            ...(getVehicleCargoCapacity(type) > 0
+              ? { cargo: normalizeVehicleCargo(sourceConstructible.cargo, type) }
+              : {}),
+          }
           : {}),
       };
     });
@@ -892,6 +909,14 @@ export function createConstructiblesApi(deps) {
     drawContext.save();
     drawContext.globalAlpha = visual.alpha ?? 1;
 
+    if (kind === "vehicle" && renderMode === "singleTile" && constructible.state === "complete" && constructible.cargo?.amount > 0) {
+      const overlayPath = getConstructibleSpecForKind(kind, constructible.type)?.cargoOverlay?.unmounted;
+      const overlayImage = overlayPath && imageRegistry[overlayPath];
+      if (overlayImage?.complete && overlayImage.naturalWidth > 0) {
+        drawNativeSingleCellImageAtCell(overlayImage, getCell(constructible.x, constructible.y), drawContext);
+      }
+    }
+
     if (renderMode === "perTile") {
       const tileImages = Array.isArray(visual.tileImages) ? visual.tileImages : null;
 
@@ -1005,7 +1030,6 @@ export function createConstructiblesApi(deps) {
     getConstructibleCountsByTypeForKind,
     getConstructibleImageRegistryForKind,
     getConstructibleRenderModeForKind,
-    getConstructibleSubtypeVariantsForKind,
     chooseConstructibleSubtypeForKind,
     getDefaultConstructibleDimensionForKind,
     getConstructibleBottomRowForKind,
@@ -1024,12 +1048,9 @@ export function createConstructiblesApi(deps) {
     getBuildingCompleteness,
     getConstructibleConstructionCostForKind,
     isConstructibleWalkableForKind,
-    getConstructibleConstructionThresholdsForKind,
     serializeConstructibleForKind,
     createConstructibleIdForKind,
-    markConstructibleCellsVisitedForKind,
     createConstructibleConstructionAtCellForKind,
-    normalizeConstructibleSubtypeForKind,
     normalizeConstructiblesStateForKind,
     constructibleOccupiesCell,
     getConstructiblesAtCellForKind,

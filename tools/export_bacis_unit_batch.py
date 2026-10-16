@@ -125,7 +125,7 @@ BACK_VARIANTS = {
 
 FRONT_VARIANTS = {
     "basic": {
-        "hat": "path8",
+        "hat": "path85",
         "pants": "path99",
         "extras": [],
         "idle_feet": "g106",
@@ -136,7 +136,7 @@ FRONT_VARIANTS = {
         "step_hands_2": "g115",
     },
     "bricoleur": {
-        "hat": "path8",
+        "hat": "path85",
         "pants": "path100",
         "extras": ["g142"],
         "idle_feet": "g108",
@@ -147,7 +147,7 @@ FRONT_VARIANTS = {
         "step_hands_2": "g115",
     },
     "gs": {
-        "hat": "path9",
+        "hat": "path86",
         "pants": "path99",
         "extras": [],
         "idle_feet": "g106",
@@ -158,7 +158,7 @@ FRONT_VARIANTS = {
         "step_hands_2": "g115",
     },
     "lunettes": {
-        "hat": "path8",
+        "hat": "path85",
         "pants": "path99",
         "extras": ["g103"],
         "idle_feet": "g106",
@@ -226,6 +226,14 @@ DEFAULT_FILENAMES = {
     "wb_idle_s": "{prefix}_wb_s.png",
     "wb_step_s_1": "{prefix}_wb_step_s_1.png",
     "wb_step_s_2": "{prefix}_wb_step_s_2.png",
+    "cargo_idle_w": "{prefix}_cargo_w.png",
+    "cargo_step_w": "{prefix}_cargo_step_w.png",
+    "cargo_idle_n": "{prefix}_cargo_n.png",
+    "cargo_step_n_1": "{prefix}_cargo_step_n_1.png",
+    "cargo_step_n_2": "{prefix}_cargo_step_n_2.png",
+    "cargo_idle_s": "{prefix}_cargo_s.png",
+    "cargo_step_s_1": "{prefix}_cargo_step_s_1.png",
+    "cargo_step_s_2": "{prefix}_cargo_step_s_2.png",
 }
 
 
@@ -480,6 +488,7 @@ class ExportSpec:
     side_food_groups: tuple[str, str] | None = None
     play_hand: str | None = None
     fishing_float: bool = False
+    cargo_bag: bool = False
 
 
 EXPORT_SPECS = [
@@ -517,6 +526,14 @@ EXPORT_SPECS = [
     ExportSpec("wb_idle_s", FRONT_LAYER_ID, FRONT_CROP_WB, front_feet="idle", front_hands="idle", front_wb=True),
     ExportSpec("wb_step_s_1", FRONT_LAYER_ID, FRONT_CROP_WB, front_feet="step_1", front_hands="step_1", front_wb=True),
     ExportSpec("wb_step_s_2", FRONT_LAYER_ID, FRONT_CROP_WB, front_feet="step_2", front_hands="step_2", front_wb=True),
+    ExportSpec("cargo_idle_w", SIDE_LAYER_ID, SIDE_CROP_IDLE, side_feet="idle", cargo_bag=True),
+    ExportSpec("cargo_step_w", SIDE_LAYER_ID, SIDE_CROP_IDLE, side_feet="step", cargo_bag=True),
+    ExportSpec("cargo_idle_n", BACK_LAYER_ID, BACK_CROP_IDLE, back_feet="idle", back_hands=("g62", "g63"), cargo_bag=True),
+    ExportSpec("cargo_step_n_1", BACK_LAYER_ID, BACK_CROP_IDLE, back_feet="step_1", back_hands=("g72", "g70"), cargo_bag=True),
+    ExportSpec("cargo_step_n_2", BACK_LAYER_ID, BACK_CROP_IDLE, back_feet="step_2", back_hands=("g62", "g66"), cargo_bag=True),
+    ExportSpec("cargo_idle_s", FRONT_LAYER_ID, FRONT_CROP_IDLE, front_feet="idle", front_hands="idle", cargo_bag=True),
+    ExportSpec("cargo_step_s_1", FRONT_LAYER_ID, FRONT_CROP_IDLE, front_feet="step_1", front_hands="step_1", cargo_bag=True),
+    ExportSpec("cargo_step_s_2", FRONT_LAYER_ID, FRONT_CROP_IDLE, front_feet="step_2", front_hands="step_2", cargo_bag=True),
 ]
 
 
@@ -728,7 +745,8 @@ def prepare_base_visibility(id_map: dict[str, ET.Element]) -> None:
         + ALL_PLAY_ELEMENTS
         + ALL_FISHING_SIDE_ELEMENTS
         + ALL_FISHING_FRONT_ELEMENTS
-        + ALL_FISHING_BACK_ELEMENTS,
+        + ALL_FISHING_BACK_ELEMENTS
+        + ["side_bag", "back_bag", "front_bag"],
     )
 
 
@@ -766,6 +784,9 @@ def configure_side_variant(
     ):
         set_display(require_element(id_map, variant_config["hand"]), DISPLAY_INLINE)
 
+    if spec.cargo_bag:
+        set_display(require_element(id_map, "side_bag"), DISPLAY_INLINE)
+
 
 def configure_back_variant(
     id_map: dict[str, ET.Element],
@@ -789,6 +810,9 @@ def configure_back_variant(
     if spec.back_hands:
         left_hand_id, right_hand_id = spec.back_hands
         show_elements(id_map, [left_hand_id, right_hand_id])
+
+    if spec.cargo_bag:
+        set_display(require_element(id_map, "back_bag"), DISPLAY_INLINE)
 
 
 def configure_front_variant(
@@ -816,6 +840,9 @@ def configure_front_variant(
         set_display(require_element(id_map, variant_config["step_hands_1"]), DISPLAY_INLINE)
     elif spec.front_hands == "step_2":
         set_display(require_element(id_map, variant_config["step_hands_2"]), DISPLAY_INLINE)
+
+    if spec.cargo_bag:
+        set_display(require_element(id_map, "front_bag"), DISPLAY_INLINE)
 
 
 def configure_fishing_side_variant(

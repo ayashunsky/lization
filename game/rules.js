@@ -47,8 +47,8 @@ window.APP_RULES = {
       water: 1,
     },
     paths: {
-      wellKnownVisits: 10,
-      previewVisits: 5,
+      wellKnownVisits: 20,
+      previewVisits: 10,
       moveCost: 0.7,
     },
   },
@@ -57,6 +57,9 @@ window.APP_RULES = {
       width: 1,
       height: 1,
     },
+  },
+  buildingPlacement: {
+    villageMaxDistance: 3,
   },
   vehicles: {
     default: {
@@ -76,11 +79,11 @@ window.APP_RULES = {
       initial: {
         stone: 0,
         lumber: 0,
-        food: 18,
+        food: 36,
       },
     },
     starvation: {
-      thresholdTurns: 3,
+      thresholdTurns: 7,
       resetAfterUnitLeaves: 0,
     },
     terrainFoodGeneration: {
@@ -118,13 +121,21 @@ window.APP_RULES = {
         terrain: "forest",
         max: 10,
         regrowthRate: 1 / 10,
-        overlayImage: "assets/tiles/resources/berries_overlay.png",
+        overlayStages: [
+          { minFillRatio: 0.66, image: "assets/tiles/resources/berries_overlay.png" },
+          { minFillRatio: 0.33, image: "assets/tiles/resources/berries_overlay_1.png" },
+          { minFillRatio: 0.01, image: "assets/tiles/resources/berries_overlay_0.png" },
+        ],
       },
       mushrooms: {
         terrain: "forest",
         max: 8,
         regrowthRate: 1 / 8,
-        overlayImage: "assets/tiles/resources/mushrooms_overlay.png",
+        overlayStages: [
+          { minFillRatio: 0.66, image: "assets/tiles/resources/mushrooms_overlay.png" },
+          { minFillRatio: 0.33, image: "assets/tiles/resources/mushrooms_overlay_1.png" },
+          { minFillRatio: 0.01, image: "assets/tiles/resources/mushrooms_overlay_0.png" },
+        ],
       },
     },
   },

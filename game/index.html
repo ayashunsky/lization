@@ -249,16 +249,16 @@
         <button class="unit-action-button" data-action="select-unit-action" data-unit-action="work" type="button">
           <span aria-hidden="true">⚒</span>
         </button>
-        <button class="unit-action-button" data-action="select-unit-action" data-unit-action="demolish" type="button">
-          <span aria-hidden="true">✕</span>
-        </button>
         <div id="foundationActionMenu" class="foundation-action-menu" hidden></div>
       </nav>
+
+      <div id="unitTileActionMenu" class="unit-tile-action-menu" role="menu" aria-label="Unit actions" hidden></div>
 
       <aside id="playInspector" class="play-inspector" hidden>
         <section class="play-inspector-section play-message-section">
           <div class="situation-message-display" data-role="situation-message-display">
             <div class="situation-message-bubble" data-role="situation-message-bubble">
+              <p class="situation-message-turn" data-role="situation-message-turn"></p>
               <p class="situation-message-text" data-role="situation-message-text"></p>
               <div class="situation-message-nav">
                 <button class="menu-button panel-icon-button" data-action="previous-situation-message" type="button">
@@ -335,15 +335,14 @@
                   <span aria-hidden="true">»</span>
                 </button>
               </div>
+              <p class="unit-cargo-readout" data-role="unit-cargo-readout"></p>
               <div class="panel-lines">
                 <div class="unit-action-summary" data-role="unit-task-row" hidden>
                   <button class="unit-action-sprite-button" data-action="center-unit-on-map" type="button" disabled>
                     <img class="unit-action-sprite" data-role="unit-action-sprite" alt="">
                   </button>
                   <span class="unit-action-progress" data-role="unit-action-progress"></span>
-                  <button class="menu-button panel-icon-button" data-action="toggle-gather-task-loop" type="button" hidden>
-                    <span aria-hidden="true">↻</span>
-                  </button>
+                  <span class="unit-gather-loop-indicator" data-role="gather-loop-indicator" role="img" hidden>↻</span>
                   <button class="menu-button panel-icon-button" data-action="cancel-unit-task" type="button">
                     <span aria-hidden="true">✕</span>
                   </button>
@@ -357,10 +356,7 @@
         </section>
         <div class="play-inspector-footer">
           <button class="menu-button" data-action="next-turn" type="button"></button>
-          <label class="toggle-control">
-            <input data-action="auto-pass" type="checkbox">
-            <span data-role="auto-pass-label"></span>
-          </label>
+          <button class="menu-button turn-auto-toggle" data-action="toggle-auto-turns" type="button"></button>
         </div>
       </aside>
 

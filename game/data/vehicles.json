@@ -35,7 +35,7 @@
         "constructionCost": 120,
         "buildCost": {
           "stone": 0,
-          "lumber": 40
+          "lumber": 60
         }
       },
       "visual": {
@@ -48,6 +48,7 @@
         "mountedRenders": {
           "default": {
             "unit": {
+              "moveSource": "idle",
               "offsetX": 0,
               "offsetY": -4
             },
@@ -67,76 +68,6 @@
               "moveFrameSequence": [0],
               "anchorX": 27,
               "anchorY": 34
-            }
-          },
-          "byUnitType": {
-            "villager": {
-              "unit": {
-                "sources": {
-                  "idle": {
-                    "W": "../assets/units/unit.png",
-                    "N": "../assets/units/unit_back.png",
-                    "S": "../assets/units/unit_front.png"
-                  },
-                  "move": {
-                    "W": ["../assets/units/unit.png"],
-                    "N": ["../assets/units/unit_back.png"],
-                    "S": ["../assets/units/unit_front.png"]
-                  }
-                },
-                "moveFrameSequence": [0]
-              }
-            },
-            "grandSchtroumpf": {
-              "unit": {
-                "sources": {
-                  "idle": {
-                    "W": "../assets/units/gs.png",
-                    "N": "../assets/units/gs_back.png",
-                    "S": "../assets/units/gs_front.png"
-                  },
-                  "move": {
-                    "W": ["../assets/units/gs.png"],
-                    "N": ["../assets/units/gs_back.png"],
-                    "S": ["../assets/units/gs_front.png"]
-                  }
-                },
-                "moveFrameSequence": [0]
-              }
-            },
-            "lunettes": {
-              "unit": {
-                "sources": {
-                  "idle": {
-                    "W": "../assets/units/lune.png",
-                    "N": "../assets/units/unit_back.png",
-                    "S": "../assets/units/lune_front.png"
-                  },
-                  "move": {
-                    "W": ["../assets/units/lune.png"],
-                    "N": ["../assets/units/unit_back.png"],
-                    "S": ["../assets/units/lune_front.png"]
-                  }
-                },
-                "moveFrameSequence": [0]
-              }
-            },
-            "bricoleur": {
-              "unit": {
-                "sources": {
-                  "idle": {
-                    "W": "../assets/units/brico.png",
-                    "N": "../assets/units/brico_back.png",
-                    "S": "../assets/units/brico_front.png"
-                  },
-                  "move": {
-                    "W": ["../assets/units/brico.png"],
-                    "N": ["../assets/units/brico_back.png"],
-                    "S": ["../assets/units/brico_front.png"]
-                  }
-                },
-                "moveFrameSequence": [0]
-              }
             }
           }
         },
@@ -162,6 +93,7 @@
       "rules": {
         "width": 1,
         "height": 1,
+        "cargoCapacity": 48,
         "placementTerrains": [["grass"]],
         "walkable": true,
         "foundationActionAvailable": true,
@@ -179,7 +111,7 @@
         "constructionCost": 120,
         "buildCost": {
           "stone": 0,
-          "lumber": 40
+          "lumber": 60
         }
       },
       "visual": {
@@ -188,6 +120,27 @@
         "constructionImages": {
           "initial": "../assets/vehicles/wb_init.png",
           "half": "../assets/vehicles/wb_half.png"
+        },
+        "cargoOverlay": {
+          "unmounted": "../assets/vehicles/wb_cargo_idle.png",
+          "mountedOffsetYAt100Zoom": -10,
+          "mountedByImage": {
+            "../assets/vehicles/wb_mount_w.png": "../assets/vehicles/wb_cargo_mount_w.png",
+            "../assets/vehicles/wb_mount_e.png": "../assets/vehicles/wb_cargo_mount_e.png",
+            "../assets/vehicles/wb_mount_n.png": "../assets/vehicles/wb_cargo_mount_n.png",
+            "../assets/vehicles/wb_empty.png": "../assets/vehicles/wb_cargo_empty.png",
+            "../assets/vehicles/wb_mount_work_w.png": "../assets/vehicles/wb_cargo_mount_work_w.png",
+            "../assets/vehicles/wb_mount_work_e.png": "../assets/vehicles/wb_cargo_mount_work_e.png",
+            "../assets/vehicles/wb_mount_work_n.png": "../assets/vehicles/wb_cargo_mount_work_n.png",
+            "../assets/vehicles/wb_mount_work_ne.png": "../assets/vehicles/wb_cargo_mount_work_ne.png",
+            "../assets/vehicles/wb_mount_work_nw.png": "../assets/vehicles/wb_cargo_mount_work_nw.png",
+            "../assets/vehicles/wb_mount_work_s.png": "../assets/vehicles/wb_cargo_mount_work_s.png",
+            "../assets/vehicles/wb_mount_work_se.png": "../assets/vehicles/wb_cargo_mount_work_se.png",
+            "../assets/vehicles/wb_mount_work_sw.png": "../assets/vehicles/wb_cargo_mount_work_sw.png"
+          },
+          "mountedForegroundByImage": {
+            "../assets/vehicles/wb_empty.png": "../assets/vehicles/wb_cargo_empty_front.png"
+          }
         },
         "mountedRenders": {
           "default": {
@@ -324,6 +277,32 @@
                     "S": [
                       "../assets/units/brico_wb_step_s_1.png",
                       "../assets/units/brico_wb_step_s_2.png"
+                    ]
+                  }
+                },
+                "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0]
+              }
+            },
+            "cuisinier": {
+              "unit": {
+                "sources": {
+                  "idle": {
+                    "W": "../assets/units/cuis_wb_w.png",
+                    "N": "../assets/units/cuis_wb_n.png",
+                    "S": "../assets/units/cuis_wb_s.png"
+                  },
+                  "move": {
+                    "W": [
+                      "../assets/units/cuis_wb_w.png",
+                      "../assets/units/cuis_wb_step_w.png"
+                    ],
+                    "N": [
+                      "../assets/units/cuis_wb_step_n_1.png",
+                      "../assets/units/cuis_wb_step_n_2.png"
+                    ],
+                    "S": [
+                      "../assets/units/cuis_wb_step_s_1.png",
+                      "../assets/units/cuis_wb_step_s_2.png"
                     ]
                   }
                 },
