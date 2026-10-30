@@ -75,7 +75,7 @@ Optional positive number. A vehicle with this rule carries its own cargo; a vehi
 
 Mounting an empty carrier transfers a unit's load into it. A carrying unit cannot mount a carrier that already has cargo, or one with insufficient capacity. A unit without cargo can mount a loaded carrier and then gathers into that vehicle's remaining capacity. Dismounting leaves the cargo in the vehicle and removes the unit's cargo-based action restrictions. Vehicle cargo is saved with the vehicle.
 
-Older saves with a loaded rider on a wheelbarrow transfer that load to the wheelbarrow when loaded. Vehicles without `cargoCapacity` do not gain a cargo field in saves.
+Vehicles without `cargoCapacity` do not gain a cargo field in saves.
 
 ## `rules.mounted.allowedActions`
 

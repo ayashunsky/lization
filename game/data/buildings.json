@@ -33,7 +33,7 @@
           "lumber": 60
         },
         "resourceStorageCapacities": {
-          "stone": 25,
+          "stone": 30,
           "lumber": 60,
           "food": 96
         },
@@ -124,6 +124,62 @@
         }
       }
     },
+    "six_smurf_flute": {
+      "labels": {
+        "fr": "Flûte à six schtroumpfs",
+        "en": "Six-Smurf Flute",
+        "es": "Flauta de seis pitufos",
+        "ru": "Флейта для шести штрумфов"
+      },
+      "ui": {
+        "icon": "♫"
+      },
+      "availability": {
+        "requiredTechs": ["music"]
+      },
+      "rules": {
+        "width": 2,
+        "height": 2,
+        "footprint": [
+          [],
+          ["south"],
+          ["southEast"],
+          ["southWest"]
+        ],
+        "villageBuilding": true,
+        "walkable": false,
+        "foundationActionAvailable": true,
+        "constructionCost": 1680,
+        "buildCost": {
+          "stone": 0,
+          "lumber": 1500
+        },
+        "constructionVisualThresholds": {
+          "initialMax": 0.34,
+          "halfMax": 0.79
+        },
+        "abandonedDecayPerTurn": 0.025
+      },
+      "visual": {
+        "renderMode": "footprintImageNative",
+        "constructionRenderMode": "footprintImageNative",
+        "nativeScaleAt100Zoom": 0.6,
+        "subtypes": [
+          { "id": "six_smurf_flute_01", "image": "../assets/buildings/six_smurf_flute.svg" }
+        ],
+        "abandonedImage": "../assets/buildings/house_abandoned.png",
+        "constructionImages": {
+          "initial": "../assets/buildings/house_construct.png",
+          "half": "../assets/buildings/six_smurf_flute_half.svg"
+        },
+        "constructionStages": {
+          "initial": {
+            "renderMode": "perTile",
+            "yOffsetFactor": 0.2
+          }
+        }
+      }
+    },
     "small_bridge_nw_se": {
       "labels": {
         "fr": "Petit pont",
@@ -155,7 +211,7 @@
         "foundationActionAvailable": true,
         "constructionCost": 1920,
         "buildCost": {
-          "stone": 260,
+          "stone": 240,
           "lumber": 40
         },
         "constructionVisualThresholds": {
@@ -261,6 +317,156 @@
         },
         "unitRenderOffsets": [
           { "x": 0, "y": 0 },
+          { "x": -12, "y": -20 },
+          { "x": 0, "y": -20 }
+        ]
+      }
+    },
+    "bridge_nw_se": {
+      "labels": {
+        "fr": "Pont ↘",
+        "en": "Bridge ↘",
+        "es": "Puente ↘",
+        "ru": "Мост ↘"
+      },
+      "ui": {
+        "icon": "↘"
+      },
+      "availability": {
+        "requiredTechs": ["bridge_building"]
+      },
+      "rules": {
+        "width": 1,
+        "height": 4,
+        "footprint": [
+          ["northWest"],
+          [],
+          ["southEast"],
+          ["southEast", "southEast"]
+        ],
+        "placementTerrains": [
+          ["grass"],
+          ["grass", "water"],
+          ["grass", "water"],
+          ["grass"]
+        ],
+        "villageBuilding": false,
+        "walkable": true,
+        "foundationActionAvailable": true,
+        "constructionCost": 43800,
+        "buildCost": {
+          "stone": 350,
+          "lumber": 3000
+        },
+        "constructionVisualThresholds": {
+          "initialMax": 0.34,
+          "halfMax": 0.79
+        },
+        "abandonedDecayPerTurn": 0.025
+      },
+      "visual": {
+        "renderMode": "footprintImageNative",
+        "constructionRenderMode": "footprintImageNative",
+        "nativeScaleAt100Zoom": 0.8,
+        "nativeOffsetYAt100Zoom": 23,
+        "subtypes": [
+          { "id": "bridge_01", "image": "../assets/buildings/small_bridge_nw_se.png" }
+        ],
+        "abandonedImage": "../assets/buildings/house_abandoned.png",
+        "constructionImages": {
+          "initial": "../assets/buildings/house_construct.png",
+          "half": "../assets/buildings/small_bridge_nw_se_half.png"
+        },
+        "constructionStages": {
+          "initial": {
+            "renderMode": "perTile",
+            "yOffsetFactor": 0.2,
+            "tileImages": [
+              "../assets/buildings/house_construct.png",
+              null,
+              null,
+              "../assets/buildings/house_construct.png"
+            ]
+          }
+        },
+        "unitRenderOffsets": [
+          { "x": 0, "y": -20 },
+          { "x": 12, "y": -20 },
+          { "x": 12, "y": -20 },
+          { "x": 0, "y": 0 }
+        ]
+      }
+    },
+    "bridge_sw_ne": {
+      "labels": {
+        "fr": "Pont ↗",
+        "en": "Bridge ↗",
+        "es": "Puente ↗",
+        "ru": "Мост ↗"
+      },
+      "ui": {
+        "icon": "↗"
+      },
+      "availability": {
+        "requiredTechs": ["bridge_building"]
+      },
+      "rules": {
+        "width": 1,
+        "height": 4,
+        "footprint": [
+          ["southWest"],
+          [],
+          ["northEast"],
+          ["northEast", "northEast"]
+        ],
+        "placementTerrains": [
+          ["grass"],
+          ["grass", "water"],
+          ["grass", "water"],
+          ["grass"]
+        ],
+        "villageBuilding": false,
+        "walkable": true,
+        "foundationActionAvailable": true,
+        "constructionCost": 43800,
+        "buildCost": {
+          "stone": 350,
+          "lumber": 3000
+        },
+        "constructionVisualThresholds": {
+          "initialMax": 0.34,
+          "halfMax": 0.79
+        },
+        "abandonedDecayPerTurn": 0.025
+      },
+      "visual": {
+        "renderMode": "footprintImageNative",
+        "constructionRenderMode": "footprintImageNative",
+        "nativeScaleAt100Zoom": 0.67,
+        "nativeOffsetYAt100Zoom": 23,
+        "subtypes": [
+          { "id": "bridge_01", "image": "../assets/buildings/small_bridge_sw_ne.png" }
+        ],
+        "abandonedImage": "../assets/buildings/house_abandoned.png",
+        "constructionImages": {
+          "initial": "../assets/buildings/house_construct.png",
+          "half": "../assets/buildings/small_bridge_sw_ne_half.png"
+        },
+        "constructionStages": {
+          "initial": {
+            "renderMode": "perTile",
+            "yOffsetFactor": 0.2,
+            "tileImages": [
+              "../assets/buildings/house_construct.png",
+              null,
+              null,
+              "../assets/buildings/house_construct.png"
+            ]
+          }
+        },
+        "unitRenderOffsets": [
+          { "x": 0, "y": 0 },
+          { "x": -12, "y": -20 },
           { "x": -12, "y": -20 },
           { "x": 0, "y": -20 }
         ]

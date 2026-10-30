@@ -70,6 +70,7 @@ window.APP_RULES = {
   resources: {
     gathering: {
       durationTurns: 3,
+      minimumFoodAmount: 2,
     },
     materials: {
       mountainStonePerTile: 1000,

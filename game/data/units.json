@@ -249,6 +249,30 @@
       },
       "allowedActions": ["walk", "play", "gatherFood", "plant"]
     },
+    "coquet": {
+      "spriteTypeId": "coquet",
+      "bookPageId": "coquet",
+      "name": "Schtroumpf coquet",
+      "labels": {
+        "fr": "Schtroumpf coquet",
+        "en": "Vanity Smurf",
+        "es": "Pitufo Vanidoso",
+        "ru": "Штрумф модник"
+      }
+    },
+    "musicien": {
+      "spriteTypeId": "villager",
+      "name": "Schtroumpf musicien",
+      "labels": {
+        "fr": "Schtroumpf musicien",
+        "en": "Musician Smurf",
+        "es": "Pitufo músico",
+        "ru": "Штрумф-музыкант"
+      },
+      "availability": {
+        "requiredTechs": ["music"]
+      }
+    },
     "paysan": {
       "spriteTypeId": "paysan",
       "bookPageId": "paysan",
@@ -269,7 +293,7 @@
   },
   "spawnRules": {
     "pool": [
-      { "type": "villager", "quantity": 88 },
+      { "type": "villager", "quantity": 86 },
       { "type": "bricoleur", "quantity": 1 },
       { "type": "paresseux", "quantity": 1 },
       { "type": "lunettes", "quantity": 1 },
@@ -280,6 +304,8 @@
       { "type": "costaud", "quantity": 1 },
       { "type": "gourmand", "quantity": 1 },
       { "type": "cuisinier", "quantity": 1 },
+      { "type": "coquet", "quantity": 1 },
+      { "type": "musicien", "quantity": 1 },
       { "type": "paysan", "quantity": 1 },
       { "type": "grandSchtroumpf", "quantity": 1 }
     ],
@@ -415,16 +441,6 @@
             "../assets/units/gs_front_step_2.png"
           ]
         },
-        "cargoIdle": {
-          "W": "../assets/units/gs_cargo_w.png",
-          "N": "../assets/units/gs_cargo_n.png",
-          "S": "../assets/units/gs_cargo_s.png"
-        },
-        "cargoMove": {
-          "W": ["../assets/units/gs_cargo_w.png", "../assets/units/gs_cargo_step_w.png"],
-          "N": ["../assets/units/gs_cargo_step_n_1.png", "../assets/units/gs_cargo_step_n_2.png"],
-          "S": ["../assets/units/gs_cargo_step_s_1.png", "../assets/units/gs_cargo_step_s_2.png"]
-        },
         "research": {
           "O": [
             "../assets/units/gs_research_1.png",
@@ -437,7 +453,8 @@
       "sources": {
         "play": {
           "O": [
-            "../assets/units/paresseux.png"
+            "../assets/units/paresseux_play.png",
+            "../assets/units/paresseux_play_1.png"
           ]
         }
       }
@@ -449,6 +466,20 @@
             "../assets/units/farceur_play.png",
             "../assets/units/farceur_play_1.png"
           ]
+        }
+      }
+    },
+    "grognon": {
+      "sources": {
+        "play": {
+          "O": ["../assets/units/grognon_play.png"]
+        }
+      }
+    },
+    "costaud": {
+      "sources": {
+        "play": {
+          "O": ["../assets/units/costaud_play.png", "../assets/units/costaud_play_1.png"]
         }
       }
     },
@@ -677,6 +708,48 @@
       },
       "groundOffset": 0.75,
       "moveDuration": 720
+    },
+    "coquet": {
+      "sources": {
+        "idle": {
+          "W": "../assets/units/coq.png",
+          "S": "../assets/units/coq_front.png"
+        },
+        "move": {
+          "W": ["../assets/units/coq.png", "../assets/units/coq_step.png"],
+          "S": ["../assets/units/coq_front_step_1.png", "../assets/units/coq_front_step_2.png"]
+        },
+        "cargoIdle": {
+          "W": "../assets/units/coq_cargo_w.png",
+          "S": "../assets/units/coq_cargo_s.png"
+        },
+        "cargoMove": {
+          "W": ["../assets/units/coq_cargo_w.png", "../assets/units/coq_cargo_step_w.png"],
+          "S": ["../assets/units/coq_cargo_step_s_1.png", "../assets/units/coq_cargo_step_s_2.png"]
+        },
+        "work": {
+          "O": ["../assets/units/coq_work.png", "../assets/units/coq_work_1.png"]
+        },
+        "dig": {
+          "O": ["../assets/units/coq_dig.png", "../assets/units/coq_dig_1.png"]
+        },
+        "gatherFoodLand": {
+          "O": ["../assets/units/coq_food_sprite.png", "../assets/units/coq_food_sprite_1.png"]
+        },
+        "gatherFoodFish": {
+          "W": ["../assets/units/coq_fishing.png", "../assets/units/coq_fishing_1.png"],
+          "S": ["../assets/units/coq_fishing_south.png", "../assets/units/coq_fishing_south_1.png"]
+        },
+        "gatherMaterialsLumber": {
+          "O": ["../assets/units/coq_lumber.png", "../assets/units/coq_lumber_1.png"]
+        },
+        "gatherMaterialsStone": {
+          "O": ["../assets/units/coq_stone.png", "../assets/units/coq_stone_1.png"]
+        },
+        "play": {
+          "O": ["../assets/units/coq_play.png", "../assets/units/coq_play_1.png"]
+        }
+      }
     }
   }
 }

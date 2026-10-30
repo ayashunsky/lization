@@ -308,6 +308,21 @@
                 },
                 "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0]
               }
+            },
+            "coquet": {
+              "unit": {
+                "sources": {
+                  "idle": {
+                    "W": "../assets/units/coq_wb_w.png",
+                    "S": "../assets/units/coq_wb_s.png"
+                  },
+                  "move": {
+                    "W": ["../assets/units/coq_wb_w.png", "../assets/units/coq_wb_step_w.png"],
+                    "S": ["../assets/units/coq_wb_step_s_1.png", "../assets/units/coq_wb_step_s_2.png"]
+                  }
+                },
+                "moveFrameSequence": [0, 1, 0, 1, 0, 1, 0, 1, 0]
+              }
             }
           }
         },

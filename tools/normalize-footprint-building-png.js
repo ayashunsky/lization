@@ -1,10 +1,10 @@
 const { readPng, writePng, alphaBounds } = require("./normalize-tile-png");
 
-const [, , sourcePath, outputPath, targetWidthArg] = process.argv;
+const [, , sourcePath, outputPath, targetWidthArg, targetHeightArg] = process.argv;
 
 if (!sourcePath || !outputPath || !targetWidthArg) {
   console.error(
-    "Usage: node tools/normalize-footprint-building-png.js <source.png> <output.png> <targetWidth>",
+    "Usage: node tools/normalize-footprint-building-png.js <source.png> <output.png> <targetWidth> [targetHeight]",
   );
   process.exit(1);
 }
@@ -26,7 +26,15 @@ if (!sourceBox) {
 
 const sourceWidth = sourceBox.maxX - sourceBox.minX + 1;
 const sourceHeight = sourceBox.maxY - sourceBox.minY + 1;
-const targetHeight = Math.max(1, Math.round((sourceHeight * targetWidth) / sourceWidth));
+const targetHeight = targetHeightArg === undefined
+  ? Math.max(1, Math.round((sourceHeight * targetWidth) / sourceWidth))
+  : Number(targetHeightArg);
+
+if (!Number.isInteger(targetHeight) || targetHeight <= 0) {
+  console.error(`Invalid target height: ${targetHeightArg}`);
+  process.exit(1);
+}
+
 const output = {
   width: targetWidth,
   height: targetHeight,

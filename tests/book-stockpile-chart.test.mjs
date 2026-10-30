@@ -1,26 +1,41 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { reconstructPopulationSeries } from "../game/book-stockpile-chart.js";
+import { normalizePopulationEvents } from "../game/population-events.js";
 
 test("reconstructs population from arrivals and departures", () => {
-  const messages = [
-    { turn: 8, kind: "houseCompleted" },
-    { turn: 10, kind: "houseCompleted" },
-    { turn: 10, kind: "unitLeft" },
-    { turn: 15, kind: "unitLeft" },
+  const events = [
+    { turn: 8, change: 1 },
+    { turn: 10, change: 1 },
+    { turn: 10, change: -1 },
+    { turn: 15, change: -1 },
   ];
 
-  assert.deepEqual(reconstructPopulationSeries(messages, 1, 1, 20), [
+  assert.deepEqual(reconstructPopulationSeries(events, 1, 1, 20), [
     { turn: 1, value: 1 },
     { turn: 8, value: 2 },
     { turn: 10, value: 2 },
     { turn: 15, value: 1 },
     { turn: 20, value: 1 },
   ]);
-  assert.deepEqual(reconstructPopulationSeries(messages, 1, 10, 20), [
+  assert.deepEqual(reconstructPopulationSeries(events, 1, 10, 20), [
     { turn: 10, value: 2 },
     { turn: 15, value: 1 },
     { turn: 20, value: 1 },
+  ]);
+});
+
+test("requires current population event data", () => {
+  assert.throws(() => normalizePopulationEvents(undefined), /Missing population event data/);
+  assert.throws(() => normalizePopulationEvents([{ turn: 8, kind: "houseCompleted" }]), /Invalid population event data/);
+  assert.deepEqual(normalizePopulationEvents([]), []);
+});
+
+test("preserves unit types without storing translated names", () => {
+  assert.deepEqual(normalizePopulationEvents([
+    { turn: 8, change: 1, unitType: "bricoleur" },
+  ]), [
+    { turn: 8, change: 1, unitType: "bricoleur" },
   ]);
 });
 

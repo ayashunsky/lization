@@ -1,6 +1,17 @@
 import { clampNumber } from "./number-utils.js";
 import { createBookStockpileChartApi } from "./book-stockpile-chart.js";
 
+export function formatBookRatio(numerator, denominator, language) {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) {
+    return "";
+  }
+
+  return new Intl.NumberFormat(language, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(numerator / denominator);
+}
+
 export function createBookContentApi({
   localizationApi,
   bindingApi,
@@ -18,6 +29,7 @@ export function createBookContentApi({
     rules,
     formatDisplayedNumber,
     resourceUiIcons,
+    terrainDefinitions,
     getDefaultUnitTypeId,
     normalizeUnitTypeId,
     hasDefinedUnitType,
@@ -39,7 +51,7 @@ export function createBookContentApi({
     getStockpileHistory,
     getCurrentTurn,
     formatTurnDate,
-    getSituationMessages,
+    getPopulationEvents,
     getPopulation,
   } = bindingApi;
   const {
@@ -58,7 +70,7 @@ export function createBookContentApi({
     getResourceLabel,
     getLanguage: getCurrentLanguage,
     formatTurnDate,
-    getSituationMessages,
+    getPopulationEvents,
     getPopulation,
   });
 
@@ -307,8 +319,10 @@ export function createBookContentApi({
       return null;
     }
 
-    const iconPath = resourceUiIcons[normalizedResourceType];
     const foodDefinition = getFoodDefinition(normalizedResourceType);
+    const iconPath = resourceUiIcons[normalizedResourceType]
+      || foodDefinition?.overlayStages?.[0]?.image
+      || (foodDefinition ? resourceUiIcons.food : null);
 
     return {
       ...(foodDefinition && typeof foodDefinition === "object" ? foodDefinition : {}),
@@ -316,6 +330,26 @@ export function createBookContentApi({
       name: getResourceLabel(normalizedResourceType),
       label: getResourceLabel(normalizedResourceType),
       icon: iconPath ? new URL(iconPath, window.location.href).toString() : null,
+    };
+  }
+
+  function createBookBindingTerrainView(terrainType) {
+    const normalizedTerrainType = typeof terrainType === "string" ? terrainType.trim() : "";
+    const definition = terrainDefinitions?.[normalizedTerrainType];
+
+    if (!definition) {
+      return null;
+    }
+
+    const imagePath = definition.variants?.[0]?.image || definition.image;
+    const image = imagePath ? new URL(imagePath, window.location.href).toString() : null;
+
+    return {
+      id: normalizedTerrainType,
+      name: definition.label,
+      label: definition.label,
+      icon: image,
+      image,
     };
   }
 
@@ -366,6 +400,11 @@ export function createBookContentApi({
       return getBookBindingValueAtPath(createBookBindingResourceView(resourceType), pathSegments);
     }
 
+    if (namespace === "terrain" || namespace === "terrains") {
+      const [terrainType, ...pathSegments] = rest;
+      return getBookBindingValueAtPath(createBookBindingTerrainView(terrainType), pathSegments);
+    }
+
     return null;
   }
 
@@ -405,6 +444,14 @@ export function createBookContentApi({
       const directBinding = element.dataset.bookBind?.trim();
       if (directBinding) {
         applyBookBindingToElement(element, "text", directBinding);
+      }
+
+      if (element.hasAttribute("data-book-ratio")) {
+        element.textContent = formatBookRatio(
+          resolveBookBindingValue(element.dataset.bookRatio),
+          resolveBookBindingValue(element.dataset.bookRatioBase),
+          getCurrentLanguage(),
+        );
       }
 
       for (const attributeName of element.getAttributeNames()) {

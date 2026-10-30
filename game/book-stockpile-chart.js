@@ -26,16 +26,15 @@ function niceMaximum(value) {
   return step * magnitude;
 }
 
-export function reconstructPopulationSeries(messages, currentPopulation, startTurn, currentTurn) {
-  const events = messages
-    .filter((entry) => entry.turn <= currentTurn && (entry.kind === "houseCompleted" || entry.kind === "unitLeft"))
-    .map((entry) => ({ turn: entry.turn, change: entry.kind === "houseCompleted" ? 1 : -1 }))
+export function reconstructPopulationSeries(events, currentPopulation, startTurn, currentTurn) {
+  const relevantEvents = events
+    .filter((entry) => entry.turn <= currentTurn)
     .sort((a, b) => a.turn - b.turn);
-  const baseline = currentPopulation - events.reduce((total, event) => total + event.change, 0);
+  const baseline = currentPopulation - relevantEvents.reduce((total, event) => total + event.change, 0);
   let population = baseline;
   const points = [{ turn: startTurn, value: baseline }];
 
-  for (const event of events) {
+  for (const event of relevantEvents) {
     population += event.change;
     if (event.turn <= startTurn) {
       points[0].value = population;
@@ -60,7 +59,7 @@ export function createBookStockpileChartApi({
   getResourceLabel,
   getLanguage,
   formatTurnDate,
-  getSituationMessages,
+  getPopulationEvents,
   getPopulation,
 }) {
   const state = { period: 365, visible: new Set(seriesTypes) };
@@ -76,7 +75,7 @@ export function createBookStockpileChartApi({
     const activeTypes = resourceTypes.filter((type) => state.visible.has(type));
     const showPopulation = state.visible.has("population");
     const populationPoints = showPopulation
-      ? reconstructPopulationSeries(getSituationMessages(), getPopulation(), startTurn, turn)
+      ? reconstructPopulationSeries(getPopulationEvents(), getPopulation(), startTurn, turn)
       : [];
     let highestValue = 0;
     for (const entry of samples) {

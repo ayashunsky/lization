@@ -2,7 +2,7 @@
   "technologies": [
     {
       "id": "pottery",
-      "cost": 90,
+      "cost": 180,
       "icon": "../assets/techs/pottery.png",
       "labels": {
         "fr": "Poterie",
@@ -17,7 +17,7 @@
     },
     {
       "id": "hole_digging",
-      "cost": 90,
+      "cost": 180,
       "icon": "../assets/techs/holes.png",
       "labels": {
         "fr": "Creuser des trous",
@@ -32,7 +32,7 @@
     },
     {
       "id": "runes",
-      "cost": 90,
+      "cost": 180,
       "icon": "../assets/techs/runes.png",
       "labels": {
         "fr": "Runes",
@@ -47,7 +47,7 @@
     },
     {
       "id": "wheelbarrow",
-      "cost": 90,
+      "cost": 180,
       "icon": "../assets/techs/wheel.png",
       "labels": {
         "fr": "Brouette",
@@ -62,7 +62,7 @@
     },
     {
       "id": "planting",
-      "cost": 135,
+      "cost": 270,
       "icon": "../assets/techs/plant.png",
       "labels": {
         "fr": "Plantation",
@@ -77,7 +77,7 @@
     },
     {
       "id": "diving_rod",
-      "cost": 135,
+      "cost": 270,
       "icon": "../assets/techs/diving_rod.png",
       "labels": {
         "fr": "Baguette de sourcier",
@@ -92,7 +92,7 @@
     },
     {
       "id": "spellbook",
-      "cost": 135,
+      "cost": 270,
       "icon": "../assets/techs/book.png",
       "labels": {
         "fr": "Grimoire",
@@ -107,7 +107,7 @@
     },
     {
       "id": "diy",
-      "cost": 135,
+      "cost": 270,
       "icon": "../assets/techs/diy.png",
       "labels": {
         "fr": "Bricolage",
@@ -122,7 +122,7 @@
     },
     {
       "id": "music",
-      "cost": 180,
+      "cost": 360,
       "icon": "../assets/techs/music.png",
       "labels": {
         "fr": "Musique",
@@ -137,7 +137,7 @@
     },
     {
       "id": "alchemy",
-      "cost": 180,
+      "cost": 360,
       "icon": "../assets/techs/alchemy.png",
       "labels": {
         "fr": "Alchimie",
@@ -152,7 +152,7 @@
     },
     {
       "id": "bridge_building",
-      "cost": 180,
+      "cost": 360,
       "icon": "../assets/techs/bridges.png",
       "labels": {
         "fr": "Construction de ponts",
@@ -167,7 +167,7 @@
     },
     {
       "id": "boating",
-      "cost": 180,
+      "cost": 360,
       "icon": "../assets/techs/boating.png",
       "labels": {
         "fr": "Barque",

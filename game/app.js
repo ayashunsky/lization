@@ -1,7 +1,14 @@
 import { createConstructiblesApi } from "./constructibles.js";
 import { createBookContentApi } from "./book-content.js";
+import { normalizePopulationEvents } from "./population-events.js";
 import { createBookRuntimeApi } from "./book-runtime.js";
 import { createEditorUiApi } from "./editor-ui.js";
+import {
+  advanceGameEndingState,
+  getBlockedHouseCompleteness,
+  getFullPopulationVictoryTurn,
+  getPopulationCap,
+} from "./game-ending.js";
 import { createOverlayRuntimeApi } from "./overlay-runtime.js";
 import { createSpriteRuntimeApi, spriteTaskSourceCandidateSets } from "./sprite-runtime.js";
 import { createTerrainRuntimeApi } from "./terrain-runtime.js";
@@ -170,12 +177,11 @@ const unitActionProgressReadouts = [...document.querySelectorAll('[data-role="un
 const unitCargoReadouts = [...document.querySelectorAll('[data-role="unit-cargo-readout"]')];
 const unitTaskRows = [...document.querySelectorAll('[data-role="unit-task-row"]')];
 const turnReadouts = [...document.querySelectorAll('[data-role="turn-readout"]')];
-const situationMessageDisplays = [...document.querySelectorAll('[data-role="situation-message-display"]')];
-const situationMessageBubbleElements = [...document.querySelectorAll('[data-role="situation-message-bubble"]')];
-const situationSpeakerHeadElements = [...document.querySelectorAll('[data-role="situation-speaker-head"]')];
+const populationGoalReadouts = [...document.querySelectorAll('[data-role="population-goal-readout"]')];
+const situationMessageOverlay = document.querySelector("#situationMessageOverlay");
+const acknowledgeSituationMessageButton = document.querySelector('[data-action="acknowledge-situation-message"]');
 const situationMessageTurnElements = [...document.querySelectorAll('[data-role="situation-message-turn"]')];
 const situationMessageTextElements = [...document.querySelectorAll('[data-role="situation-message-text"]')];
-const situationMessageToggleLabelElements = [...document.querySelectorAll('[data-role="situation-message-toggle-label"]')];
 const resourceStoneCanvases = [...document.querySelectorAll('[data-role="resource-stone-canvas"]')];
 const resourceStoneCaptions = [...document.querySelectorAll('[data-role="resource-stone-caption"]')];
 const resourceLumberCanvases = [...document.querySelectorAll('[data-role="resource-lumber-canvas"]')];
@@ -195,9 +201,6 @@ const closeBookOverlayButtons = [...document.querySelectorAll('[data-action="clo
 const previousBookPageButtons = [...document.querySelectorAll('[data-action="turn-book-page-previous"]')];
 const nextBookPageButtons = [...document.querySelectorAll('[data-action="turn-book-page-next"]')];
 const bookPageLayers = [...document.querySelectorAll('[data-book-page-layer]')];
-const toggleSituationMessageButtons = [...document.querySelectorAll('[data-action="toggle-situation-message"]')];
-const previousSituationMessageButtons = [...document.querySelectorAll('[data-action="previous-situation-message"]')];
-const nextSituationMessageButtons = [...document.querySelectorAll('[data-action="next-situation-message"]')];
 const unitActionButtons = [...document.querySelectorAll('[data-action="select-unit-action"]')];
 const musicToggleLabelElements = [...document.querySelectorAll('[data-role="music-toggle-label"]')];
 const musicVolumeLabelElements = [...document.querySelectorAll('[data-role="music-volume-label"]')];
@@ -208,8 +211,10 @@ const languageOptionButtons = [...document.querySelectorAll('[data-action="set-l
 const mainMenuItems = {
   watchIntro: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="watch-intro"]'),
   startNewGame: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="start-new-game"]'),
+  quickStart: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="quick-start"]'),
   play: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="play"]'),
   loadGame: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="load-game"]'),
+  book: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="open-book"]'),
   edit: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="edit"]'),
   importExport: mainMenuOverlay.querySelector('.main-menu-item[data-menu-action="import-export"]'),
 };
@@ -617,6 +622,8 @@ let overlayLayerHadContent = false;
 let selectionRingBounds = null;
 let currentDpr = 1;
 let currentTurn = 1;
+let fullPopulationSinceTurn = null;
+let gameOutcome = null;
 let autoAdvanceTurns = true;
 let seasonConversionState = null;
 let autoAdvanceQueued = false;
@@ -643,11 +650,12 @@ let inspectedPlayCell = null;
 let stockpile = { stone: 0, lumber: 0, food: 0 };
 let stockpileHistory = [];
 let foodShortageTurns = 0;
-let situationMessages = [];
-let situationMessageVisible = false;
-let situationMessageViewIndex = -1;
-let situationMessageTypingTimeoutId = 0;
-let situationMessageTypingToken = 0;
+let foodShortageActive = false;
+let pendingSituationMessages = [];
+let presentedBookMessage = null;
+let populationEvents = [];
+let situationMessageReturnFocus = null;
+let turnResolutionInProgress = false;
 let bookOverlayTriggerButton = null;
 let bookOverlayRestoreState = null;
 let bookOverlayIntroMode = false;
@@ -700,7 +708,6 @@ const currentFileNames = {
   play: null,
 };
 const autosaveSlotName = "autosave";
-const situationMessageTypingDelayMs = 18;
 let bookTotalPageCount = 24;
 const bookVisiblePageLayerCount = 8;
 const bookEntityHiddenClass = "book-entity-hidden";
@@ -1041,6 +1048,7 @@ const {
     rules,
     formatDisplayedNumber,
     resourceUiIcons,
+    terrainDefinitions: terrain,
     getDefaultUnitTypeId,
     normalizeUnitTypeId,
     hasDefinedUnitType,
@@ -1062,7 +1070,7 @@ const {
     getStockpileHistory: () => stockpileHistory,
     getCurrentTurn: () => currentTurn,
     formatTurnDate: formatJulianTurnDate,
-    getSituationMessages: () => situationMessages,
+    getPopulationEvents: () => populationEvents,
     getPopulation: () => getUnits().length,
   },
   pageApi: {
@@ -1083,6 +1091,7 @@ const {
   jumpBookToPageId,
   openBookOverlayAtBookmark,
   openBookOverlayPanel,
+  openBookFromMainMenu,
   playBookSequence,
   startBookPageTurnAnimation,
 } = createBookRuntimeApi({
@@ -2860,6 +2869,10 @@ function getTurnNumberForJulianDate(year, month, day) {
   return Math.max(1, getJulianDayNumber(year, month, day) - julianTurnEpochJdn + 1);
 }
 
+function getGameVictoryTurnForStart(startTurn) {
+  return getFullPopulationVictoryTurn(startTurn, getJulianTurnDate, getTurnNumberForJulianDate);
+}
+
 function compareMonthDay(left, right) {
   if (!left || !right) {
     return 0;
@@ -2962,23 +2975,19 @@ function saveCurrentLanguage(language) {
   }
 }
 
-function getNextSituationMessageId() {
-  return situationMessages.reduce(
-    (maxId, entry) => Math.max(maxId, clampInteger(entry?.id, 0, 999999999, 0)),
-    0,
-  ) + 1;
-}
-
-function createSituationMessageEntry(kind, data = {}, turn = currentTurn, id = getNextSituationMessageId()) {
+function createSituationMessageEntry(kind, data = {}, turn = currentTurn) {
   const normalizedTurn = Math.max(1, clampInteger(turn, 1, 999999, 1));
   const entry = {
-    id: Math.max(1, clampInteger(id, 1, 999999999, 1)),
     kind,
     turn: normalizedTurn,
   };
 
-  if (typeof data.unitName === "string" && data.unitName.trim()) {
-    entry.unitName = normalizeUnitName(data.unitName);
+  if (typeof data.unitType === "string" && data.unitType.trim()) {
+    entry.unitType = normalizeUnitTypeId(data.unitType);
+  }
+
+  if (typeof data.technologyId === "string" && data.technologyId.trim()) {
+    entry.technologyId = data.technologyId.trim();
   }
 
   if (Number.isFinite(data.current)) {
@@ -3009,7 +3018,7 @@ function getSituationMessageText(entry) {
 
   if (entry.kind === "houseCompleted") {
     return typeof template.houseCompleted === "function"
-      ? template.houseCompleted(entry.unitName || getDefaultUnitName())
+      ? template.houseCompleted(getDefaultUnitName(entry.unitType))
       : "";
   }
 
@@ -3028,7 +3037,7 @@ function getSituationMessageText(entry) {
 
   if (entry.kind === "unitLeft") {
     return typeof template.unitLeft === "function"
-      ? template.unitLeft(entry.unitName || getDefaultUnitName())
+      ? template.unitLeft(getDefaultUnitName(entry.unitType))
       : "";
   }
 
@@ -3036,28 +3045,25 @@ function getSituationMessageText(entry) {
     return template.researchGoalMissing || "";
   }
 
+  if (entry.kind === "technologyDiscovered") {
+    return typeof template.technologyDiscovered === "function"
+      ? template.technologyDiscovered(getTechnologyLabel(entry.technologyId))
+      : "";
+  }
+
+  if (entry.kind === "populationCapReached" || entry.kind === "victory" || entry.kind === "defeat") {
+    return template[entry.kind] || "";
+  }
+
   return "";
 }
 
-function clearSituationMessageTyping() {
-  if (situationMessageTypingTimeoutId) {
-    window.clearTimeout(situationMessageTypingTimeoutId);
-    situationMessageTypingTimeoutId = 0;
-  }
-
-  situationMessageTypingToken += 1;
-}
-
-function getViewedSituationMessage() {
-  if (situationMessageViewIndex < 0 || situationMessageViewIndex >= situationMessages.length) {
+function getActiveSituationMessage() {
+  if (!isPlayMode() || mainMenuOpen || bookOverlayIntroMode || bookOverlayRestoreState || turnResolutionInProgress || isReplayPhase()) {
     return null;
   }
 
-  return situationMessages[situationMessageViewIndex] || null;
-}
-
-function setSituationMessageVisibility(visible) {
-  situationMessageVisible = visible && situationMessages.length > 0;
+  return pendingSituationMessages[0] || null;
 }
 
 function setSituationMessageText(text) {
@@ -3093,145 +3099,108 @@ function showBookTransientHint(text) {
   return true;
 }
 
-function updateSituationMessageToggleButton() {
-  const hasMessages = situationMessages.length > 0;
-  const isVisible = situationMessageVisible && Boolean(getViewedSituationMessage());
-  const label = isVisible ? strings.actions.hideMessage : strings.actions.showLastMessage;
-  const iconText = "👁";
-  const mode = isVisible ? "hide" : "show";
+async function openBookForSituationMessage(message) {
+  try {
+    await Promise.all([
+      ensureBookContentLoaded(),
+      ...(message.kind === "technologyDiscovered" ? [ensureTechnologyCatalogLoaded()] : []),
+    ]);
+    if (getActiveSituationMessage() !== message) return;
 
-  setDisabledState(toggleSituationMessageButtons, !hasMessages);
-  setTextContent(situationMessageToggleLabelElements, iconText);
-  setAttributeForElements(situationMessageToggleLabelElements, "data-mode", mode);
-  setAttributeForElements(toggleSituationMessageButtons, "aria-label", label);
-  setAttributeForElements(toggleSituationMessageButtons, "title", label);
+    setSituationMessageText(getSituationMessageText(message));
+
+    const pageId = message.kind === "technologyDiscovered"
+      ? (getBookPageNumberById(message.technologyId)
+          ? message.technologyId
+          : bookDocument.bookmarks.find((bookmark) => bookmark.id === researchBookBookmarkId)?.page)
+      : getUnitBookPageId(message.unitType);
+    if (!pageId || !jumpBookToPageId(pageId)) return;
+
+    await openBookOverlayPanel();
+    if (getActiveSituationMessage() !== message || bookOverlay?.hidden) return;
+
+    situationMessageReturnFocus = bookOverlay.querySelector('[data-action="close-book-overlay"]');
+    acknowledgeSituationMessageButton?.focus({ preventScroll: true });
+  } catch (error) {
+    console.error("Could not open the situation message's book page.", error);
+  }
 }
 
-function updateSituationMessageControls() {
-  const hasMessages = situationMessages.length > 0;
-  const canGoBack = hasMessages && situationMessageViewIndex > 0;
-  const canGoForward = hasMessages && situationMessageViewIndex >= 0 && situationMessageViewIndex < situationMessages.length - 1;
+function updateSituationMessagePanel() {
+  if (!situationMessageOverlay) return;
 
-  updateSituationMessageToggleButton();
-  setDisabledState(previousSituationMessageButtons, !canGoBack);
-  setDisabledState(nextSituationMessageButtons, !canGoForward);
-}
+  const message = getActiveSituationMessage();
+  const wasHidden = situationMessageOverlay.hidden;
 
-function updateSituationMessagePanel({ restartTyping = false } = {}) {
-  const viewedMessage = getViewedSituationMessage();
-  const shouldShowMessage = situationMessageVisible && Boolean(viewedMessage);
+  situationMessageOverlay.hidden = !message;
 
-  for (const display of situationMessageDisplays) {
-    display.hidden = false;
-  }
-
-  for (const bubble of situationMessageBubbleElements) {
-    bubble.hidden = !shouldShowMessage;
-  }
-
-  for (const head of situationSpeakerHeadElements) {
-    head.hidden = !shouldShowMessage;
-  }
-
-  if (!shouldShowMessage) {
-    clearSituationMessageTyping();
+  if (!message) {
+    presentedBookMessage = null;
     setSituationMessageTurnText("");
     setSituationMessageText("");
-    updateSituationMessageControls();
+    if (!wasHidden && situationMessageReturnFocus?.isConnected) {
+      situationMessageReturnFocus.focus({ preventScroll: true });
+    }
+    situationMessageReturnFocus = null;
     return;
   }
 
-  const fullText = getSituationMessageText(viewedMessage);
   setSituationMessageTurnText(
-    formatJulianTurnDate(clampInteger(viewedMessage.turn, 1, 999999, currentTurn)),
+    formatJulianTurnDate(clampInteger(message.turn, 1, 999999, currentTurn)),
   );
+  setSituationMessageText(getSituationMessageText(message));
 
-  if (!restartTyping) {
-    setSituationMessageText(fullText);
-    updateSituationMessageControls();
-    return;
+  if (wasHidden) {
+    situationMessageReturnFocus = document.activeElement;
+    acknowledgeSituationMessageButton?.focus({ preventScroll: true });
   }
 
-  clearSituationMessageTyping();
-  setSituationMessageText("");
-
-  const token = situationMessageTypingToken;
-  let nextLength = 0;
-
-  const typeNextCharacter = () => {
-    if (token !== situationMessageTypingToken) {
-      return;
-    }
-
-    nextLength += 1;
-    setSituationMessageText(fullText.slice(0, nextLength));
-
-    if (nextLength >= fullText.length) {
-      situationMessageTypingTimeoutId = 0;
-      updateSituationMessageControls();
-      return;
-    }
-
-    situationMessageTypingTimeoutId = window.setTimeout(typeNextCharacter, situationMessageTypingDelayMs);
-  };
-
-  if (!fullText) {
-    updateSituationMessageControls();
-    return;
+  const opensBook = message.kind === "technologyDiscovered" || (
+    message.kind === "houseCompleted" &&
+    message.unitType &&
+    message.unitType !== getDefaultUnitTypeId()
+  );
+  if (opensBook && presentedBookMessage !== message) {
+    presentedBookMessage = message;
+    void openBookForSituationMessage(message);
   }
-
-  situationMessageTypingTimeoutId = window.setTimeout(typeNextCharacter, situationMessageTypingDelayMs);
-  updateSituationMessageControls();
 }
 
-function showSituationMessageAtIndex(index, { restartTyping = true } = {}) {
-  if (situationMessages.length === 0) {
-    situationMessageViewIndex = -1;
-    setSituationMessageVisibility(false);
-    updateSituationMessagePanel();
-    return false;
-  }
-
-  situationMessageViewIndex = clampInteger(index, 0, situationMessages.length - 1, situationMessages.length - 1);
-  setSituationMessageVisibility(true);
-  updateSituationMessagePanel({ restartTyping });
-  return true;
-}
-
-function revealLatestSituationMessage({ restartTyping = true } = {}) {
-  if (situationMessages.length === 0) {
-    return false;
-  }
-
-  return showSituationMessageAtIndex(situationMessages.length - 1, { restartTyping });
-}
-
-function hideSituationMessage() {
-  if (!situationMessageVisible) {
-    return false;
-  }
-
-  setSituationMessageVisibility(false);
-  updateSituationMessagePanel();
-  return true;
-}
-
-function addSituationMessage(kind, data = {}, { reveal = true } = {}) {
+function addSituationMessage(kind, data = {}) {
   const entry = createSituationMessageEntry(kind, data);
 
-  situationMessages.push(entry);
-
-  if (kind === "houseCompleted" || kind === "unitLeft") {
-    refreshBookStockpileCharts();
-  }
-
-  if (reveal) {
-    revealLatestSituationMessage({ restartTyping: true });
-  } else {
-    updateSituationMessageControls();
+  pendingSituationMessages.push(entry);
+  updateSituationMessagePanel();
+  updateTurnControls();
+  if (!turnResolutionInProgress && isPlayMode()) {
+    void autosavePlayState();
   }
 
   return entry;
+}
+
+function acknowledgeSituationMessage() {
+  if (!getActiveSituationMessage()) return false;
+
+  pendingSituationMessages.shift();
+  updateSituationMessagePanel();
+  updateTurnControls();
+  void autosavePlayState();
+  if (pendingSituationMessages.length === 0) {
+    maybeAutoAdvanceTurn();
+  }
+  return true;
+}
+
+function recordPopulationChange(change, currentUnit) {
+  if (!currentUnit || (change !== 1 && change !== -1)) return;
+
+  populationEvents.push({
+    turn: currentTurn,
+    change,
+    unitType: getUnitTypeId(currentUnit),
+  });
+  refreshBookStockpileCharts();
 }
 
 function loadAudioSettings() {
@@ -3267,7 +3236,7 @@ function updateAudioControls() {
 }
 
 function shouldPlayBackgroundMusic() {
-  return isPlayMode() && !mainMenuOpen && !bookOverlayIntroMode && audioSettings.musicEnabled;
+  return isPlayMode() && !mainMenuOpen && !bookOverlayIntroMode && !bookOverlayRestoreState && audioSettings.musicEnabled;
 }
 
 function completeIntroMusicSegmentPlayback() {
@@ -3586,7 +3555,7 @@ function filterUnitActionsForCargo(currentUnit, actions) {
 function canUnitUseAction(currentUnit = unit, action, context = getRuleContext()) {
   const normalizedAction = normalizePendingUnitAction(action);
 
-  if (!currentUnit || !normalizedAction) {
+  if (!currentUnit || !normalizedAction || (isPlayMode() && gameOutcome)) {
     return false;
   }
 
@@ -3735,7 +3704,12 @@ function getUnitTileActionOptions(currentUnit, cell) {
   }
 
   if (adjacent && visible && canUnitUseAction(currentUnit, unitActions.layFoundation, context)) {
+    const hasDirectHouseConstruction = construction.some((option) => option.action === unitActions.buildHouse);
     for (const constructible of getFoundationConstructibleOptions(context)) {
+      if (hasDirectHouseConstruction && constructible.kind === "building" && constructible.type === "house") {
+        continue;
+      }
+
       const multiTile = isMultiTileConstructible(constructible);
       const placementCells = multiTile ? getAdjacentCells(getCell(currentUnit.x, currentUnit.y)) : [cell];
       let originCell = null;
@@ -3982,8 +3956,10 @@ function applyStaticText() {
   }
   setTextContent([mainMenuItems.watchIntro], strings.menu.watchIntro);
   setTextContent([mainMenuItems.startNewGame], strings.menu.startNewGame);
+  setTextContent([mainMenuItems.quickStart], strings.menu.quickStart);
   setTextContent([mainMenuItems.play], strings.menu.play);
   setTextContent([mainMenuItems.loadGame], strings.menu.loadGame);
+  setTextContent([mainMenuItems.book], strings.menu.book);
   setTextContent([mainMenuItems.edit], strings.menu.edit);
   setTextContent([mainMenuItems.importExport], strings.menu.importExport);
   setTextContent(mainMenuLoadingElements, strings.menu.loading);
@@ -4041,11 +4017,6 @@ function applyStaticText() {
   setAttributeForElements(previousBookPageButtons, "title", strings.actions.previousPage);
   setAttributeForElements(nextBookPageButtons, "aria-label", strings.actions.nextPage);
   setAttributeForElements(nextBookPageButtons, "title", strings.actions.nextPage);
-  setAttributeForElements(previousSituationMessageButtons, "aria-label", strings.actions.previousMessage);
-  setAttributeForElements(previousSituationMessageButtons, "title", strings.actions.previousMessage);
-  setAttributeForElements(nextSituationMessageButtons, "aria-label", strings.actions.nextMessage);
-  setAttributeForElements(nextSituationMessageButtons, "title", strings.actions.nextMessage);
-
   for (const button of unitActionButtons) {
     const action = normalizeSelectableUnitAction(button.dataset.unitAction);
     const label = getUnitActionLabel(action);
@@ -4408,6 +4379,8 @@ function drawShortageIndicatorOnCanvas(canvas, currentTurns, thresholdTurns) {
 }
 
 function updateStockpileReadout() {
+  if (turnResolutionInProgress || isReplayPhase()) return;
+
   const stoneAmount = getCurrentStockpileAmount("stone");
   const lumberAmount = getCurrentStockpileAmount("lumber");
   const foodAmount = getCurrentStockpileAmount("food");
@@ -4462,10 +4435,10 @@ function getTileInspectorInfoEntries(cell) {
     const completeness = Math.round(getBuildingCompleteness(building) * 100);
     const resident = completeness >= 100 ? getBuildingResident(building) : null;
     const buildingLabel = getBuildingLabel(building.type);
-    const residentLabel =
-      resident?.name && typeof strings.play?.houseResident === "function"
-        ? strings.play.houseResident(resident.name, getUnitTypeId(resident))
-        : resident?.name || "";
+    const residentName = resident ? getDefaultUnitName(getUnitTypeId(resident)) : "";
+    const residentLabel = residentName && typeof strings.play?.houseResident === "function"
+      ? strings.play.houseResident(residentName, getUnitTypeId(resident))
+      : residentName;
     entries.push({
       kind: "building",
       cell,
@@ -4922,11 +4895,6 @@ function getDefaultUnitName(unitTypeId = getDefaultUnitTypeId(), context = getRu
   ) || "Schtroumpf";
 }
 
-function normalizeUnitName(name, unitTypeId = getDefaultUnitTypeId()) {
-  const normalized = typeof name === "string" ? name.trim() : "";
-  return normalized || getDefaultUnitName(unitTypeId);
-}
-
 function getUnitBookPageId(currentUnit = unit, context = getRuleContext()) {
   const resolvedConfig = getEffectiveUnitConfig(currentUnit, context);
   const configured = typeof resolvedConfig?.bookPageId === "string"
@@ -5130,6 +5098,12 @@ function getGatherTaskDurationTurns() {
   }
 
   return Math.max(1, Math.floor(configured));
+}
+
+function getMinimumFoodGatherAmount() {
+  const configured = Number(rules.resources?.gathering?.minimumFoodAmount);
+
+  return Number.isFinite(configured) ? Math.max(0, configured) : 2;
 }
 
 function getGatherTaskTurnsRemaining(task) {
@@ -5353,7 +5327,7 @@ function getCellFoodMaxAmount(cell) {
     return 0;
   }
 
-  return clampNonNegativeNumber(cell.foodCapacity, 999999, getFoodTypeMaxAmount(cell.foodType));
+  return clampNonNegativeNumber(cell.foodCapacity, 999999, 0);
 }
 
 function getResourceLabel(resourceType) {
@@ -5374,6 +5348,11 @@ function hasFoodResource(cell) {
 
 function hasGatherableFoodResource(cell) {
   return hasFoodResource(cell) && !doesSeasonHideLandFoodVisuals(cell) && cell.foodAmount > 0;
+}
+
+function hasCollectibleFoodResource(cell) {
+  return hasGatherableFoodResource(cell)
+    && hasSufficientQuantity(cell.foodAmount, getMinimumFoodGatherAmount());
 }
 
 function hasMaterialResource(cell) {
@@ -5668,6 +5647,10 @@ function getConstructibleLimits(kind, type) {
 
 function isConstructibleTypeAvailable(kind, type, context = getRuleContext(), { ignoreRequirements = false, ignoreLimits = false } = {}) {
   const normalizedKind = normalizeConstructibleKind(kind);
+
+  if (isPlayMode() && normalizedKind === "building" && type === "house" && isPopulationAtCapacity()) {
+    return false;
+  }
 
   if (!getConstructibleRulesForKind(normalizedKind, type) || !getConstructibleSpecForKind(normalizedKind, type)) {
     return false;
@@ -6692,10 +6675,7 @@ function serializeGatherUnitTask(task, taskType) {
 function normalizeLayFoundationTaskSubject(task) {
   return {
     subjectKind: task?.subjectKind === "vehicle" ? "vehicle" : "building",
-    subjectType:
-      typeof task?.subjectType === "string" && task.subjectType.trim()
-        ? task.subjectType.trim()
-        : (typeof task?.buildingType === "string" ? task.buildingType : "house"),
+    subjectType: typeof task?.subjectType === "string" ? task.subjectType.trim() : "",
   };
 }
 
@@ -6739,16 +6719,16 @@ function serializeSituationMessage(entry) {
   return createSituationMessageEntry(
     entry.kind,
     {
-      unitName: entry.unitName,
+      unitType: entry.unitType,
+      technologyId: entry.technologyId,
       current: entry.current,
       threshold: entry.threshold,
     },
     clampInteger(entry.turn, 1, 999999, currentTurn),
-    clampInteger(entry.id, 1, 999999999, 1),
   );
 }
 
-function serializeSituationMessages(entries = situationMessages) {
+function serializeSituationMessages(entries = pendingSituationMessages) {
   return entries.map((entry) => serializeSituationMessage(entry)).filter(Boolean);
 }
 
@@ -6776,7 +6756,6 @@ function serializeUnit(currentUnit) {
     return {
       id: currentUnit.id || "unit_01",
       unitType: getUnitTypeId(currentUnit),
-      name: normalizeUnitName(currentUnit.name),
       x: currentUnit.move.toX,
       y: currentUnit.move.toY,
       facing: currentUnit.move.direction || currentUnit.facing || "west",
@@ -6792,7 +6771,6 @@ function serializeUnit(currentUnit) {
   return {
     id: currentUnit.id || "unit_01",
     unitType: getUnitTypeId(currentUnit),
-    name: normalizeUnitName(currentUnit.name),
     x: currentUnit.x,
     y: currentUnit.y,
     facing: currentUnit.facing || "west",
@@ -6826,10 +6804,14 @@ function serializeCurrentState() {
     units: getUnits().map((currentUnit) => serializeUnit(currentUnit)).filter(Boolean),
     stockpile: serializeStockpileState(),
     stockpileHistory: stockpileHistory.map((entry) => ({ ...entry })),
+    populationEvents: populationEvents.map((entry) => ({ ...entry })),
     research: serializeResearchState(),
-    situationMessages: serializeSituationMessages(),
+    pendingSituationMessages: serializeSituationMessages(),
     foodShortageTurns: Math.max(0, clampInteger(foodShortageTurns, 0, 999999, 0)),
+    foodShortageActive,
     turn: currentTurn,
+    fullPopulationSinceTurn,
+    gameOutcome,
     autoAdvanceTurns,
   };
 }
@@ -6940,7 +6922,20 @@ async function readRawSaveFile(fileName) {
 }
 
 function isCompatibleSaveState(state) {
-  return Boolean(state) && state.version === saveVersion;
+  return Boolean(
+    state && typeof state === "object" && !Array.isArray(state) &&
+    state.version === saveVersion &&
+    Number.isInteger(state.map?.width) && Number.isInteger(state.map?.height) &&
+    Array.isArray(state.map?.cells?.[0]?.[0]) &&
+    state.map.cells[0][0].length === Object.keys(compactSerializedCellFieldIndex).length &&
+    Array.isArray(state.buildings) && Array.isArray(state.vehicles) && Array.isArray(state.units) &&
+    state.stockpile && typeof state.stockpile === "object" &&
+    Array.isArray(state.stockpileHistory) && Array.isArray(state.populationEvents) &&
+    state.research && typeof state.research === "object" &&
+    Array.isArray(state.pendingSituationMessages) &&
+    Number.isInteger(state.foodShortageTurns) && typeof state.foodShortageActive === "boolean" &&
+    Number.isInteger(state.turn) && typeof state.autoAdvanceTurns === "boolean"
+  );
 }
 
 async function showImportFilePicker() {
@@ -7085,7 +7080,7 @@ async function importSaveIntoSlot(fileName) {
     return false;
   }
 
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+  if (!isCompatibleSaveState(parsed)) {
     window.alert(strings.messages.invalidSaveData);
     return false;
   }
@@ -8043,7 +8038,6 @@ function createDefaultUnitState(cells, width, height, unitTypeOrOptions = getDef
       ? {
           id: "unit_01",
           unitType,
-          name: getDefaultUnitName(unitType),
           x: spawn.x,
           y: spawn.y,
           facing: "west",
@@ -8126,6 +8120,10 @@ function hasNearbyCompletedVillageBuilding(originCell, type) {
 }
 
 function canPlaceNewBuildingConstructionOnCell(originCell, type, currentUnit = null) {
+  if (isPlayMode() && type === "house" && isPopulationAtCapacity()) {
+    return false;
+  }
+
   if (
     isPlayMode() &&
     getConstructibleRulesForKind("building", type)?.villageBuilding &&
@@ -8304,10 +8302,16 @@ function createGeneratedState(
     units,
     stockpile: createEmptyStockpile(),
     stockpileHistory: [],
+    populationEvents: [],
     research: createDefaultResearchState(),
-    situationMessages: [createSituationMessageEntry("intro", {}, 1, 1)],
+    pendingSituationMessages: mode === interactionModes.play
+      ? [createSituationMessageEntry("intro", {}, 1)]
+      : [],
     foodShortageTurns: 0,
+    foodShortageActive: false,
     turn: 1,
+    fullPopulationSinceTurn: null,
+    gameOutcome: null,
     autoAdvanceTurns: true,
   };
 }
@@ -8530,27 +8534,27 @@ function applySeasonConversionForCurrentTurn() {
 }
 
 function normalizeSerializedCellRecord(sourceCell) {
-  if (Array.isArray(sourceCell)) {
-    return {
-      type: sourceCell[compactSerializedCellFieldIndex.type],
-      variant: sourceCell[compactSerializedCellFieldIndex.variant],
-      season: sourceCell[compactSerializedCellFieldIndex.season],
-      visited:
-        sourceCell[compactSerializedCellFieldIndex.visited] === true
-        || sourceCell[compactSerializedCellFieldIndex.visited] === 1,
-      visitsCount: sourceCell[compactSerializedCellFieldIndex.visitsCount],
-      materialAmount: sourceCell[compactSerializedCellFieldIndex.materialAmount],
-      foodType:
-        typeof sourceCell[compactSerializedCellFieldIndex.foodType] === "string"
-        && sourceCell[compactSerializedCellFieldIndex.foodType]
-          ? sourceCell[compactSerializedCellFieldIndex.foodType]
-          : null,
-      foodCapacity: sourceCell[compactSerializedCellFieldIndex.foodCapacity],
-      foodAmount: sourceCell[compactSerializedCellFieldIndex.foodAmount],
-    };
+  if (
+    !Array.isArray(sourceCell) ||
+    sourceCell.length !== Object.keys(compactSerializedCellFieldIndex).length ||
+    !cellSeasons.includes(sourceCell[compactSerializedCellFieldIndex.season]) ||
+    ![0, 1].includes(sourceCell[compactSerializedCellFieldIndex.visited]) ||
+    typeof sourceCell[compactSerializedCellFieldIndex.foodType] !== "string"
+  ) {
+    return null;
   }
 
-  return sourceCell && typeof sourceCell === "object" ? sourceCell : null;
+  return {
+    type: sourceCell[compactSerializedCellFieldIndex.type],
+    variant: sourceCell[compactSerializedCellFieldIndex.variant],
+    season: sourceCell[compactSerializedCellFieldIndex.season],
+    visited: sourceCell[compactSerializedCellFieldIndex.visited] === 1,
+    visitsCount: sourceCell[compactSerializedCellFieldIndex.visitsCount],
+    materialAmount: sourceCell[compactSerializedCellFieldIndex.materialAmount],
+    foodType: sourceCell[compactSerializedCellFieldIndex.foodType] || null,
+    foodCapacity: sourceCell[compactSerializedCellFieldIndex.foodCapacity],
+    foodAmount: sourceCell[compactSerializedCellFieldIndex.foodAmount],
+  };
 }
 
 function normalizeMapState(rawMap) {
@@ -8595,11 +8599,14 @@ function normalizeMapState(rawMap) {
       if (!Number.isFinite(sourceCell.foodAmount)) {
         throw new Error("Missing food amount in map cell.");
       }
+      if (!Number.isFinite(sourceCell.foodCapacity)) {
+        throw new Error("Missing food capacity in map cell.");
+      }
 
       const variants = getTerrainVariants(cell.type);
       const foodCapacity =
         typeof sourceCell.foodType === "string" && sourceCell.foodType
-          ? clampNonNegativeNumber(sourceCell.foodCapacity, 999999, getFoodTypeMaxAmount(sourceCell.foodType))
+          ? clampNonNegativeNumber(sourceCell.foodCapacity, 999999, 0)
           : 0;
       cell.variant = variants.some((variant) => variant.id === sourceCell.variant)
         ? sourceCell.variant
@@ -8817,12 +8824,12 @@ function normalizeLayFoundationUnitTask(task, { currentX, currentY } = {}) {
   }
 
   const { subjectKind, subjectType } = normalizeLayFoundationTaskSubject(task);
-  const hasValidSubject = Boolean(getConstructibleRules(subjectKind, subjectType));
-  const validatedSubjectKind = hasValidSubject ? subjectKind : "building";
-  const validatedSubjectType = hasValidSubject ? subjectType : "house";
+  if (!getConstructibleRules(subjectKind, subjectType)) {
+    return null;
+  }
   const structure = getConstructionEntityAtCell(destinationCell, {
-    kind: validatedSubjectKind,
-    type: validatedSubjectType,
+    kind: subjectKind,
+    type: subjectType,
   });
 
   if (!structure || structure.state !== "construction") {
@@ -8832,8 +8839,8 @@ function normalizeLayFoundationUnitTask(task, { currentX, currentY } = {}) {
   return serializeLayFoundationUnitTask({
     toX,
     toY,
-    subjectKind: validatedSubjectKind,
-    subjectType: validatedSubjectType,
+    subjectKind,
+    subjectType,
   }, "layFoundation");
 }
 
@@ -8851,24 +8858,30 @@ function preserveTask(task) {
   return spec?.preserveTask ? spec.preserveTask(task) : null;
 }
 
-function normalizeSituationMessage(entry, index = 0) {
+function normalizeSituationMessage(entry) {
   if (!entry || typeof entry.kind !== "string") {
     throw new Error("Missing situation message entry.");
   }
 
-  if (!["intro", "houseStarted", "houseCompleted", "foodShortage", "foodRecovered", "unitLeft", "researchGoalMissing"].includes(entry.kind)) {
+  if (!["intro", "houseStarted", "houseCompleted", "foodShortage", "foodRecovered", "unitLeft", "researchGoalMissing", "technologyDiscovered", "populationCapReached", "victory", "defeat"].includes(entry.kind)) {
     throw new Error(`Unsupported situation message kind: ${entry.kind}`);
+  }
+  if (
+    ["houseCompleted", "unitLeft"].includes(entry.kind) &&
+    (typeof entry.unitType !== "string" || !entry.unitType.trim())
+  ) {
+    throw new Error("Missing unit type in situation message.");
   }
 
   return createSituationMessageEntry(
     entry.kind,
     {
-      unitName: entry.unitName,
+      unitType: entry.unitType,
+      technologyId: entry.technologyId,
       current: entry.current,
       threshold: entry.threshold,
     },
     clampInteger(entry.turn, 1, 999999, 1),
-    clampInteger(entry.id, 1, 999999999, index + 1),
   );
 }
 
@@ -8877,7 +8890,7 @@ function normalizeSituationMessagesState(rawMessages) {
     throw new Error("Missing situation message data.");
   }
 
-  return rawMessages.map((entry, index) => normalizeSituationMessage(entry, index));
+  return rawMessages.map((entry) => normalizeSituationMessage(entry));
 }
 
 function normalizeStockpileState(rawStockpile) {
@@ -8889,7 +8902,9 @@ function normalizeStockpileState(rawStockpile) {
 }
 
 function normalizeStockpileHistoryState(rawHistory) {
-  if (!Array.isArray(rawHistory)) return [];
+  if (!Array.isArray(rawHistory)) {
+    throw new Error("Missing stockpile history data.");
+  }
 
   return rawHistory
     .filter((entry) => Number.isInteger(entry?.turn) && entry.turn >= 1 && entry.turn <= 999999)
@@ -8902,8 +8917,8 @@ function normalizeBuildingState(state) {
     : "complete";
 }
 
-function normalizeConstructiblesState(kind, rawConstructibles, options = {}) {
-  return normalizeConstructiblesStateForKind(kind, rawConstructibles, options);
+function normalizeConstructiblesState(kind, rawConstructibles) {
+  return normalizeConstructiblesStateForKind(kind, rawConstructibles);
 }
 
 function normalizeLinkedEntityId(value) {
@@ -8911,25 +8926,10 @@ function normalizeLinkedEntityId(value) {
 }
 
 function normalizeUnitsState(rawUnits, mode) {
-  const sourceUnits = Array.isArray(rawUnits) ? rawUnits : [];
-
-  if (sourceUnits.length === 0) {
-    if (mode !== interactionModes.play) return [];
-
-    const fallbackUnit = createDefaultUnitState(map.cells, map.width, map.height);
-    return fallbackUnit
-      ? [
-          {
-            ...fallbackUnit,
-            selected: false,
-            move: null,
-            turnRoute: null,
-            lastStepFromX: null,
-            lastStepFromY: null,
-          },
-        ]
-      : [];
+  if (!Array.isArray(rawUnits)) {
+    throw new Error("Missing unit data.");
   }
+  const sourceUnits = rawUnits;
   const normalizedUnits = [];
   const occupiedKeys = new Set();
 
@@ -8966,7 +8966,6 @@ function normalizeUnitsState(rawUnits, mode) {
     const normalizedUnit = {
       id: unitId,
       unitType,
-      name: normalizeUnitName(sourceUnit?.name, unitType),
       x: cell.x,
       y: cell.y,
       facing: normalizeDirection(sourceUnit?.facing),
@@ -9091,7 +9090,6 @@ function reconcileMountedVehicleStateLinks(vehicleState = vehicles, unitState = 
       continue;
     }
 
-    transferUnitCargoToVehicle(currentUnit, vehicle);
     vehicle.x = currentUnit.x;
     vehicle.y = currentUnit.y;
   }
@@ -9106,6 +9104,7 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
 
   const nextState = state || createDefaultState(mode);
   const nextMap = normalizeMapState(nextState.map);
+  gameOutcome = ["victory", "defeat"].includes(nextState.gameOutcome) ? nextState.gameOutcome : null;
   researchState = normalizeResearchState(nextState.research);
 
   map.width = nextMap.width;
@@ -9114,30 +9113,56 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   rebuildVisibleCellIndex(map.cells);
   rebuildFoodResourceCellIndex(map.cells);
   rebuildPathRenderableCellIndex(map.cells);
-  buildings = normalizeConstructiblesState("building", nextState.buildings, { requireArray: true });
+  buildings = normalizeConstructiblesState("building", nextState.buildings);
   vehicles = normalizeConstructiblesState("vehicle", nextState.vehicles);
   units = normalizeUnitsState(nextState.units, mode);
   rebuildUnitOccupancyIndex();
   reconcileMountedVehicleStateLinks(vehicles, units);
   stockpile = normalizeStockpileState(nextState.stockpile);
   stockpileHistory = normalizeStockpileHistoryState(nextState.stockpileHistory);
-  situationMessages = normalizeSituationMessagesState(nextState.situationMessages);
+  pendingSituationMessages = normalizeSituationMessagesState(nextState.pendingSituationMessages);
+  populationEvents = normalizePopulationEvents(nextState.populationEvents);
   clampStockpileToCapacity();
   foodShortageTurns = Math.max(
     0,
     clampInteger(nextState.foodShortageTurns, 0, 999999, 0),
   );
+  foodShortageActive = nextState.foodShortageActive;
   inspectedPlayCell = null;
   syncActiveUnit();
   selectedUnitAction = null;
   pendingFoundationPlacement = null;
   currentTurn = Math.max(1, clampInteger(nextState.turn, 1, 999999, 1));
+  fullPopulationSinceTurn = Number.isInteger(nextState.fullPopulationSinceTurn)
+    && nextState.fullPopulationSinceTurn >= 1
+    && nextState.fullPopulationSinceTurn <= currentTurn
+    ? nextState.fullPopulationSinceTurn
+    : null;
+  if (mode === interactionModes.play) {
+    const previousStartTurn = fullPopulationSinceTurn;
+    const previousOutcome = gameOutcome;
+    const nextEndingState = advanceGameEndingState({
+      population: getUnits().length,
+      populationCap: getUnitPopulationCap(),
+      turn: currentTurn,
+      fullPopulationSinceTurn,
+      outcome: gameOutcome,
+      victoryTurnForStart: getGameVictoryTurnForStart,
+    });
+    fullPopulationSinceTurn = nextEndingState.fullPopulationSinceTurn;
+    gameOutcome = nextEndingState.outcome;
+    const newMessageKind = (gameOutcome && !previousOutcome ? gameOutcome : null) || (previousStartTurn === null && fullPopulationSinceTurn !== null
+      ? "populationCapReached"
+      : null);
+    if (newMessageKind && !pendingSituationMessages.some((message) => message.kind === newMessageKind)) {
+      pendingSituationMessages.push(createSituationMessageEntry(newMessageKind));
+    }
+    stopHouseConstructionTasksAtPopulationCap();
+  }
   syncSeasonConversionState({ includeCurrentTurn: false, rebuild: true });
   autoAdvanceTurns =
     typeof nextState.autoAdvanceTurns === "boolean" ? nextState.autoAdvanceTurns : true;
-  situationMessageViewIndex = situationMessages.length > 0 ? situationMessages.length - 1 : -1;
-  setSituationMessageVisibility(false);
-  clearSituationMessageTyping();
+  turnResolutionInProgress = false;
 
   setTextContent(mapSizeReadouts, strings.readouts.mapSize(map.width, map.height));
   if (mode === interactionModes.edit) {
@@ -9145,18 +9170,9 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   }
   refreshAfterModeStateTransition({
     resetTileHoverReadout: true,
-    restartSituationTyping: true,
     relayout: true,
     recenter,
   });
-}
-
-function getAutosaveActiveFileName(state, fallbackName = null) {
-  if (Object.prototype.hasOwnProperty.call(state, "activeFileName")) {
-    return sanitizeFileName(state.activeFileName) || null;
-  }
-
-  return fallbackName === autosaveSlotName ? null : fallbackName;
 }
 
 async function loadFileIntoMode(fileName, mode, options, preloadedState = null) {
@@ -9172,9 +9188,15 @@ async function loadFileIntoMode(fileName, mode, options, preloadedState = null) 
     return false;
   }
 
+  const isPlayAutosave = mode === interactionModes.play && normalizedName === autosaveSlotName;
+  if (isPlayAutosave && !Object.prototype.hasOwnProperty.call(state, "activeFileName")) {
+    console.warn(`Save slot ${normalizedName} is missing its active file name.`);
+    return false;
+  }
+
   const previousFileName = getCurrentFileName(mode);
-  const activeFileName = mode === interactionModes.play && normalizedName === autosaveSlotName
-    ? getAutosaveActiveFileName(state, previousFileName)
+  const activeFileName = isPlayAutosave
+    ? sanitizeFileName(state.activeFileName) || null
     : normalizedName;
 
   try {
@@ -9230,11 +9252,18 @@ function saveState(mode = interactionMode) {
   return saveStateToFile(currentFileName, mode);
 }
 
-async function autosavePlayState() {
-  return writeSaveFile(autosaveSlotName, {
+let pendingAutosaveWrite = Promise.resolve();
+
+function autosavePlayState() {
+  const state = {
     ...serializeCurrentState(),
     activeFileName: getCurrentFileName(interactionModes.play),
-  }, { alertMode: "once" });
+  };
+
+  pendingAutosaveWrite = pendingAutosaveWrite.then(() =>
+    writeSaveFile(autosaveSlotName, state, { alertMode: "once" }),
+  );
+  return pendingAutosaveWrite;
 }
 
 function getUnits() {
@@ -9452,8 +9481,13 @@ function everyUnitHasOngoingTask() {
 function canAdvanceTurn() {
   return (
     !mainMenuOpen &&
+    !bookOverlayIntroMode &&
+    !bookOverlayRestoreState &&
     isPlayMode() &&
+    !gameOutcome &&
     !isReplayPhase() &&
+    !turnResolutionInProgress &&
+    pendingSituationMessages.length === 0 &&
     !getUnits().some((currentUnit) => isUnitAnimating(currentUnit))
   );
 }
@@ -9464,12 +9498,25 @@ function canManuallyAdvanceTurn() {
 
 function updateTurnReadout() {
   setTextContent(turnReadouts, strings.readouts.turn(currentTurn, formatJulianTurnDate(currentTurn)));
+  const goalLabel = gameOutcome === "victory"
+    ? strings.readouts.victory
+    : gameOutcome === "defeat"
+      ? strings.readouts.defeat
+      : fullPopulationSinceTurn !== null
+        ? strings.readouts.populationGoal(formatJulianTurnDate(getGameVictoryTurnForStart(fullPopulationSinceTurn)))
+        : "";
+  setTextContent(populationGoalReadouts, goalLabel);
+  for (const readout of populationGoalReadouts) {
+    readout.hidden = !goalLabel;
+    readout.dataset.outcome = gameOutcome || "";
+  }
 }
 
 function updateTurnControls() {
   updateTurnReadout();
   updateStockpileReadout();
   setTextContent(turnAutoToggleButtons, autoAdvanceTurns ? strings.actions.pauseTurns : strings.actions.continueTurns);
+  setDisabledState(turnAutoToggleButtons, Boolean(gameOutcome));
   setDisabledState(nextTurnButtons, !canManuallyAdvanceTurn());
   const shouldHighlight = !autoAdvanceTurns && canAdvanceTurn() && everyUnitHasOngoingTask();
 
@@ -9530,7 +9577,6 @@ function refreshAfterWorldAndUnitTaskChange(options = {}) {
 
 function refreshAfterModeStateTransition({
   resetTileHoverReadout = false,
-  restartSituationTyping = false,
   relayout = false,
   layoutOptions = undefined,
   recenter = false,
@@ -9543,10 +9589,6 @@ function refreshAfterModeStateTransition({
   invalidateStaticLayer();
   invalidateStaticUnitsLayer();
   updateUnitReadout();
-
-  if (restartSituationTyping) {
-    updateSituationMessagePanel({ restartTyping: true });
-  }
 
   updateInteractionModeUi();
 
@@ -9570,7 +9612,7 @@ function refreshAfterModeStateTransition({
 }
 
 function assignUnitTask(task, currentUnit = getSelectedUnit()) {
-  if (!currentUnit || currentUnit.move || !task || isReplayPhase()) return false;
+  if (!currentUnit || currentUnit.move || !task || isReplayPhase() || (isPlayMode() && gameOutcome)) return false;
 
   clearQueuedAutoAdvanceFrame();
   pendingFoundationPlacement = null;
@@ -9712,12 +9754,15 @@ function queueBuildHouseUnitAction({ currentUnit = getSelectedUnit(), destinatio
 
   markCellVisited(cell, { invalidate: false });
 
-  if (targetMode?.mode === "new") {
+  invalidateStaticLayer();
+  const didAssignTask = assignUnitTask(
+    createUnitTaskForAction(unitActions.buildHouse, { destinationCell }),
+    currentUnit,
+  );
+  if (didAssignTask && targetMode?.mode === "new") {
     addSituationMessage("houseStarted");
   }
-
-  invalidateStaticLayer();
-  return assignUnitTask(createUnitTaskForAction(unitActions.buildHouse, { destinationCell }), currentUnit);
+  return didAssignTask;
 }
 
 function queueLayFoundationUnitAction({
@@ -9849,18 +9894,10 @@ function isCollectionSourceUsable(cell, task) {
   if (!cell || !task?.resourceId) return false;
 
   if (task.type === "gatherFood") {
-    return cell.foodType === task.resourceId && hasGatherableFoodResource(cell)
-      && cell.foodAmount > 1 + quantityEpsilon;
+    return cell.foodType === task.resourceId && hasCollectibleFoodResource(cell);
   }
 
   return getCellMaterialResourceType(cell) === task.resourceId;
-}
-
-function isCollectionSourceUsableOnArrival(cell, task) {
-  return isCollectionSourceUsable(cell, task) || Boolean(
-    task?.type === "gatherFood" && task.allowDepletionOnCycleStart &&
-    cell?.foodType === task.resourceId && hasGatherableFoodResource(cell),
-  );
 }
 
 function findNextCollectionSource(task) {
@@ -9868,9 +9905,12 @@ function findNextCollectionSource(task) {
   const candidates = [previousCell, ...getAdjacentCells(previousCell)]
     .filter((cell) => isCollectionSourceUsable(cell, task));
 
+  if (candidates.length === 0) return null;
+
   const amountField = task.type === "gatherFood" ? "foodAmount" : "materialAmount";
-  candidates.sort((left, right) => right[amountField] - left[amountField]);
-  return candidates[0] || null;
+  const maximumAmount = Math.max(...candidates.map((cell) => cell[amountField]));
+  const richestCandidates = candidates.filter((cell) => cell[amountField] === maximumAmount);
+  return richestCandidates[Math.floor(Math.random() * richestCandidates.length)];
 }
 
 function setNextCollectionSource(currentUnit) {
@@ -9885,12 +9925,19 @@ function setNextCollectionSource(currentUnit) {
   delete task.returnX;
   delete task.returnY;
   currentUnit.turnRoute = null;
+  currentUnit.lastStepFromX = null;
+  currentUnit.lastStepFromY = null;
   return true;
 }
 
 function setCollectionPhase(currentUnit, phase) {
+  if (currentUnit.task.phase === "deliver" && phase === "return") {
+    currentUnit.task.turnsRemaining = getGatherTaskDurationTurns();
+  }
   currentUnit.task.phase = phase;
   currentUnit.turnRoute = null;
+  currentUnit.lastStepFromX = null;
+  currentUnit.lastStepFromY = null;
   invalidateStaticUnitsLayer();
 }
 
@@ -10020,7 +10067,7 @@ function resolveCollectionTransport(currentUnit) {
     return;
   }
 
-  if (!isCollectionSourceUsableOnArrival(getCell(task.toX, task.toY), task) && !setNextCollectionSource(currentUnit)) {
+  if (!isCollectionSourceUsable(getCell(task.toX, task.toY), task) && !setNextCollectionSource(currentUnit)) {
     clearCompletedTask(currentUnit);
     return;
   }
@@ -10069,7 +10116,7 @@ function resolveGatherFoodTask(currentUnit) {
     clearCompletedTask(currentUnit);
     return;
   }
-  if (!hasGatherableFoodResource(targetCell) || targetCell.foodType !== currentUnit.task.resourceId) {
+  if (!hasCollectibleFoodResource(targetCell) || targetCell.foodType !== currentUnit.task.resourceId) {
     if (!setNextCollectionSource(currentUnit)) beginCollectionDelivery(currentUnit, true);
     else if (!areCellsAdjacent(currentUnit.x, currentUnit.y, currentUnit.task.toX, currentUnit.task.toY)) {
       setCollectionPhase(currentUnit, "return");
@@ -10224,9 +10271,21 @@ function resolveBuildHouseTask(currentUnit) {
     return;
   }
 
+  const isHouseConstruction = structure.type === "house" && structure.riderUnitId === undefined;
+  const previousCompleteness = getBuildingCompleteness(structure);
+  const workDelta = getConstructionWorkCompletenessDelta("buildHouse", structure);
+
+  if (isHouseConstruction && isPopulationAtCapacity()) {
+    structure.completeness = getBlockedHouseCompleteness(previousCompleteness, workDelta);
+    if (structure.completeness !== previousCompleteness) {
+      invalidateStaticLayer();
+    }
+    clearCompletedTask(currentUnit);
+    return;
+  }
+
   const nextCompleteness = clamp(
-    getBuildingCompleteness(structure) +
-      getConstructionWorkCompletenessDelta("buildHouse", structure),
+    previousCompleteness + workDelta,
     0,
     1,
   );
@@ -10237,11 +10296,17 @@ function resolveBuildHouseTask(currentUnit) {
   currentUnit.stamina = 0;
   invalidateStaticLayer();
 
-  if (nextCompleteness >= 1 && structure.type === "house" && structure.riderUnitId === undefined) {
+  if (nextCompleteness >= 1 && isHouseConstruction) {
     const spawnedUnit = spawnUnitFromHouse(structure);
-    if (spawnedUnit) {
-      addSituationMessage("houseCompleted", { unitName: spawnedUnit.name });
+    if (!spawnedUnit) {
+      structure.state = "construction";
+      structure.completeness = getBlockedHouseCompleteness(previousCompleteness, workDelta);
+      clearCompletedTask(currentUnit);
+      return;
     }
+
+    recordPopulationChange(1, spawnedUnit);
+    addSituationMessage("houseCompleted", { unitType: getUnitTypeId(spawnedUnit) });
   }
 
   if (nextCompleteness >= 1) {
@@ -10251,11 +10316,7 @@ function resolveBuildHouseTask(currentUnit) {
 
 function resolveLayFoundationTask(currentUnit) {
   const targetCell = getCell(currentUnit.task?.toX, currentUnit.task?.toY);
-  const subjectKind = currentUnit.task?.subjectKind === "vehicle" ? "vehicle" : "building";
-  const subjectType =
-    typeof currentUnit.task?.subjectType === "string" && currentUnit.task.subjectType.trim()
-      ? currentUnit.task.subjectType.trim()
-      : (typeof currentUnit.task?.buildingType === "string" ? currentUnit.task.buildingType : "house");
+  const { subjectKind, subjectType } = normalizeLayFoundationTaskSubject(currentUnit.task);
   const constructible = createFoundationConstructibleDescriptor(subjectKind, subjectType);
   const structure = getConstructionEntityAtCell(targetCell, { kind: subjectKind, type: subjectType });
 
@@ -10352,6 +10413,9 @@ function resolveResearchTask(currentUnit) {
 
     if (!isGoalStillSelected) {
       clearCompletedTask(currentUnit);
+    }
+    if (isTechnologyDiscovered(selectedGoalTechnologyId)) {
+      addSituationMessage("technologyDiscovered", { technologyId: selectedGoalTechnologyId });
     }
   } else {
     clearCompletedTask(currentUnit);
@@ -10596,7 +10660,6 @@ function removeRandomUnitForFoodShortage() {
 }
 
 function consumeFoodForTurn() {
-  const previousShortageTurns = foodShortageTurns;
   const requiredFood = getUnits().reduce(
     (sum, currentUnit) => sum + getUnitFoodConsumptionPerTurn(currentUnit),
     0,
@@ -10604,6 +10667,7 @@ function consumeFoodForTurn() {
 
   if (requiredFood <= 0) {
     foodShortageTurns = 0;
+    foodShortageActive = false;
     return;
   }
 
@@ -10611,29 +10675,32 @@ function consumeFoodForTurn() {
 
   if (availableFood >= requiredFood) {
     stockpile.food = availableFood - requiredFood;
-    if (previousShortageTurns > 0) {
+    if (foodShortageActive) {
       addSituationMessage("foodRecovered");
     }
     foodShortageTurns = 0;
+    foodShortageActive = false;
     return;
   }
 
   stockpile.food = 0;
   foodShortageTurns += 1;
+  if (!foodShortageActive) {
+    foodShortageActive = true;
+    addSituationMessage("foodShortage", {
+      current: foodShortageTurns,
+      threshold: getFoodShortageThreshold(),
+    });
+  }
 
   if (foodShortageTurns >= getFoodShortageThreshold()) {
     const removedUnit = removeRandomUnitForFoodShortage();
     if (removedUnit) {
-      addSituationMessage("unitLeft", { unitName: removedUnit.name });
+      recordPopulationChange(-1, removedUnit);
+      addSituationMessage("unitLeft", { unitType: getUnitTypeId(removedUnit) });
     }
     foodShortageTurns = getFoodShortageResetTurns();
-    return;
   }
-
-  addSituationMessage("foodShortage", {
-    current: foodShortageTurns,
-    threshold: getFoodShortageThreshold(),
-  });
 }
 
 function applyVillageEconomyForTurn() {
@@ -10783,6 +10850,7 @@ function finishReplay() {
 
   commitReplayFinalState();
   resetTurnReplayState();
+  updateSituationMessagePanel();
   refreshUnitAndTurnPresentationAndDraw({ autoAdvance: true });
 }
 
@@ -10897,6 +10965,46 @@ function beginTurnReplay() {
   finishReplay();
 }
 
+function stopHouseConstructionTasksAtPopulationCap() {
+  if (!isPopulationAtCapacity()) {
+    return;
+  }
+
+  for (const currentUnit of getUnits()) {
+    if (!isTaskAction(currentUnit.task, unitActions.buildHouse)) {
+      continue;
+    }
+
+    const targetCell = getCell(currentUnit.task.toX, currentUnit.task.toY);
+    const structure = getConstructionEntityAtCell(targetCell);
+    if (structure?.type === "house" && structure.state === "construction" && structure.riderUnitId === undefined) {
+      clearCompletedTask(currentUnit);
+    }
+  }
+}
+
+function updateGameEndingAfterTurn() {
+  const previousStartTurn = fullPopulationSinceTurn;
+  const previousOutcome = gameOutcome;
+  const next = advanceGameEndingState({
+    population: getUnits().length,
+    populationCap: getUnitPopulationCap(),
+    turn: currentTurn,
+    fullPopulationSinceTurn,
+    outcome: gameOutcome,
+    victoryTurnForStart: getGameVictoryTurnForStart,
+  });
+
+  fullPopulationSinceTurn = next.fullPopulationSinceTurn;
+  gameOutcome = next.outcome;
+
+  if (gameOutcome && !previousOutcome) {
+    addSituationMessage(gameOutcome);
+  } else if (fullPopulationSinceTurn !== null && previousStartTurn === null) {
+    addSituationMessage("populationCapReached");
+  }
+}
+
 function resolveTurn() {
   turnReplayQueue = [];
   turnReplayHadWork = false;
@@ -10915,6 +11023,8 @@ function resolveTurn() {
   }
 
   applyVillageEconomyForTurn();
+  updateGameEndingAfterTurn();
+  stopHouseConstructionTasksAtPopulationCap();
   recordStockpileHistoryForCurrentTurn();
   turnReplayFinalStates = captureReplayUnitStates();
   turnReplayVehicleFinalStates = captureReplayVehicleStates();
@@ -10959,23 +11069,25 @@ function advanceTurn({ userInitiated = false } = {}) {
   if (userInitiated ? !canManuallyAdvanceTurn() : !canAdvanceTurn()) return;
 
   clearPendingAutoAdvance();
-  setSituationMessageVisibility(false);
-  updateSituationMessagePanel();
+  turnResolutionInProgress = true;
+  try {
+    if (userInitiated) {
+      assignPlayTasksToEligibleIdleUnitsForManualTurnAdvance();
+    }
 
-  if (userInitiated) {
-    assignPlayTasksToEligibleIdleUnitsForManualTurnAdvance();
+    currentTurn += 1;
+    applySeasonConversionForCurrentTurn();
+    updateBuildingsForTurn();
+    resolveTurn();
+  } finally {
+    turnResolutionInProgress = false;
   }
-
-  currentTurn += 1;
-  applySeasonConversionForCurrentTurn();
-  updateBuildingsForTurn();
-  resolveTurn();
   beginTurnReplay();
 }
 
 function maybeAutoAdvanceTurn() {
   if (!canAdvanceTurn()) {
-    clearPendingAutoAdvance();
+    clearQueuedAutoAdvanceFrame();
     updateTurnControls();
     return;
   }
@@ -11596,6 +11708,15 @@ function findAdjacentSpawnCell(x, y) {
   return findNearestPassableCell(x, y);
 }
 
+function getUnitPopulationCap() {
+  return getPopulationCap(unitSpawnConfig.pool);
+}
+
+function isPopulationAtCapacity() {
+  const cap = getUnitPopulationCap();
+  return cap > 0 && getUnits().length >= cap;
+}
+
 function getUnitSpawnPoolEntryRemainingQuantity(entry, context = getRuleContext()) {
   if (!entry || typeof entry !== "object") {
     return 0;
@@ -11686,7 +11807,7 @@ function getNextHouseSpawnUnitTypeId() {
 }
 
 function spawnUnitFromHouse(building, unitTypeId = getNextHouseSpawnUnitTypeId()) {
-  if (!building) return null;
+  if (!building || isPopulationAtCapacity() || !unitTypeId || !hasDefinedUnitType(unitTypeId)) return null;
 
   const spawnCell = findAdjacentSpawnCell(building.x, building.y);
   const unitType = normalizeUnitTypeId(unitTypeId);
@@ -11698,7 +11819,6 @@ function spawnUnitFromHouse(building, unitTypeId = getNextHouseSpawnUnitTypeId()
   const spawnedUnit = {
     id: createUnitId(),
     unitType,
-    name: getDefaultUnitName(unitType),
     x: spawnCell.x,
     y: spawnCell.y,
     facing: "west",
@@ -11993,7 +12113,7 @@ function updateUnitReadout() {
     return;
   }
 
-  const unitName = normalizeUnitName(displayedUnit.name);
+  const unitName = getDefaultUnitName(getUnitTypeId(displayedUnit));
   setUnitTitle(unitName);
   setCenterButtonState(displayedUnit, unitName);
   updateUnitBookPageButtons(displayedUnit, unitName);
@@ -12124,6 +12244,7 @@ function ensureIdleUnitSelection({ force = false, scrollIntoView = false, defaul
 
 function updateInteractionModeUi() {
   appShell?.classList.toggle("intro-book-mode", bookOverlayIntroMode);
+  appShell?.classList.toggle("standalone-book-mode", bookOverlayIntroMode || Boolean(bookOverlayRestoreState));
   const visibleTopBarMode = getVisibleTopBarMode();
 
   for (const [mode, topBar] of Object.entries(topBars)) {
@@ -12162,6 +12283,7 @@ function updateInteractionModeUi() {
   updateEditInspector();
   updatePlayOverlayLayout();
 
+  updateSituationMessagePanel();
   updateTurnControls();
   updatePersistenceControls();
   updateTileInspectorReadout();
@@ -12269,7 +12391,7 @@ async function activateMode(nextMode) {
     if (
       isCompatibleSaveState(autosaveState) &&
       (!currentFileName || currentFileName === autosaveSlotName ||
-        getAutosaveActiveFileName(autosaveState, currentFileName) === currentFileName)
+        sanitizeFileName(autosaveState.activeFileName) === currentFileName)
     ) {
       resumedAutosave = await loadFileIntoMode(autosaveSlotName, nextMode, undefined, autosaveState);
     }
@@ -12732,6 +12854,10 @@ function getBuildHouseTargetMode(cell, { ignoreAffordability = false } = {}) {
   const constructionEntity = getConstructionEntityAtCell(cell);
 
   if (constructionEntity?.state === "construction") {
+    if (constructionEntity.type === "house" && constructionEntity.riderUnitId === undefined && isPopulationAtCapacity()) {
+      return null;
+    }
+
     return {
       mode: "construction",
       kind: constructionEntity.riderUnitId !== undefined ? "vehicle" : "building",
@@ -12802,13 +12928,13 @@ function getHoveredFoundationPlacementCells(currentUnit = getSelectedUnit(), ori
 function canGatherFoodFromCell(cell, currentUnit = unit) {
   if (!cell || !currentUnit) return false;
 
-  return hasGatherableFoodResource(cell)
+  return hasCollectibleFoodResource(cell)
     && getActiveCargoRoom(currentUnit, "food") > quantityEpsilon
     && areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y);
 }
 
 function canAssignGatherFoodTarget(cell, currentUnit = unit) {
-  return Boolean(cell && currentUnit && hasGatherableFoodResource(cell)
+  return Boolean(cell && currentUnit && hasCollectibleFoodResource(cell)
     && getActiveCargoRoom(currentUnit, "food") > quantityEpsilon
     && (areCellsAdjacent(currentUnit.x, currentUnit.y, cell.x, cell.y)
       || getAdjacentCells(cell).some((neighbor) => canUseCollectionDestination(currentUnit, neighbor))));
@@ -15074,7 +15200,6 @@ function applyEditorUnitSelection(unitTypeId) {
   if (currentUnit) {
     const previousSnapshot = JSON.stringify(serializeUnit(currentUnit));
     currentUnit.unitType = normalizeUnitTypeId(unitTypeId);
-    currentUnit.name = getDefaultUnitName(currentUnit.unitType);
     currentUnit.staminaMax = getDefaultUnitStamina(currentUnit.unitType);
     currentUnit.stamina = clampNumber(currentUnit.stamina, 0, 999, currentUnit.staminaMax);
     currentUnit.cargo = normalizeUnitCargo(currentUnit.cargo, currentUnit);
@@ -15281,7 +15406,6 @@ function placeEditorUnitAtCell(cell, unitTypeId) {
   const newUnit = {
     id: createUnitId(),
     unitType: normalizedTypeId,
-    name: getDefaultUnitName(normalizedTypeId),
     x: cell.x,
     y: cell.y,
     facing: "west",
@@ -15716,6 +15840,16 @@ document.addEventListener("pointerdown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (situationMessageOverlay && !situationMessageOverlay.hidden) {
+    if (event.key === "Tab") {
+      event.preventDefault();
+      acknowledgeSituationMessageButton?.focus({ preventScroll: true });
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+    }
+    return;
+  }
+
   if (shouldPlayBackgroundMusic() && backgroundMusic.paused) {
     void syncBackgroundMusicPlayback();
   }
@@ -15813,7 +15947,7 @@ bookOverlay?.addEventListener("click", (event) => {
 
   const techWidget = eventTarget?.closest('[data-book-widget="tech"]') || null;
 
-  if (techWidget && bookOverlay && !bookOverlay.hidden) {
+  if (techWidget && bookOverlay && !bookOverlay.hidden && !bookOverlayRestoreState) {
     const technologyId = getBookTechWidgetTechnologyId(techWidget);
 
     if (technologyId && setSelectedResearchGoalTechnologyId(technologyId)) {
@@ -15885,8 +16019,26 @@ mainMenuOverlay.addEventListener("click", (event) => {
     return;
   }
 
+  if (action === "quick-start") {
+    void runMainMenuLoadingAction(async () => {
+      await ensureVisualAssetsLoaded();
+      startNewGeneratedState(
+        interactionModes.play,
+        buildGeneratedMapCells,
+        defaultMapGenerationSettings,
+        defaultMapGenerationSize,
+      );
+    });
+    return;
+  }
+
   if (action === "load-game") {
     loadState(interactionModes.play);
+    return;
+  }
+
+  if (action === "open-book") {
+    void runMainMenuLoadingAction(() => openBookFromMainMenu(button));
     return;
   }
 
@@ -16089,44 +16241,7 @@ for (const button of nextBookPageButtons) {
   });
 }
 
-for (const button of toggleSituationMessageButtons) {
-  button.addEventListener("click", () => {
-    if (situationMessageVisible && getViewedSituationMessage()) {
-      hideSituationMessage();
-      return;
-    }
-
-    revealLatestSituationMessage({ restartTyping: true });
-  });
-}
-
-for (const button of previousSituationMessageButtons) {
-  button.addEventListener("click", () => {
-    if (situationMessages.length === 0) {
-      return;
-    }
-
-    const nextIndex = situationMessageVisible
-      ? Math.max(0, situationMessageViewIndex - 1)
-      : Math.max(0, situationMessages.length - 1);
-
-    showSituationMessageAtIndex(nextIndex, { restartTyping: true });
-  });
-}
-
-for (const button of nextSituationMessageButtons) {
-  button.addEventListener("click", () => {
-    if (situationMessages.length === 0) {
-      return;
-    }
-
-    const nextIndex = situationMessageVisible
-      ? Math.min(situationMessages.length - 1, situationMessageViewIndex + 1)
-      : situationMessages.length - 1;
-
-    showSituationMessageAtIndex(nextIndex, { restartTyping: true });
-  });
-}
+acknowledgeSituationMessageButton?.addEventListener("click", acknowledgeSituationMessage);
 
 for (const button of loadStateButtons) {
   button.addEventListener("click", () => {
@@ -16255,11 +16370,15 @@ saveSlotList?.addEventListener("click", (event) => {
   const slotName = button.dataset.slotName || "";
   slotPanelState.value = slotName;
   saveSlotInput.value = slotName;
-  void renderSaveSlotList();
-
-  if (slotPanelState.mode === "load") {
-    void commitSaveSlotPanel();
+  const entries = [];
+  for (const item of saveSlotList.querySelectorAll(".slot-panel-item")) {
+    const itemName = item.dataset.slotName || "";
+    const isSelected = itemName === slotName;
+    entries.push({ name: itemName });
+    item.classList.toggle("is-selected", isSelected);
+    item.setAttribute("aria-selected", String(isSelected));
   }
+  updateSaveSlotPanelActionStates(entries);
 });
 
 for (const button of turnAutoToggleButtons) {

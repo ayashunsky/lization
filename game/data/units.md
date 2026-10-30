@@ -81,14 +81,16 @@ Example:
 }
 ```
 
-`labels` is an optional map of localized default names by language id (`fr`, `en`, `es`, `ru`, ...).
-It is used for generated/default unit names. Explicit saved unit names still stay as they were saved.
+`labels` is an optional map of localized display names by language id (`fr`, `en`, `es`, `ru`, ...).
+Unit names are derived from their type when displayed; `name` is the fallback if no localized label exists.
+Changing language also changes existing units' displayed names.
+
+The `play` action id is displayed as Wait. It retains the existing `play` sprites and saved-task id.
 
 `carryingCapacity` is the maximum amount a unit can carry at once, regardless of resource type.
 It defaults to `24` and can be overridden per unit type or by a matching modifier.
 The current load is saved on the unit as `cargo: { "resourceType": "food", "amount": 8 }`;
-all food types share one load. Empty loads are saved as `null`. Existing saves without `cargo`
-load with an empty load, and old cargo `foodType` fields are ignored.
+all food types share one load. Empty loads are saved as `null`.
 Gathering fills cargo, not the village stockpile. A loaded unit can walk or gather more of the same
 resource category (food, stone, or lumber); a full unit can only walk. Landing adjacent to a completed
 building that stores that resource unloads as much as the shared stockpile can accept. Any remainder
@@ -138,6 +140,7 @@ Example:
 ```
 
 `bookPageId` is optional. When present, UI elements can open the matching unit page directly in the book.
+Book portraits are referenced directly from each book page, using paths relative to that page.
 
 ## Unit Requirements
 
@@ -252,6 +255,11 @@ Supported fields:
 Drawing a unit reduces its currently available quantity by `1`. Availability is derived from the
 configured quantity minus the number of living units of that type, so if a unit leaves the village
 it becomes available for spawning again automatically.
+
+The sum of pool quantities is the maximum village population. At that population, no new house
+can be started or worked on. Keeping the full population for one calendar month wins the game;
+losing every unit ends it in defeat. A house that cannot spawn an eligible unit remains one work
+step short of completion.
 
 `ensurePresentByUnitCount` entries support:
 

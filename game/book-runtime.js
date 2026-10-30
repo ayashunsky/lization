@@ -1375,21 +1375,44 @@ export function createBookRuntimeApi({
     return jumpBookToPageId(pageId);
   }
 
-  async function playBookSequence(sequenceId = bookIntroSequenceId, triggerButton = null) {
-    const shouldSuspendMainMenu = getMainMenuOpen() && !mainMenuOverlay.hidden;
-    setBookOverlayIntroMode(true);
-
-    if (shouldSuspendMainMenu) {
-      setBookOverlayRestoreState({
-        interactionMode: getInteractionMode(),
-        mainMenuOpen: getMainMenuOpen(),
-      });
-      setInteractionMode(interactionModes.play);
-      setMainMenuOpen(false);
-      mainMenuOverlay.hidden = true;
-      updateInteractionModeUi();
-      draw();
+  function suspendMainMenuForBook() {
+    if (!getMainMenuOpen() || mainMenuOverlay.hidden) {
+      return false;
     }
+
+    setBookOverlayRestoreState({
+      interactionMode: getInteractionMode(),
+      mainMenuOpen: true,
+    });
+    setInteractionMode(interactionModes.play);
+    setMainMenuOpen(false);
+    mainMenuOverlay.hidden = true;
+    updateInteractionModeUi();
+    draw();
+    return true;
+  }
+
+  async function openBookFromMainMenu(triggerButton = null) {
+    if (!suspendMainMenuForBook()) {
+      return false;
+    }
+
+    try {
+      await openBookOverlayPanel(triggerButton, { allowNonPlayMode: true, allowMainMenuOpen: true });
+      if (bookOverlay && !bookOverlay.hidden) {
+        return true;
+      }
+    } catch (error) {
+      console.error("Could not open the book from the main menu.", error);
+    }
+
+    closeBookOverlay({ restoreFocus: true });
+    return false;
+  }
+
+  async function playBookSequence(sequenceId = bookIntroSequenceId, triggerButton = null) {
+    setBookOverlayIntroMode(true);
+    const shouldSuspendMainMenu = suspendMainMenuForBook();
 
     await openBookOverlayPanel(triggerButton, { allowNonPlayMode: true, allowMainMenuOpen: true });
 
@@ -1419,6 +1442,7 @@ export function createBookRuntimeApi({
     jumpBookToPageId,
     openBookOverlayAtBookmark,
     openBookOverlayPanel,
+    openBookFromMainMenu,
     playBookSequence,
     startBookPageTurnAnimation,
   };

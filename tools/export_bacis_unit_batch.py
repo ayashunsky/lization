@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import base64
 import io
+import os
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
@@ -35,7 +36,9 @@ BACK_CROP_IDLE = "rect4-2-1"
 BACK_CROP_WB = "rect81"
 FRONT_CROP_IDLE = "rect9"
 FRONT_CROP_WB = "rect121"
+PLAY_CROP_UNIT = "rect4-2-1-3"
 PLAY_CROP_CUIS = "rect361"
+PLAY_TAIL_ID = "path4-6-1-3"
 FISHING_SIDE_CROP = "rect278"
 FISHING_FRONT_CROP = "rect319"
 FISHING_BACK_CROP = "rect332"
@@ -59,7 +62,7 @@ SIDE_VARIANTS = {
         "group": "g14-2",
         "idle_feet": "g3-5",
         "step_feet": "g12-6",
-        "extras": ["g7-6"],
+        "extras": ["g7-6", "polyline1"],
         "hand": "g2-3",
     },
     "lunettes": {
@@ -74,6 +77,13 @@ SIDE_VARIANTS = {
         "idle_feet": "g3",
         "step_feet": "g12",
         "extras": ["g173"],
+        "hand": "g2-3",
+    },
+    "coquet": {
+        "group": "g14",
+        "idle_feet": "g3",
+        "step_feet": "g12",
+        "extras": ["g7", "g421"],
         "hand": "g2-3",
     },
 }
@@ -148,11 +158,11 @@ FRONT_VARIANTS = {
     },
     "gs": {
         "hat": "path86",
-        "pants": "path99",
-        "extras": [],
-        "idle_feet": "g106",
-        "step_feet_1": "g111",
-        "step_feet_2": "g117",
+        "pants": "path364",
+        "extras": ["g6-9"],
+        "idle_feet": "g16",
+        "step_feet_1": "g363",
+        "step_feet_2": "g362",
         "idle_hands": "g110",
         "step_hands_1": "g113",
         "step_hands_2": "g115",
@@ -179,15 +189,50 @@ FRONT_VARIANTS = {
         "step_hands_1": "g113",
         "step_hands_2": "g115",
     },
+    "coquet": {
+        "hat": "path85",
+        "pants": "path99",
+        "extras": ["g421-4"],
+        "idle_feet": "g106",
+        "step_feet_1": "g111",
+        "step_feet_2": "g117",
+        "idle_hands": "g110",
+        "step_hands_1": "g113",
+        "step_hands_2": "g115",
+    },
 }
 
 
 DEFAULT_PRESETS = {
     "unit": ("basic", "unit"),
     "brico": ("bricoleur", "brico"),
+    "brico_research": ("brico_research", "brico"),
     "gs": ("gs", "gs"),
     "lunettes": ("lunettes", "lunettes"),
     "cuis": ("cuisinier", "cuis"),
+    "farceur": ("farceur", "farceur"),
+    "gourmand": ("gourmand", "gourmand"),
+    "gs_research": ("gs_research", "gs"),
+    "coquet": ("coquet", "coq"),
+}
+
+PRESET_FILENAME_OVERRIDES = {
+    "unit": {
+        "play_0": "unit_play_sprite.png",
+        "play_1": "unit_play_sprite_1.png",
+    },
+    "lunettes": {
+        "play_0": "lune_play.png",
+        "play_1": "lune_play_1.png",
+    },
+    "gs_research": {
+        "play_0": "gs_research_1.png",
+        "play_1": "gs_research_2.png",
+    },
+    "brico_research": {
+        "play_0": "brico_research_1.png",
+        "play_1": "brico_research_2.png",
+    },
 }
 
 
@@ -278,41 +323,140 @@ ALL_PLAY_ELEMENTS = [
     "rect361",
     "rect4-2-1-3",
     "g354",
+    "g398",
     "g97",
+    "g402",
     "g135",
     "path128",
+    "path132",
+    "path425",
+    "path399",
     "g183",
     "g134",
     "g171",
+    "g377",
+    "path378",
+    "g375",
+    "g103-3",
     "path125",
     "g138",
+    "path381",
     "g182",
     "g127",
+    "g405",
     "path135",
     "g146",
     "g141",
+    "g414",
+    "g426",
     "g166",
     "g142-1",
     "g145",
+    "g191",
+    "g194",
     "g341",
     "g355",
     "g361",
+    "g364",
+    "g368",
+    "g380",
+    "g5-5",
+    "g6-5",
+    "g371",
+    "g421-2",
+    "path422",
+    "path423",
+    "path424",
+    "g409",
+    "g419",
+    "g8-2",
+    "path406",
+    "g385",
+    "path398",
+    PLAY_TAIL_ID,
 ]
 ALL_PLAY_BASE_ART = [
     "g135",
     "path128",
-    "g134",
     "path125",
-    "g138",
     "g127",
-    "path135",
-    "g341",
 ]
 PLAY_VARIANTS = {
+    "basic": {
+        "hat": "g97",
+        "crop": PLAY_CROP_UNIT,
+        "extras": ["path132", "g134", "path135", "g138"],
+        "frame_1": ["g364", "g371"],
+        "frame_2": ["g368", "g141"],
+    },
+    "farceur": {
+        "hat": "g97",
+        "crop": PLAY_CROP_UNIT,
+        "crop_area_px": (151, 149, 67, 88),
+        "extras": ["path132", "g134", "path135", "g138"],
+        "frame_1": ["g5-5", "g371"],
+        "frame_2": ["g141"],
+    },
+    "gourmand": {
+        "hat": "g97",
+        "crop": PLAY_CROP_UNIT,
+        "crop_area_px": (151, 149, 67, 88),
+        "extras": ["g134", "path135", "g138", "g6-5", "g371"],
+        "frame_1": ["g377"],
+        "frame_2": ["path399"],
+    },
     "cuisinier": {
         "hat": "g354",
-        "hand_1": "g355",
-        "hand_2": "g361",
+        "crop": PLAY_CROP_CUIS,
+        "extras": ["path132", "g134", "path135", "g138", "g141", "g341"],
+        "frame_1": ["g355"],
+        "frame_2": ["g361"],
+    },
+    "lunettes": {
+        "hat": "g97",
+        "crop": PLAY_CROP_UNIT,
+        # Center the wider book pose in the existing 67x93 play canvas.
+        "crop_area_px": (151, 147, 67, 93),
+        "extras": ["g375", "g103-3", "path381", "g380", "g371", "g385"],
+        "frame_1": ["g377"],
+        "frame_2": ["path378"],
+    },
+    "gs_research": {
+        "hat": "g402",
+        "crop": PLAY_CROP_UNIT,
+        "base_art": ["g135", "path128"],
+        "extras": ["g134", "path135", "g138", "g405", "g8-2", "path406"],
+        "frame_1": ["g409"],
+        "frame_2": ["g419"],
+    },
+    "coquet": {
+        "hat": "g97",
+        "crop": PLAY_CROP_UNIT,
+        "extras": ["path132", "g134", "path135", "g421-2"],
+        "frame_1": ["g141", "path424", "g138"],
+        "frame_2": ["g371", "path422", "path423"],
+    },
+    "grognon": {
+        "hat": "g97",
+        "crop": PLAY_CROP_UNIT,
+        "extras": ["path425", "g134", "path135", "g138"],
+        "frame_1": ["g141"],
+        "frame_2": ["g141"],
+    },
+    "costaud": {
+        "hat": "g97",
+        "crop": PLAY_CROP_UNIT,
+        "extras": ["path132", "g134", "path135"],
+        "frame_1": ["g414", "path398", "g426"],
+        "frame_2": ["g141", "g138"],
+    },
+    "brico_research": {
+        "hat": "g97",
+        "crop": PLAY_CROP_UNIT,
+        "base_art": ["g135", "path128", "path125"],
+        "extras": ["g183", "g171", "g182", "g146", "g166", "g142-1", "g145"],
+        "frame_1": ["g191"],
+        "frame_2": ["g194"],
     },
 }
 
@@ -350,6 +494,7 @@ ALL_FISHING_SIDE_ELEMENTS = [
     "g270",
     "path265",
     "g278",
+    "g421-6",
 ]
 ALL_FISHING_SIDE_BASE_ART = [
     "g264",
@@ -381,6 +526,10 @@ FISHING_SIDE_VARIANTS = {
         "hat": "g286",
         "extras": [],
     },
+    "coquet": {
+        "hat": "g251",
+        "extras": ["g421-6"],
+    },
 }
 ALL_FISHING_FRONT_ELEMENTS = [
     "rect319",
@@ -395,6 +544,7 @@ ALL_FISHING_FRONT_ELEMENTS = [
     "g304",
     "path305",
     "g308",
+    "g421-4-2",
 ]
 ALL_FISHING_FRONT_BASE_ART = [
     "g290",
@@ -425,6 +575,10 @@ FISHING_FRONT_VARIANTS = {
     "cuisinier": {
         "hat": "g319",
         "extras": [],
+    },
+    "coquet": {
+        "hat": "g292",
+        "extras": ["g421-4-2"],
     },
 }
 ALL_FISHING_BACK_ELEMENTS = [
@@ -471,6 +625,16 @@ FISHING_BACK_VARIANTS = {
     },
 }
 
+VARIANTS_BY_LAYER = {
+    SIDE_LAYER_ID: SIDE_VARIANTS,
+    BACK_LAYER_ID: BACK_VARIANTS,
+    FRONT_LAYER_ID: FRONT_VARIANTS,
+    PLAY_LAYER_ID: PLAY_VARIANTS,
+    FISHING_SIDE_LAYER_ID: FISHING_SIDE_VARIANTS,
+    FISHING_FRONT_LAYER_ID: FISHING_FRONT_VARIANTS,
+    FISHING_BACK_LAYER_ID: FISHING_BACK_VARIANTS,
+}
+
 
 @dataclass(frozen=True)
 class ExportSpec:
@@ -486,7 +650,7 @@ class ExportSpec:
     side_action: tuple[str, str] | None = None
     side_group: str | None = None
     side_food_groups: tuple[str, str] | None = None
-    play_hand: str | None = None
+    play_frame: str | None = None
     fishing_float: bool = False
     cargo_bag: bool = False
 
@@ -516,8 +680,8 @@ EXPORT_SPECS = [
     ExportSpec("fishing_s_1", FISHING_FRONT_LAYER_ID, FISHING_FRONT_CROP, fishing_float=False),
     ExportSpec("dig_0", SIDE_LAYER_ID, SIDE_CROP_DIG, side_feet="idle", side_group="g204"),
     ExportSpec("dig_1", SIDE_LAYER_ID, SIDE_CROP_DIG, side_feet="idle", side_group="g226"),
-    ExportSpec("play_0", PLAY_LAYER_ID, PLAY_CROP_CUIS, play_hand="hand_1"),
-    ExportSpec("play_1", PLAY_LAYER_ID, PLAY_CROP_CUIS, play_hand="hand_2"),
+    ExportSpec("play_0", PLAY_LAYER_ID, PLAY_CROP_UNIT, play_frame="frame_1"),
+    ExportSpec("play_1", PLAY_LAYER_ID, PLAY_CROP_UNIT, play_frame="frame_2"),
     ExportSpec("wb_idle_w", SIDE_LAYER_ID, SIDE_CROP_WB, side_feet="idle"),
     ExportSpec("wb_step_w", SIDE_LAYER_ID, SIDE_CROP_WB, side_feet="step"),
     ExportSpec("wb_idle_n", BACK_LAYER_ID, BACK_CROP_WB, back_feet="idle", back_hands=("g62", "g63")),
@@ -541,7 +705,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Export the side/back/front sprite batch that can be derived from vec/bacis.svg. "
-            "Cuisinier play sprites can also be derived from the 3/4 layer."
+            "Play sprites can also be derived from the 3/4 layer."
         )
     )
     parser.add_argument(
@@ -561,7 +725,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--variant",
-        choices=sorted(SIDE_VARIANTS),
+        choices=sorted(set(SIDE_VARIANTS) | set(PLAY_VARIANTS)),
         help="Variant to export when not using --preset.",
     )
     parser.add_argument(
@@ -596,7 +760,7 @@ def main() -> int:
         for name, (variant, prefix) in sorted(DEFAULT_PRESETS.items()):
             print(f"  {name}: variant={variant} prefix={prefix}")
         print("\nVariants:")
-        for name in sorted(SIDE_VARIANTS):
+        for name in sorted(set(SIDE_VARIANTS) | set(PLAY_VARIANTS)):
             print(f"  {name}")
         print("\nFrames:")
         for spec in EXPORT_SPECS:
@@ -613,7 +777,10 @@ def main() -> int:
 
     output_dir = Path(args.output_dir).resolve()
     svg_path = Path(args.svg).resolve()
-    name_overrides = parse_name_overrides(args.name_override)
+    name_overrides = {
+        **PRESET_FILENAME_OVERRIDES.get(args.preset, {}),
+        **parse_name_overrides(args.name_override),
+    }
     filename_map = build_filename_map(prefix, name_overrides)
     selected = {spec.key for spec in EXPORT_SPECS} if not args.only else set(args.only)
 
@@ -621,7 +788,9 @@ def main() -> int:
     for spec in EXPORT_SPECS:
         if spec.key not in selected:
             continue
-        if spec.layer == PLAY_LAYER_ID and variant not in PLAY_VARIANTS:
+        if variant == "gs" and spec.cargo_bag:
+            continue
+        if variant not in VARIANTS_BY_LAYER[spec.layer]:
             continue
         output_path = output_dir / filename_map[spec.key]
         export_frame(svg_path, variant, spec, output_path)
@@ -674,15 +843,23 @@ def export_frame(svg_path: Path, variant: str, spec: ExportSpec, output_path: Pa
     else:
         raise ValueError(f"Unsupported layer {spec.layer}")
 
-    crop_rect = require_element(id_map, spec.crop_rect)
+    crop_id = PLAY_VARIANTS[variant]["crop"] if spec.layer == PLAY_LAYER_ID else spec.crop_rect
+    crop_rect = require_element(id_map, crop_id)
     scale_x, scale_y = document_unit_scale(root)
-    area = export_area(crop_rect, scale_x, scale_y)
+    crop_area_px = PLAY_VARIANTS[variant].get("crop_area_px") if spec.layer == PLAY_LAYER_ID else None
+    if crop_area_px:
+        x, y, width, height = crop_area_px
+        area = f"{x}:{y}:{x + width}:{y + height}"
+    else:
+        area = export_area(crop_rect, scale_x, scale_y)
 
-    with tempfile.TemporaryDirectory(prefix="bacis-export-") as temp_dir_name:
+    with tempfile.TemporaryDirectory(prefix="bacis-export-", dir=output_path.parent) as temp_dir_name:
         temp_dir = Path(temp_dir_name)
         temp_svg = temp_dir / "frame.svg"
+        temp_output = temp_dir / "frame.png"
         tree.write(temp_svg, encoding="utf-8", xml_declaration=True)
-        run_inkscape_export(temp_svg, output_path, area)
+        run_inkscape_export(temp_svg, temp_output, area)
+        temp_output.replace(output_path)
     if spec.front_wb:
         composite_svg_images(
             output_path,
@@ -868,12 +1045,11 @@ def configure_play_variant(
 ) -> None:
     variant_config = PLAY_VARIANTS[variant]
     set_display(require_element(id_map, PLAY_LAYER_ID), DISPLAY_INLINE)
-    show_elements(id_map, ALL_PLAY_BASE_ART)
-    show_elements(id_map, [variant_config["hat"]])
-    if spec.play_hand == "hand_1":
-        show_elements(id_map, [variant_config["hand_1"]])
-    elif spec.play_hand == "hand_2":
-        show_elements(id_map, [variant_config["hand_2"]])
+    show_elements(id_map, variant_config.get("base_art", ALL_PLAY_BASE_ART))
+    show_elements(id_map, [PLAY_TAIL_ID])
+    show_elements(id_map, [variant_config["hat"], *variant_config["extras"]])
+    if spec.play_frame:
+        show_elements(id_map, variant_config[spec.play_frame])
 
 
 def configure_fishing_front_variant(
@@ -971,17 +1147,24 @@ def length_to_px(value: float, unit: str) -> float:
     raise ValueError(f"Unsupported SVG unit: {unit}")
 
 
-def run_inkscape_export(temp_svg: Path, output_path: Path, area: str) -> None:
+def run_inkscape_export(temp_svg: Path, output_path: Path, area: str, dpi: int = 96) -> None:
     command = [
         "inkscape",
         str(temp_svg),
         "--export-type=png",
         f"--export-filename={output_path}",
         "--export-background-opacity=0",
-        "--export-dpi=96",
+        f"--export-dpi={dpi}",
         f"--export-area={area}",
     ]
-    subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    result = subprocess.run(
+        command,
+        env={**os.environ, "LC_ALL": "C"},
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not output_path.is_file():
+        raise RuntimeError(f"Inkscape did not export {output_path}: {result.stderr.strip()}")
 
 
 def composite_svg_images(

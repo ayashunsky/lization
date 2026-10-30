@@ -104,6 +104,9 @@ Common fields:
 - `image`
 - `sprite`
 
+`icon`, `image`, and `sprite` expose the map sprite. Book portraits are ordinary
+images referenced by the page HTML.
+
 `unit.default` resolves to the configured default unit type.
 
 Example:
@@ -111,8 +114,16 @@ Example:
 ```html
 <span data-book-bind="unit.default.label"></span>
 <span data-book-bind="unit.grandSchtroumpf.researchPointsPerTurn"></span>
-<img data-book-bind-src="unit.grandSchtroumpf.icon" data-book-bind-alt="unit.grandSchtroumpf.label">
+<img src="../images/grand_schtroumpf.png" alt="">
 ```
+
+To show a characteristic as a multiple of the default unit, bind both values:
+
+```html
+×<span data-book-ratio="unit.gourmand.foodConsumptionPerTurn" data-book-ratio-base="unit.default.foodConsumptionPerTurn"></span>
+```
+
+The ratio is calculated when the page renders and rounded to one decimal place in the current language. A trailing zero is omitted. A missing value or a zero denominator leaves the span empty. The same attributes can compare any two numeric bindings, including conditional values in `rules.units`.
 
 ### `resource.<id>`
 
@@ -129,6 +140,20 @@ Example:
 ```html
 <img data-book-bind-src="resource.stone.icon" data-book-bind-alt="resource.stone.label">
 <span data-book-bind="resource.stone.label"></span>
+```
+
+Food types (`grain`, `berries`, `mushrooms`, `fish`) also have localized labels.
+Their icons use the fullest food-overlay image when available; fish uses the
+generic food icon.
+
+### `terrain.<id>`
+
+Localized terrain names and default tile artwork for `water`, `grass`, `forest`,
+and `mountain`.
+
+```html
+<img data-book-bind-src="terrain.forest.icon" data-book-bind-alt="terrain.forest.label">
+<span data-book-bind="terrain.forest.label"></span>
 ```
 
 ## Notes

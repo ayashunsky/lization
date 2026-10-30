@@ -255,34 +255,8 @@
       <div id="unitTileActionMenu" class="unit-tile-action-menu" role="menu" aria-label="Unit actions" hidden></div>
 
       <aside id="playInspector" class="play-inspector" hidden>
-        <section class="play-inspector-section play-message-section">
-          <div class="situation-message-display" data-role="situation-message-display">
-            <div class="situation-message-bubble" data-role="situation-message-bubble">
-              <p class="situation-message-turn" data-role="situation-message-turn"></p>
-              <p class="situation-message-text" data-role="situation-message-text"></p>
-              <div class="situation-message-nav">
-                <button class="menu-button panel-icon-button" data-action="previous-situation-message" type="button">
-                  <span aria-hidden="true">‹</span>
-                </button>
-                <button class="menu-button panel-icon-button" data-action="next-situation-message" type="button">
-                  <span aria-hidden="true">›</span>
-                </button>
-              </div>
-            </div>
-            <div class="situation-speaker-column">
-              <button class="menu-button panel-icon-button message-visibility-button" data-action="toggle-situation-message" type="button">
-                <span class="message-visibility-icon" data-role="situation-message-toggle-label" aria-hidden="true">👁</span>
-              </button>
-              <img
-                class="situation-speaker-head"
-                data-role="situation-speaker-head"
-                src="assets/ui/lunettes_head.png"
-                alt=""
-              >
-            </div>
-          </div>
-        </section>
         <span class="play-inspector-turn" data-role="turn-readout"></span>
+        <span class="play-inspector-population-goal" data-role="population-goal-readout" hidden></span>
         <section class="play-inspector-section">
           <p class="play-inspector-title" data-role="stores-title"></p>
           <div class="resource-strip">
@@ -359,6 +333,17 @@
           <button class="menu-button turn-auto-toggle" data-action="toggle-auto-turns" type="button"></button>
         </div>
       </aside>
+
+      <div id="situationMessageOverlay" class="blocking-message-overlay" hidden>
+        <section class="message-dialog blocking-message-dialog" role="alertdialog" aria-modal="true" aria-labelledby="situationMessageText">
+          <p class="blocking-message-date" data-role="situation-message-turn"></p>
+          <p class="message-dialog-text" id="situationMessageText" data-role="situation-message-text"></p>
+          <div class="message-dialog-footer">
+            <button class="menu-button" data-action="acknowledge-situation-message" type="button">OK</button>
+            <img class="message-dialog-portrait" src="assets/ui/lunettes_head.png" alt="">
+          </div>
+        </section>
+      </div>
 
       <div id="bookOverlay" class="book-overlay" hidden>
         <section class="book-panel" role="dialog" aria-modal="true">
@@ -464,16 +449,10 @@
               </div>
             </div>
             <div id="bookTransientHint" class="book-transient-hint" aria-live="polite" hidden>
-              <div class="situation-message-display book-transient-hint-display">
-                <div class="situation-message-bubble book-transient-hint-bubble">
-                  <p class="situation-message-text" data-role="book-transient-hint-text"></p>
-                </div>
-                <div class="situation-speaker-column book-transient-hint-speaker-column">
-                  <img
-                    class="situation-speaker-head book-transient-hint-speaker-head"
-                    src="assets/ui/lunettes_head.png"
-                    alt=""
-                  >
+              <div class="message-dialog">
+                <p class="message-dialog-text" data-role="book-transient-hint-text"></p>
+                <div class="message-dialog-footer">
+                  <img class="message-dialog-portrait" src="assets/ui/lunettes_head.png" alt="">
                 </div>
               </div>
             </div>
@@ -612,8 +591,10 @@
           <ul class="main-menu-list">
             <li><button class="main-menu-item" type="button" data-menu-action="watch-intro"></button></li>
             <li><button class="main-menu-item" type="button" data-menu-action="start-new-game"></button></li>
+            <li><button class="main-menu-item" type="button" data-menu-action="quick-start"></button></li>
             <li><button class="main-menu-item" type="button" data-menu-action="play"></button></li>
             <li><button class="main-menu-item" type="button" data-menu-action="load-game"></button></li>
+            <li><button class="main-menu-item" type="button" data-menu-action="open-book"></button></li>
             <li><button class="main-menu-item" type="button" data-menu-action="edit"></button></li>
             <li><button class="main-menu-item" type="button" data-menu-action="import-export"></button></li>
           </ul>

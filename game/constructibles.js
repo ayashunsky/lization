@@ -662,13 +662,9 @@ export function createConstructiblesApi(deps) {
     return variants[0]?.id || null;
   }
 
-  function normalizeConstructiblesStateForKind(kind, rawConstructibles, { requireArray = false } = {}) {
+  function normalizeConstructiblesStateForKind(kind, rawConstructibles) {
     if (!Array.isArray(rawConstructibles)) {
-      if (requireArray) {
-        throw new Error(`Missing ${normalizeConstructibleKind(kind)} data.`);
-      }
-
-      return [];
+      throw new Error(`Missing ${normalizeConstructibleKind(kind)} data.`);
     }
 
     const normalizedKind = normalizeConstructibleKind(kind);
