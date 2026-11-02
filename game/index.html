@@ -619,6 +619,28 @@
       </div>
     </main>
 
+    <dialog id="firstVisitIntroDialog" class="first-visit-intro-dialog" aria-labelledby="firstVisitIntroQuestion">
+      <p id="firstVisitIntroQuestion" class="first-visit-intro-question"></p>
+      <div class="language-selector" data-role="language-selector" role="group">
+        <button class="language-option-button" data-action="set-language" data-language="fr" type="button">
+          <span aria-hidden="true">🇫🇷</span>
+        </button>
+        <button class="language-option-button" data-action="set-language" data-language="en" type="button">
+          <span aria-hidden="true">🇬🇧</span>
+        </button>
+        <button class="language-option-button" data-action="set-language" data-language="es" type="button">
+          <span aria-hidden="true">🇪🇸</span>
+        </button>
+        <button class="language-option-button" data-action="set-language" data-language="ru" type="button">
+          <span aria-hidden="true">🇷🇺</span>
+        </button>
+      </div>
+      <div class="first-visit-intro-actions">
+        <button class="menu-button" data-action="first-visit-intro-yes" type="button" disabled></button>
+        <button class="menu-button" data-action="first-visit-intro-no" type="button"></button>
+      </div>
+    </dialog>
+
     <script src="rules.js"></script>
     <script src="strings.js"></script>
     <script type="module" src="app.js"></script>

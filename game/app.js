@@ -42,6 +42,10 @@ const appShell = document.querySelector(".app-shell");
 const topBarsContainer = document.querySelector(".top-bars");
 const mainMenuOverlay = document.querySelector("#mainMenuOverlay");
 const mainMenuLoadingElements = [...document.querySelectorAll('[data-role="main-menu-loading"]')];
+const firstVisitIntroDialog = document.querySelector("#firstVisitIntroDialog");
+const firstVisitIntroQuestion = document.querySelector("#firstVisitIntroQuestion");
+const firstVisitIntroYesButton = document.querySelector('[data-action="first-visit-intro-yes"]');
+const firstVisitIntroNoButton = document.querySelector('[data-action="first-visit-intro-no"]');
 const playInspector = document.querySelector("#playInspector");
 const editInspector = document.querySelector("#editInspector");
 const bookOverlay = document.querySelector("#bookOverlay");
@@ -693,6 +697,7 @@ const storageKeys = {
     play: "schtroumpfilization:current-file:play:v1",
   },
   audioSettings: "schtroumpfilization:audio-settings:v1",
+  introPromptAnswered: "schtroumpfilization:intro-prompt-answered:v1",
 };
 const saveDatabaseConfig = Object.freeze({
   name: "schtroumpfilization-saves-v1",
@@ -3980,6 +3985,9 @@ function applyStaticText() {
     saveSlotEmpty.textContent = strings.saveSlots.empty;
   }
   setTextContent([mainMenuItems.watchIntro], strings.menu.watchIntro);
+  setTextContent([firstVisitIntroQuestion], strings.menu.firstVisitIntroQuestion);
+  setTextContent([firstVisitIntroYesButton], strings.menu.firstVisitIntroYes);
+  setTextContent([firstVisitIntroNoButton], strings.menu.firstVisitIntroNo);
   setTextContent([mainMenuItems.startNewGame], strings.menu.startNewGame);
   setTextContent([mainMenuItems.quickStart], strings.menu.quickStart);
   setTextContent([mainMenuItems.play], strings.menu.play);
@@ -12427,6 +12435,73 @@ function openMainMenu() {
   draw();
 }
 
+function shouldOfferFirstVisitIntro() {
+  try {
+    return window.localStorage.getItem(storageKeys.introPromptAnswered) === null;
+  } catch {
+    return false;
+  }
+}
+
+function answerFirstVisitIntro(playIntro) {
+  if (!firstVisitIntroDialog?.open) return;
+
+  firstVisitIntroDialog.close();
+  try {
+    window.localStorage.setItem(storageKeys.introPromptAnswered, "1");
+  } catch {
+    // Storage may be disabled; the current choice still applies.
+  }
+
+  if (playIntro) {
+    void playBookSequence(bookIntroSequenceId, mainMenuItems.watchIntro);
+  } else {
+    mainMenuItems.watchIntro?.focus({ preventScroll: true });
+  }
+}
+
+function offerFirstVisitIntro() {
+  if (!firstVisitIntroDialog || !mainMenuOpen || mainMenuOverlay.hidden || !shouldOfferFirstVisitIntro()) return;
+
+  setTextContent([firstVisitIntroQuestion], strings.menu.firstVisitIntroQuestion);
+  setTextContent([firstVisitIntroYesButton], strings.menu.firstVisitIntroYes);
+  setTextContent([firstVisitIntroNoButton], strings.menu.firstVisitIntroNo);
+  const selector = firstVisitIntroDialog.querySelector('[data-role="language-selector"]');
+  selector?.setAttribute("aria-label", strings.language.selectorLabel);
+  for (const button of selector?.querySelectorAll('[data-action="set-language"]') || []) {
+    const language = button.dataset.language;
+    const label = strings.language?.[language] || language || "";
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    button.setAttribute("aria-pressed", language === currentLanguage ? "true" : "false");
+    button.classList.toggle("is-selected", language === currentLanguage);
+  }
+  firstVisitIntroYesButton.disabled = true;
+  firstVisitIntroDialog.showModal();
+}
+
+function prepareFirstVisitIntro() {
+  if (!firstVisitIntroDialog?.open) return;
+
+  void Promise.all([ensureBookContentLoaded(), ensureTechnologyCatalogLoaded()])
+    .then(() => {
+      if (!firstVisitIntroDialog.open) return;
+
+      const sequencePages = bookDocument?.sequences?.[bookIntroSequenceId];
+      if (!bookDocument?.loaded || !Array.isArray(sequencePages) || sequencePages.length < 2) {
+        firstVisitIntroDialog.close();
+        mainMenuItems.watchIntro?.focus({ preventScroll: true });
+        return;
+      }
+
+      firstVisitIntroYesButton.disabled = false;
+    })
+    .catch((error) => {
+      console.error("Could not prepare the intro.", error);
+      if (firstVisitIntroDialog.open) firstVisitIntroDialog.close();
+    });
+}
+
 function setInteractionMode(nextMode, { drawNow = true } = {}) {
   if (!Object.values(interactionModes).includes(nextMode)) return;
 
@@ -16135,6 +16210,13 @@ mainMenuOverlay.addEventListener("click", (event) => {
   }
 });
 
+firstVisitIntroYesButton?.addEventListener("click", () => answerFirstVisitIntro(true));
+firstVisitIntroNoButton?.addEventListener("click", () => answerFirstVisitIntro(false));
+firstVisitIntroDialog?.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  answerFirstVisitIntro(false);
+});
+
 for (const button of gameMenuToggleButtons) {
   button.addEventListener("click", () => {
     toggleGameActionMenu(button);
@@ -16516,6 +16598,7 @@ for (const button of zoomInButtons) {
 window.addEventListener("resize", resizeCanvas);
 
 async function initializeApp() {
+  offerFirstVisitIntro();
   await Promise.all([
     ensureBuildingDefinitionsLoaded(),
     ensureVehicleDefinitionsLoaded(),
@@ -16534,6 +16617,7 @@ async function initializeApp() {
   void ensureVisualAssetsLoaded();
   void ensureTechnologyCatalogLoaded();
   resizeCanvas();
+  prepareFirstVisitIntro();
 }
 
 void initializeApp().catch((error) => {

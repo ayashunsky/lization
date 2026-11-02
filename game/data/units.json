@@ -260,6 +260,19 @@
         "ru": "Штрумф модник"
       }
     },
+    "poete": {
+      "spriteTypeId": "villager",
+      "name": "Schtroumpf poète",
+      "labels": {
+        "fr": "Schtroumpf poète",
+        "en": "Poet Smurf",
+        "es": "Pitufo poeta",
+        "ru": "Штрумф-поэт"
+      },
+      "availability": {
+        "requiredTechs": ["runes"]
+      }
+    },
     "musicien": {
       "spriteTypeId": "villager",
       "name": "Schtroumpf musicien",
@@ -293,7 +306,7 @@
   },
   "spawnRules": {
     "pool": [
-      { "type": "villager", "quantity": 86 },
+      { "type": "villager", "quantity": 85 },
       { "type": "bricoleur", "quantity": 1 },
       { "type": "paresseux", "quantity": 1 },
       { "type": "lunettes", "quantity": 1 },
@@ -306,6 +319,7 @@
       { "type": "cuisinier", "quantity": 1 },
       { "type": "coquet", "quantity": 1 },
       { "type": "musicien", "quantity": 1 },
+      { "type": "poete", "quantity": 1 },
       { "type": "paysan", "quantity": 1 },
       { "type": "grandSchtroumpf", "quantity": 1 }
     ],

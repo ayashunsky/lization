@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import math
 import tempfile
 import xml.etree.ElementTree as ET
@@ -22,6 +23,7 @@ DPI = 384
 
 PORTRAITS = {
     "generic_unit_3q.png": ("basic", None, ("g141",)),
+    "happiness.png": ("basic", "frame_1", ()),
     "grand_schtroumpf.png": ("gs_research", None, ("g141",)),
     "lunettes.png": ("lunettes", "frame_1", ()),
     "farceur.png": ("farceur", "frame_1", ()),
@@ -137,14 +139,18 @@ def export_paresseux_portrait(destination: Path) -> None:
         save_trimmed(temp_png, destination)
 
 
-def main() -> None:
+def main(only: str | None = None) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     for filename, (variant, frame, extra) in PORTRAITS.items():
+        if only and filename != only:
+            continue
         destination = OUTPUT_DIR / filename
         export_bacis_portrait(destination, variant, frame, extra)
         print(destination.relative_to(ROOT))
 
     for filename in ("bricoleur.png", "paresseux.png"):
+        if only and filename != only:
+            continue
         destination = OUTPUT_DIR / filename
         if filename == "bricoleur.png":
             export_bacis_portrait(destination, None, None, ())
@@ -153,10 +159,14 @@ def main() -> None:
         print(destination.relative_to(ROOT))
 
     for filename, spec_key in (("paysan.png", "dig_0"), ("schtroumpf.png", "idle_w")):
+        if only and filename != only:
+            continue
         destination = OUTPUT_DIR / filename
         export_side_portrait(destination, spec_key)
         print(destination.relative_to(ROOT))
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--only", choices=sorted(PORTRAITS), help="Export one portrait without rewriting the others")
+    main(parser.parse_args().only)

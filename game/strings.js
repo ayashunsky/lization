@@ -75,6 +75,9 @@ window.APP_LOCALIZATION = {
       },
       menu: {
         watchIntro: "Voir l'intro",
+        firstVisitIntroQuestion: "Voir l'introduction ?",
+        firstVisitIntroYes: "Oui",
+        firstVisitIntroNo: "Non",
         startNewGame: "Commencer une partie",
         quickStart: "Démarrage rapide",
         play: "Jouer !",
@@ -194,7 +197,7 @@ window.APP_LOCALIZATION = {
         populationGoal: (date) => `Victoire prévue le ${date}`,
       },
       situationMessages: {
-        intro: "Cliquez gauche sur un Schtroumpf pour le sélectionner, puis cliquez droit sur une case pour choisir une action. Pause arrête les tours automatiques.",
+        intro: "Cliquez gauche sur un Schtroumpf pour le sélectionner, puis cliquez droit sur une case pour choisir une action. Pause arrête les tours automatiques. Essayez d'arriver à une populaschtroumpf de 100 !",
         houseStarted: "Une nouvelle maison est en construction.",
         houseCompleted: (unitName) => `${unitName} a rejoint le village.`,
         technologyDiscovered: (technologyName) => `La technologie « ${technologyName} » a été découverte et est maintenant disponible.`,
@@ -309,6 +312,9 @@ window.APP_LOCALIZATION = {
       },
       menu: {
         watchIntro: "Watch intro",
+        firstVisitIntroQuestion: "Play intro?",
+        firstVisitIntroYes: "Yes",
+        firstVisitIntroNo: "No",
         startNewGame: "Start new game",
         quickStart: "Quick start",
         play: "Play!",
@@ -424,7 +430,7 @@ window.APP_LOCALIZATION = {
         populationGoal: (date) => `Victory target: ${date}`,
       },
       situationMessages: {
-        intro: "Left-click a Smurf to select it, then right-click a tile to choose an action. Pause stops automatic turns.",
+        intro: "Left-click a Smurf to select it, then right-click a tile to choose an action. Pause stops automatic turns. Try to reach a smurfulation of 100!",
         houseStarted: "A new house is under construction.",
         houseCompleted: (unitName) => `${unitName} has joined the village.`,
         technologyDiscovered: (technologyName) => `${technologyName} has been discovered and is now available.`,
@@ -539,6 +545,9 @@ window.APP_LOCALIZATION = {
       },
       menu: {
         watchIntro: "Ver introduccion",
+        firstVisitIntroQuestion: "¿Ver la introducción?",
+        firstVisitIntroYes: "Sí",
+        firstVisitIntroNo: "No",
         startNewGame: "Empezar partida nueva",
         quickStart: "Inicio rápido",
         play: "Jugar",
@@ -654,7 +663,7 @@ window.APP_LOCALIZATION = {
         populationGoal: (date) => `Victoria prevista: ${date}`,
       },
       situationMessages: {
-        intro: "Haz clic izquierdo en un pitufo para seleccionarlo y clic derecho en una casilla para elegir una acción. Pausar detiene los turnos automáticos.",
+        intro: "Haz clic izquierdo en un pitufo para seleccionarlo y clic derecho en una casilla para elegir una acción. Pausar detiene los turnos automáticos. Intenta alcanzar una pitufoblación de 100!",
         houseStarted: "Una nueva casa esta en construccion.",
         houseCompleted: (unitName) => `${unitName} se ha unido al poblado.`,
         technologyDiscovered: (technologyName) => `Se ha descubierto «${technologyName}». Ya está disponible.`,
@@ -769,6 +778,9 @@ window.APP_LOCALIZATION = {
       },
       menu: {
         watchIntro: "Смотреть вступление",
+        firstVisitIntroQuestion: "Показать вступление?",
+        firstVisitIntroYes: "Да",
+        firstVisitIntroNo: "Нет",
         startNewGame: "Начать новую игру",
         quickStart: "Быстрый старт",
         play: "Играть!",
@@ -884,7 +896,7 @@ window.APP_LOCALIZATION = {
         populationGoal: (date) => `Победа возможна: ${date}`,
       },
       situationMessages: {
-        intro: "Нажмите левой кнопкой на смурфика, чтобы выбрать его, затем правой кнопкой на клетке, чтобы выбрать действие. Пауза останавливает автоматические ходы.",
+        intro: "Нажмите левой кнопкой на смурфика, чтобы выбрать его, затем правой кнопкой на клетке, чтобы выбрать действие. Пауза останавливает автоматические ходы. Попробуйте довести штрумфоселение до 100 жителей.",
         houseStarted: "Новый дом уже строится.",
         houseCompleted: (unitName) => `${unitName} присоединился к деревне.`,
         technologyDiscovered: (technologyName) => `Технология «${technologyName}» открыта и теперь доступна.`,
