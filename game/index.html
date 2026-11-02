@@ -4,6 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title></title>
+    <script>
+      if (navigator.userAgentData?.mobile === true ||
+          /Android.+Mobile|iPhone|iPod|Windows Phone|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        document.documentElement.classList.add("phone-blocked");
+      }
+    </script>
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
@@ -641,8 +647,37 @@
       </div>
     </dialog>
 
-    <script src="rules.js"></script>
-    <script src="strings.js"></script>
-    <script type="module" src="app.js"></script>
+    <main id="phoneNotice" class="phone-notice" hidden>
+      <div class="phone-notice-content">
+        <h1 data-role="phone-notice-title"></h1>
+        <p data-role="phone-notice-text"></p>
+      </div>
+    </main>
+
+    <script type="module">
+      if (document.documentElement.classList.contains("phone-blocked")) {
+        const messages = {
+          fr: ["Version mobile indisponible", "Schtroumpfilisation n'est pas conçue pour les téléphones. Ouvrez cette page sur un ordinateur pour jouer."],
+          en: ["Mobile version unavailable", "Schtroumpfilization is not intended for phones. Open this page on a computer to play."],
+          es: ["Versión móvil no disponible", "Schtroumpfilización no está diseñada para teléfonos. Abre esta página en un ordenador para jugar."],
+          ru: ["Мобильная версия недоступна", "Игра не предназначена для телефонов. Откройте эту страницу на компьютере."],
+        };
+        let savedLanguage;
+        try {
+          savedLanguage = localStorage.getItem("schtroumpfilization:language:v1");
+        } catch {
+          // The notice still works when local storage is unavailable.
+        }
+        const browserLanguage = navigator.language?.split("-")[0];
+        const language = messages[savedLanguage] ? savedLanguage : messages[browserLanguage] ? browserLanguage : "fr";
+        document.documentElement.lang = language;
+        document.querySelector('[data-role="phone-notice-title"]').textContent = messages[language][0];
+        document.querySelector('[data-role="phone-notice-text"]').textContent = messages[language][1];
+        document.querySelector("#phoneNotice").hidden = false;
+      } else {
+        await Promise.all([import("./rules.js"), import("./strings.js")]);
+        await import("./app.js");
+      }
+    </script>
   </body>
 </html>

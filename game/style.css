@@ -62,6 +62,48 @@ body {
   font-family: "Oldania ADF Std", "TriodPostnaja", Georgia, "Times New Roman", serif;
 }
 
+html.phone-blocked .app-shell {
+  display: none;
+}
+
+html.phone-blocked body {
+  overflow: auto;
+}
+
+.phone-notice[hidden] {
+  display: none;
+}
+
+.phone-notice {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px;
+  place-items: center;
+  font-family: system-ui, sans-serif;
+}
+
+.phone-notice-content {
+  width: min(100%, 440px);
+  padding: 24px;
+  border: 1px solid #68776b;
+  border-radius: 6px;
+  background: #202622;
+}
+
+.phone-notice h1 {
+  margin: 0 0 12px;
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+
+.phone-notice p {
+  margin: 0;
+  color: #d3ddd4;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
 .app-shell {
   --play-safe-center-offset: 0px;
   position: relative;
