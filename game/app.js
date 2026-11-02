@@ -10,6 +10,11 @@ import {
   getPopulationCap,
 } from "./game-ending.js";
 import { createOverlayRuntimeApi } from "./overlay-runtime.js";
+import {
+  getFoodSurvivalDays,
+  getHappinessChangeForTurn,
+  normalizeHappiness,
+} from "./happiness.js";
 import { createSpriteRuntimeApi, spriteTaskSourceCandidateSets } from "./sprite-runtime.js";
 import { createTerrainRuntimeApi } from "./terrain-runtime.js";
 import {
@@ -177,6 +182,7 @@ const unitActionProgressReadouts = [...document.querySelectorAll('[data-role="un
 const unitCargoReadouts = [...document.querySelectorAll('[data-role="unit-cargo-readout"]')];
 const unitTaskRows = [...document.querySelectorAll('[data-role="unit-task-row"]')];
 const turnReadouts = [...document.querySelectorAll('[data-role="turn-readout"]')];
+const happinessReadouts = [...document.querySelectorAll('[data-role="happiness-readout"]')];
 const populationGoalReadouts = [...document.querySelectorAll('[data-role="population-goal-readout"]')];
 const situationMessageOverlay = document.querySelector("#situationMessageOverlay");
 const acknowledgeSituationMessageButton = document.querySelector('[data-action="acknowledge-situation-message"]');
@@ -648,6 +654,7 @@ let selectedFoundationConstructibleId = null;
 let pendingFoundationPlacement = null;
 let inspectedPlayCell = null;
 let stockpile = { stone: 0, lumber: 0, food: 0 };
+let happiness = normalizeHappiness(undefined, rules.happiness);
 let stockpileHistory = [];
 let foodShortageTurns = 0;
 let foodShortageActive = false;
@@ -2061,6 +2068,10 @@ function normalizeBuildingRulesModifierSet(entry) {
     normalized.abandonedDecayPerTurn = clamp(Number(rulesEntry.abandonedDecayPerTurn), 0, 1);
   }
 
+  if (Number.isFinite(Number(rulesEntry.happinessPerTurn))) {
+    normalized.happinessPerTurn = Number(rulesEntry.happinessPerTurn);
+  }
+
   return normalized;
 }
 
@@ -2243,6 +2254,9 @@ function normalizeBuildingRulesEntry(entry) {
   const rulesEntry = entry && typeof entry === "object" ? entry : {};
   const width = Math.max(1, Math.floor(Number(rulesEntry.width) || 1));
   const height = Math.max(1, Math.floor(Number(rulesEntry.height) || 1));
+  const mountedSurfaceTerrain = typeof rulesEntry.mountedSurfaceTerrain === "string"
+    ? rulesEntry.mountedSurfaceTerrain.trim()
+    : "";
   const footprint = Array.isArray(rulesEntry.footprint)
     ? rulesEntry.footprint
       .map((path) => Array.isArray(path)
@@ -2288,6 +2302,7 @@ function normalizeBuildingRulesEntry(entry) {
   const initialMax = Number(rulesEntry.constructionVisualThresholds?.initialMax);
   const halfMax = Number(rulesEntry.constructionVisualThresholds?.halfMax);
   const abandonedDecayPerTurn = Number(rulesEntry.abandonedDecayPerTurn);
+  const happinessPerTurn = Number(rulesEntry.happinessPerTurn);
   const mounted = normalizeVehicleMountedRulesConfig(rulesEntry.mounted);
   const cargoCapacity = Number(rulesEntry.cargoCapacity);
 
@@ -2300,6 +2315,7 @@ function normalizeBuildingRulesEntry(entry) {
       : {}),
     villageBuilding: Boolean(rulesEntry.villageBuilding),
     walkable: Boolean(rulesEntry.walkable),
+    ...(Object.prototype.hasOwnProperty.call(terrain, mountedSurfaceTerrain) ? { mountedSurfaceTerrain } : {}),
     foundationActionAvailable: Boolean(rulesEntry.foundationActionAvailable),
     constructionCost,
     buildCost: {
@@ -2316,6 +2332,7 @@ function normalizeBuildingRulesEntry(entry) {
       halfMax: Number.isFinite(halfMax) ? halfMax : 0.79,
     },
     abandonedDecayPerTurn: Number.isFinite(abandonedDecayPerTurn) ? abandonedDecayPerTurn : 0,
+    happinessPerTurn: Number.isFinite(happinessPerTurn) ? happinessPerTurn : 0,
   };
 }
 
@@ -2722,6 +2739,10 @@ function getTechnologyProgressPercent(technologyId, state = researchState) {
 
 function canSelectResearchGoal(technologyId, state = researchState) {
   return getTechnologyDisplayState(technologyId, state) === "available";
+}
+
+function hasAvailableResearchGoal(state = researchState) {
+  return technologyCatalog.technologies.some((technology) => canSelectResearchGoal(technology.id, state));
 }
 
 function getSelectedResearchGoalTechnologyId(state = researchState, { requireAvailable = true } = {}) {
@@ -3567,7 +3588,7 @@ function canUnitUseAction(currentUnit = unit, action, context = getRuleContext()
     return getUnitDismountTargetCells(currentUnit).length > 0;
   }
 
-  if (normalizedAction === unitActions.research && getUnitResearchPointsPerTurn(currentUnit, context) <= 0) {
+  if (normalizedAction === unitActions.research && getUnitBaseResearchPointsPerTurn(currentUnit, context) <= 0) {
     return false;
   }
 
@@ -3578,7 +3599,7 @@ function canUnitUseAction(currentUnit = unit, action, context = getRuleContext()
   return matchesRequirements(getUnitActionRequirements(currentUnit, normalizedAction, context), context);
 }
 
-function getUnitResearchPointsPerTurn(currentUnit = unit, context = getRuleContext()) {
+function getUnitBaseResearchPointsPerTurn(currentUnit = unit, context = getRuleContext()) {
   const configured = Number(getEffectiveUnitConfig(currentUnit, context).researchPointsPerTurn);
 
   if (!Number.isFinite(configured)) {
@@ -3586,6 +3607,10 @@ function getUnitResearchPointsPerTurn(currentUnit = unit, context = getRuleConte
   }
 
   return Math.max(0, configured);
+}
+
+function getUnitResearchPointsPerTurn(currentUnit = unit, context = getRuleContext()) {
+  return getUnitBaseResearchPointsPerTurn(currentUnit, context) * happiness / 100;
 }
 
 function getPreferredUnitAction(currentUnit = getSelectedUnit(), preferredAction = null) {
@@ -5004,7 +5029,7 @@ function isSeasonallyWalkableWaterCell(cell) {
   return Boolean(cell) && cell.type === "water" && isWinter2SeasonCell(cell);
 }
 
-function doesMovementRuleListAllowCell(movementTerrains, cell) {
+function doesMovementRuleListAllowCell(movementTerrains, cell, alternativeTerrain = null) {
   if (!cell) {
     return false;
   }
@@ -5012,7 +5037,8 @@ function doesMovementRuleListAllowCell(movementTerrains, cell) {
   const cellSeason = getCellSeason(cell);
 
   return Array.isArray(movementTerrains) && movementTerrains.some((entry) =>
-    entry?.terrain === cell.type && (!entry.season || entry.season === cellSeason)
+    (entry?.terrain === cell.type || (alternativeTerrain && entry.terrain === alternativeTerrain)) &&
+    (!entry.season || entry.season === cellSeason)
   );
 }
 
@@ -5087,7 +5113,7 @@ function getUnitWorkPointsPerTurn(taskType, currentUnit = unit, context = getRul
     return 0;
   }
 
-  return Math.max(0, configured * getMountedWorkPointsMultiplier(taskType, currentUnit, context));
+  return Math.max(0, configured * getMountedWorkPointsMultiplier(taskType, currentUnit, context) * happiness / 100);
 }
 
 function getGatherTaskDurationTurns() {
@@ -5817,12 +5843,12 @@ function getBuildingWorkCompletenessDelta(taskType, buildingType) {
   return clamp(workPoints / cost, 0, 1);
 }
 
-function getConstructionWorkCompletenessDelta(taskType, structure) {
+function getConstructionWorkCompletenessDelta(taskType, structure, currentUnit) {
   if (!structure) {
     return 0;
   }
 
-  const workPoints = getUnitWorkPointsPerTurn(taskType);
+  const workPoints = getUnitWorkPointsPerTurn(taskType, currentUnit);
   const cost = getConstructibleConstructionCost(structure.riderUnitId !== undefined ? "vehicle" : "building", structure.type);
 
   if (workPoints <= 0 || cost <= 0) {
@@ -6707,7 +6733,7 @@ function recordStockpileHistoryForCurrentTurn() {
   if (currentTurn % stockpileHistoryIntervalTurns !== 0) return;
   if (stockpileHistory[stockpileHistory.length - 1]?.turn === currentTurn) return;
 
-  stockpileHistory.push({ turn: currentTurn, ...serializeStockpileState() });
+  stockpileHistory.push({ turn: currentTurn, ...serializeStockpileState(), happiness });
   refreshBookStockpileCharts();
 }
 
@@ -6803,6 +6829,7 @@ function serializeCurrentState() {
     vehicles: serializeConstructibles("vehicle"),
     units: getUnits().map((currentUnit) => serializeUnit(currentUnit)).filter(Boolean),
     stockpile: serializeStockpileState(),
+    happiness,
     stockpileHistory: stockpileHistory.map((entry) => ({ ...entry })),
     populationEvents: populationEvents.map((entry) => ({ ...entry })),
     research: serializeResearchState(),
@@ -7368,7 +7395,7 @@ function maybeCarveGeneratedLakeIslands(cells, width, height, patchCells) {
   }
 }
 
-function carveGeneratedVillageClearing(cells, width, height, centerCell) {
+function carveGeneratedVillageClearing(cells, width, height, centerCell, protectedWaterKeys = null) {
   if (!centerCell) {
     return;
   }
@@ -7378,6 +7405,10 @@ function carveGeneratedVillageClearing(cells, width, height, centerCell) {
       const cell = cells[y]?.[x];
 
       if (!isGeneratedVillageClearingCell(cell, centerCell, 2)) {
+        continue;
+      }
+
+      if (protectedWaterKeys?.has(getGeneratedCellKey(cell))) {
         continue;
       }
 
@@ -7398,7 +7429,7 @@ function carveGeneratedMountainBorder(cells, width, height, centerCell) {
 
       const cell = cells[y]?.[x];
 
-      if (!cell || isGeneratedVillageClearingCell(cell, centerCell, 2)) {
+      if (!cell || cell.type === "water" || isGeneratedVillageClearingCell(cell, centerCell, 2)) {
         continue;
       }
 
@@ -7515,9 +7546,9 @@ function carveGeneratedRiver(cells, width, height, normalizedSettings, centerCel
       break;
     }
 
-    let filteredCandidates = candidates.filter(({ cell }) => !isGeneratedVillageClearingCell(cell, centerCell, 4));
+    const filteredCandidates = candidates.filter(({ cell }) => !isGeneratedVillageClearingCell(cell, centerCell, 2));
     if (filteredCandidates.length === 0) {
-      filteredCandidates = candidates;
+      break;
     }
 
     const rankedCandidates = filteredCandidates
@@ -7526,10 +7557,11 @@ function carveGeneratedRiver(cells, width, height, normalizedSettings, centerCel
         const xPenalty = Math.abs((point?.x ?? cell.x) - targetX);
         const revisitPenalty = spineKeys.has(getGeneratedCellKey(cell)) ? 8 : 0;
         const edgePenalty = cell.x <= 1 || cell.x >= width - 2 ? 1.25 : 0;
+        const clearingPenalty = isGeneratedVillageClearingCell(cell, centerCell, 4) ? 5 : 0;
 
         return {
           cell,
-          score: xPenalty + revisitPenalty + edgePenalty + Math.random() * 0.6,
+          score: xPenalty + revisitPenalty + edgePenalty + clearingPenalty + Math.random() * 0.6,
         };
       })
       .sort((left, right) => left.score - right.score);
@@ -7600,6 +7632,17 @@ function carveGeneratedRiver(cells, width, height, normalizedSettings, centerCel
     carveRiverCell(cell);
   }
 
+  if (spineCells.length > 0) {
+    const firstDirection = segmentDirections[0] || "southEast";
+    const lastDirection = segmentDirections[segmentDirections.length - 1] || firstDirection;
+    const firstCell = spineCells[0];
+    const lastCell = spineCells[spineCells.length - 1];
+    const topDirection = firstDirection === "southEast" ? "northWest" : "northEast";
+
+    carveRiverCell(getNeighborCellInCells(cells, width, height, firstCell, topDirection));
+    carveRiverCell(getNeighborCellInCells(cells, width, height, lastCell, lastDirection));
+  }
+
   const totalSegments = Math.max(1, segmentDirections.length - 1);
   let extraLaneCarry = 0;
 
@@ -7645,6 +7688,65 @@ function carveGeneratedRiver(cells, width, height, normalizedSettings, centerCel
   return carvedCells;
 }
 
+function planGeneratedStream(cells, width, height, source, centerCell, directions, length) {
+  const plannedCells = [];
+  const plannedKeys = new Set();
+  let current = source;
+  let preferredDirection = directions[Math.floor(Math.random() * directions.length)];
+  let preferredRunRemaining = 2 + Math.floor(Math.random() * 3);
+
+  for (let segment = 0; segment < length; segment += 1) {
+    if (preferredRunRemaining <= 0) {
+      preferredDirection = directions.find((direction) => direction !== preferredDirection) || preferredDirection;
+      preferredRunRemaining = 2 + Math.floor(Math.random() * 3);
+    }
+
+    const directionCandidates = Math.random() < 0.82
+      ? [preferredDirection, ...directions.filter((direction) => direction !== preferredDirection)]
+      : shuffleArrayInPlace([...directions]);
+    let next = null;
+    let nextDirection = "";
+
+    for (const direction of directionCandidates) {
+      const candidate = getNeighborCellInCells(cells, width, height, current, direction);
+
+      if (
+        !candidate
+        || candidate.x <= 0
+        || candidate.x >= width - 1
+        || candidate.y <= 0
+        || candidate.y >= height - 1
+        || isGeneratedVillageClearingCell(candidate, centerCell, 4)
+        || candidate.type === "water"
+        || plannedKeys.has(getGeneratedCellKey(candidate))
+      ) {
+        continue;
+      }
+
+      next = candidate;
+      nextDirection = direction;
+      break;
+    }
+
+    if (!next) {
+      break;
+    }
+
+    plannedCells.push(next);
+    plannedKeys.add(getGeneratedCellKey(next));
+    current = next;
+
+    if (nextDirection === preferredDirection) {
+      preferredRunRemaining -= 1;
+    } else {
+      preferredDirection = nextDirection;
+      preferredRunRemaining = 1 + Math.floor(Math.random() * 2);
+    }
+  }
+
+  return plannedCells;
+}
+
 function carveGeneratedStreams(
   cells,
   width,
@@ -7659,7 +7761,6 @@ function carveGeneratedStreams(
     return [];
   }
 
-  const centerX = centerCell?.x ?? Math.floor(width / 2);
   const sourceCandidates = shuffleArrayInPlace(
     riverCells.filter((cell) =>
       cell
@@ -7671,119 +7772,30 @@ function carveGeneratedStreams(
     ),
   );
   const carvedCells = [];
-  const carvedKeys = new Set();
   let createdStreams = 0;
 
-  for (let streamIndex = 0; streamIndex < sourceCandidates.length && createdStreams < desiredStreamCount; streamIndex += 1) {
-    const source = sourceCandidates[streamIndex];
-    if (!source) {
+  for (const source of sourceCandidates) {
+    if (createdStreams >= desiredStreamCount) {
       break;
     }
 
-    const side = source.x <= centerX ? "left" : "right";
-    const outwardDirections = side === "left"
-      ? ["northWest", "southWest"]
-      : ["northEast", "southEast"];
-    let preferredDirection = outwardDirections[Math.floor(Math.random() * outwardDirections.length)] || outwardDirections[0];
-    let preferredRunRemaining = 2 + Math.floor(Math.random() * 3);
-    const streamLength = 4 + Math.floor(Math.random() * 5) + Math.floor(normalizedSettings.water / 45);
-    let current = source;
-    let carvedThisStream = 0;
+    const streamLength = 5 + Math.floor(Math.random() * 4) + Math.floor(normalizedSettings.water / 50);
+    const plannedPaths = [
+      planGeneratedStream(cells, width, height, source, centerCell, ["northWest", "southWest"], streamLength),
+      planGeneratedStream(cells, width, height, source, centerCell, ["northEast", "southEast"], streamLength),
+    ];
+    const path = plannedPaths.sort((left, right) => right.length - left.length)[0];
 
-    const firstStepCandidates = shuffleArrayInPlace([...outwardDirections]);
-    let firstStep = null;
-
-    for (const direction of firstStepCandidates) {
-      const candidate = getNeighborCellInCells(cells, width, height, current, direction);
-
-      if (
-        !candidate
-        || candidate.x <= 0
-        || candidate.x >= width - 1
-        || candidate.y <= 0
-        || candidate.y >= height - 1
-        || isGeneratedVillageClearingCell(candidate, centerCell, 4)
-        || candidate.type === "water"
-      ) {
-        continue;
-      }
-
-      firstStep = { cell: candidate, direction };
-      break;
-    }
-
-    if (!firstStep) {
+    if (path.length < 4) {
       continue;
     }
 
-    setGeneratedTerrain(firstStep.cell, "water");
-    const firstKey = getGeneratedCellKey(firstStep.cell);
-    if (!carvedKeys.has(firstKey)) {
-      carvedKeys.add(firstKey);
-      carvedCells.push(firstStep.cell);
-    }
-    carvedThisStream += 1;
-    current = firstStep.cell;
-    preferredDirection = firstStep.direction;
-    preferredRunRemaining = Math.max(1, preferredRunRemaining - 1);
-
-    for (let segment = 1; segment < streamLength; segment += 1) {
-      if (preferredRunRemaining <= 0) {
-        preferredDirection = outwardDirections.find((direction) => direction !== preferredDirection) || preferredDirection;
-        preferredRunRemaining = 2 + Math.floor(Math.random() * 3);
-      }
-
-      const directionCandidates = Math.random() < 0.82
-        ? [preferredDirection, ...outwardDirections.filter((direction) => direction !== preferredDirection)]
-        : shuffleArrayInPlace([...outwardDirections]);
-      let next = null;
-      let nextDirection = "";
-
-      for (const direction of directionCandidates) {
-        const candidate = getNeighborCellInCells(cells, width, height, current, direction);
-
-        if (
-          !candidate
-          || candidate.x <= 0
-          || candidate.x >= width - 1
-          || candidate.y <= 0
-          || candidate.y >= height - 1
-          || isGeneratedVillageClearingCell(candidate, centerCell, 4)
-          || candidate.type === "water"
-        ) {
-          continue;
-        }
-
-        next = candidate;
-        nextDirection = direction;
-        break;
-      }
-
-      if (!next) {
-        break;
-      }
-
-      setGeneratedTerrain(next, "water");
-      const key = getGeneratedCellKey(next);
-      if (!carvedKeys.has(key)) {
-        carvedKeys.add(key);
-        carvedCells.push(next);
-      }
-      carvedThisStream += 1;
-
-      if (nextDirection === preferredDirection) {
-        preferredRunRemaining -= 1;
-      } else {
-        preferredDirection = nextDirection;
-        preferredRunRemaining = 1 + Math.floor(Math.random() * 2);
-      }
-
-      current = next;
+    for (const cell of path) {
+      setGeneratedTerrain(cell, "water");
+      carvedCells.push(cell);
     }
 
-    if (carvedThisStream >= 3) {
-      createdStreams += 1;
-    }
+    createdStreams += 1;
   }
 
   return carvedCells;
@@ -7870,9 +7882,10 @@ function buildGeneratedMapCells(
   const cells = buildEmptyMapCells(width, height);
   const centerCell = getCellInCells(cells, width, height, Math.floor(width / 2), Math.floor(height / 2));
   const riverCells = carveGeneratedRiver(cells, width, height, normalizedSettings, centerCell);
+  const riverCellKeys = new Set(riverCells.map(getGeneratedCellKey));
   const streamCountTarget = clampInteger(1 + Math.floor(normalizedSettings.water / 34), 1, 3, 2);
   carveGeneratedStreams(cells, width, height, normalizedSettings, centerCell, riverCells, streamCountTarget);
-  carveGeneratedVillageClearing(cells, width, height, centerCell);
+  carveGeneratedVillageClearing(cells, width, height, centerCell, riverCellKeys);
   carveGeneratedMountainBorder(cells, width, height, centerCell);
 
   const totalCellCount = width * height;
@@ -7907,7 +7920,7 @@ function buildGeneratedMapCells(
     patchSize: () => sampleGeneratedPatchSize(4, 24 + Math.round(normalizedSettings.forest * 0.34), 0.07),
     canFill: (cell) => Boolean(cell) && cell.type === "grass" && !isGeneratedVillageClearingCell(cell, centerCell, 2),
   });
-  carveGeneratedVillageClearing(cells, width, height, centerCell);
+  carveGeneratedVillageClearing(cells, width, height, centerCell, riverCellKeys);
   applyGeneratedWaterResources(cells, normalizedSettings);
   applyGeneratedFoodPatches(cells, width, height, normalizedSettings, centerCell);
   clearGeneratedCellFood(centerCell);
@@ -8301,6 +8314,7 @@ function createGeneratedState(
     vehicles: [],
     units,
     stockpile: createEmptyStockpile(),
+    happiness: normalizeHappiness(undefined, rules.happiness),
     stockpileHistory: [],
     populationEvents: [],
     research: createDefaultResearchState(),
@@ -8908,7 +8922,11 @@ function normalizeStockpileHistoryState(rawHistory) {
 
   return rawHistory
     .filter((entry) => Number.isInteger(entry?.turn) && entry.turn >= 1 && entry.turn <= 999999)
-    .map((entry) => ({ turn: entry.turn, ...normalizeStockpileState(entry) }));
+    .map((entry) => ({
+      turn: entry.turn,
+      ...normalizeStockpileState(entry),
+      ...(Number.isFinite(entry.happiness) ? { happiness: normalizeHappiness(entry.happiness, rules.happiness) } : {}),
+    }));
 }
 
 function normalizeBuildingState(state) {
@@ -8991,7 +9009,8 @@ function normalizeUnitsState(rawUnits, mode) {
       lastStepFromY: null,
     };
 
-    if (isTaskAction(normalizedUnit.task, unitActions.research) && !getSelectedResearchGoalTechnologyId()) {
+    if (isTaskAction(normalizedUnit.task, unitActions.research) && !getSelectedResearchGoalTechnologyId() &&
+      (mode !== interactionModes.play || !technologyCatalog.loaded || hasAvailableResearchGoal())) {
       normalizedUnit.task = null;
     }
 
@@ -9119,6 +9138,7 @@ function applyStateSnapshot(state, mode, { recenter = true } = {}) {
   rebuildUnitOccupancyIndex();
   reconcileMountedVehicleStateLinks(vehicles, units);
   stockpile = normalizeStockpileState(nextState.stockpile);
+  happiness = normalizeHappiness(nextState.happiness, rules.happiness);
   stockpileHistory = normalizeStockpileHistoryState(nextState.stockpileHistory);
   pendingSituationMessages = normalizeSituationMessagesState(nextState.pendingSituationMessages);
   populationEvents = normalizePopulationEvents(nextState.populationEvents);
@@ -9192,6 +9212,10 @@ async function loadFileIntoMode(fileName, mode, options, preloadedState = null) 
   if (isPlayAutosave && !Object.prototype.hasOwnProperty.call(state, "activeFileName")) {
     console.warn(`Save slot ${normalizedName} is missing its active file name.`);
     return false;
+  }
+
+  if (mode === interactionModes.play) {
+    await ensureTechnologyCatalogLoaded();
   }
 
   const previousFileName = getCurrentFileName(mode);
@@ -9498,6 +9522,7 @@ function canManuallyAdvanceTurn() {
 
 function updateTurnReadout() {
   setTextContent(turnReadouts, strings.readouts.turn(currentTurn, formatJulianTurnDate(currentTurn)));
+  setTextContent(happinessReadouts, strings.readouts.happiness(formatDisplayedNumber(happiness)));
   const goalLabel = gameOutcome === "victory"
     ? strings.readouts.victory
     : gameOutcome === "defeat"
@@ -9683,7 +9708,21 @@ function assignPlayTasksToEligibleIdleUnitsForManualTurnAdvance(context = getRul
 function queueResearchUnitAction({ currentUnit = getSelectedUnit() } = {}) {
   if (!currentUnit || currentUnit.move) return false;
   if (!canUnitUseAction(currentUnit, unitActions.research)) return false;
+  if (!technologyCatalog.loaded) {
+    const taskAtRequest = currentUnit.task;
+    void ensureTechnologyCatalogLoaded().then((catalog) => {
+      if (catalog.loaded && getSelectedUnit() === currentUnit && currentUnit.task === taskAtRequest) {
+        queueResearchUnitAction({ currentUnit });
+      }
+    });
+    return false;
+  }
   if (!getSelectedResearchGoalTechnologyId()) {
+    if (!hasAvailableResearchGoal()) {
+      clearPendingBookResearchAssignment();
+      return assignUnitTask(createUnitTaskForAction(unitActions.research), currentUnit);
+    }
+
     pendingBookResearchAssignmentUnitId = currentUnit.id;
     void openBookOverlayAtBookmark(researchBookBookmarkId).then((opened) => {
       if (opened && bookOverlay && !bookOverlay.hidden) {
@@ -9697,7 +9736,7 @@ function queueResearchUnitAction({ currentUnit = getSelectedUnit() } = {}) {
 
   clearPendingBookResearchAssignment();
 
-  if (getUnitResearchPointsPerTurn(currentUnit) <= 0) {
+  if (getUnitBaseResearchPointsPerTurn(currentUnit) <= 0) {
     return false;
   }
 
@@ -10133,7 +10172,7 @@ function resolveGatherFoodTask(currentUnit) {
   const cargoRoom = getActiveCargoRoom(currentUnit, "food");
   const workPoints = getUnitWorkPointsPerTurn("gatherFood", currentUnit);
   if (workPoints <= quantityEpsilon) {
-    clearCompletedTask(currentUnit);
+    currentUnit.stamina = 0;
     return;
   }
   const gatherAmount = Math.min(
@@ -10226,7 +10265,7 @@ function resolveGatherMaterialsTask(currentUnit) {
   const currentMaterialAmount = clampNonNegativeNumber(targetCell.materialAmount, 999999, 0);
   const workPoints = getUnitWorkPointsPerTurn("gatherMaterials", currentUnit);
   if (workPoints <= quantityEpsilon) {
-    clearCompletedTask(currentUnit);
+    currentUnit.stamina = 0;
     return;
   }
   const gatherAmount = Math.min(
@@ -10273,7 +10312,7 @@ function resolveBuildHouseTask(currentUnit) {
 
   const isHouseConstruction = structure.type === "house" && structure.riderUnitId === undefined;
   const previousCompleteness = getBuildingCompleteness(structure);
-  const workDelta = getConstructionWorkCompletenessDelta("buildHouse", structure);
+  const workDelta = getConstructionWorkCompletenessDelta("buildHouse", structure, currentUnit);
 
   if (isHouseConstruction && isPopulationAtCapacity()) {
     structure.completeness = getBlockedHouseCompleteness(previousCompleteness, workDelta);
@@ -10281,6 +10320,11 @@ function resolveBuildHouseTask(currentUnit) {
       invalidateStaticLayer();
     }
     clearCompletedTask(currentUnit);
+    return;
+  }
+
+  if (workDelta <= 0) {
+    currentUnit.stamina = 0;
     return;
   }
 
@@ -10394,14 +10438,18 @@ function resolveResearchTask(currentUnit) {
   const selectedGoalTechnologyId = getSelectedResearchGoalTechnologyId();
 
   if (!selectedGoalTechnologyId) {
-    clearCompletedTask(currentUnit);
+    if (technologyCatalog.loaded && !hasAvailableResearchGoal()) {
+      resolvePerformTask(currentUnit);
+    } else {
+      clearCompletedTask(currentUnit);
+    }
     return;
   }
 
   const researchPoints = getUnitResearchPointsPerTurn(currentUnit);
 
   if (researchPoints <= 0) {
-    clearCompletedTask(currentUnit);
+    currentUnit.stamina = 0;
     return;
   }
 
@@ -10412,7 +10460,9 @@ function resolveResearchTask(currentUnit) {
     const isGoalStillSelected = getSelectedResearchGoalTechnologyId() === selectedGoalTechnologyId;
 
     if (!isGoalStillSelected) {
-      clearCompletedTask(currentUnit);
+      if (hasAvailableResearchGoal()) {
+        clearCompletedTask(currentUnit);
+      }
     }
     if (isTechnologyDiscovered(selectedGoalTechnologyId)) {
       addSituationMessage("technologyDiscovered", { technologyId: selectedGoalTechnologyId });
@@ -10706,6 +10756,32 @@ function consumeFoodForTurn() {
 function applyVillageEconomyForTurn() {
   regrowFoodResourcesForTurn();
   consumeFoodForTurn();
+}
+
+function changeHappiness(amount) {
+  happiness = normalizeHappiness(happiness + amount, rules.happiness);
+}
+
+function updateHappinessForTurn() {
+  const currentUnits = getUnits();
+  const context = getRuleContext();
+  const noResearchGoalsRemain = technologyCatalog.loaded && !hasAvailableResearchGoal();
+  const dailyConsumption = currentUnits.reduce(
+    (sum, currentUnit) => sum + getUnitFoodConsumptionPerTurn(currentUnit, context), 0,
+  );
+  const buildingBonus = buildings.reduce((sum, building) => {
+    if (building?.state !== "complete") return sum;
+    return sum + (getEffectiveConstructibleRules("building", building.type, context)?.happinessPerTurn || 0);
+  }, 0);
+  const delta = getHappinessChangeForTurn(rules.happiness, {
+    foodDays: getFoodSurvivalDays(getCurrentStockpileAmount("food"), dailyConsumption),
+    population: currentUnits.length,
+    waitingUnits: currentUnits.filter((currentUnit) =>
+      isTaskAction(currentUnit.task, unitActions.play)
+      || (noResearchGoalsRemain && isTaskAction(currentUnit.task, unitActions.research))).length,
+    buildingBonus,
+  });
+  changeHappiness(delta);
 }
 
 function captureReplayUnitStates() {
@@ -11023,6 +11099,7 @@ function resolveTurn() {
   }
 
   applyVillageEconomyForTurn();
+  updateHappinessForTurn();
   updateGameEndingAfterTurn();
   stopHouseConstructionTasksAtPopulationCap();
   recordStockpileHistoryForCurrentTurn();
@@ -11596,12 +11673,12 @@ function canVehicleTraverseCell(vehicle, cell, context = getRuleContext()) {
   return doesMovementRuleListAllowCell(getVehicleMountedMovementTerrains(vehicle, context), cell);
 }
 
-function canMountedUnitTraverseTerrain(currentUnit, cell) {
+function canMountedUnitTraverseTerrain(currentUnit, cell, alternativeTerrain = null) {
   if (!cell || !currentUnit) {
     return false;
   }
 
-  return doesMovementRuleListAllowCell(getMountedVehicleRules(currentUnit)?.movementTerrains, cell);
+  return doesMovementRuleListAllowCell(getMountedVehicleRules(currentUnit)?.movementTerrains, cell, alternativeTerrain);
 }
 
 function getUnitCellPassabilityState(
@@ -11640,10 +11717,15 @@ function getUnitCellPassabilityState(
   const constructibleState = getCellConstructibleState(cell, {
     excludeVehicleId: effectiveMountedVehicleId,
   });
+  const mountedSurfaceTerrain = constructibleState.walkableBuilding
+    ? getConstructibleRules("building", constructibleState.walkableBuilding.type)?.mountedSurfaceTerrain
+    : null;
+  const mountedTerrainAllowed = Boolean(effectiveMountedVehicleId) &&
+    canMountedUnitTraverseTerrain(effectiveUnit, cell, mountedSurfaceTerrain);
 
   let terrainOrStructurePassable = false;
 
-  if (constructibleState.blockingBuilding || constructibleState.blockingVehicle) {
+  if (constructibleState.blockingBuilding || constructibleState.blockingVehicle || (effectiveMountedVehicleId && !mountedTerrainAllowed)) {
     terrainOrStructurePassable = false;
   } else if (constructibleState.walkableBuilding) {
     terrainOrStructurePassable = true;
@@ -11660,10 +11742,8 @@ function getUnitCellPassabilityState(
     } else {
       terrainOrStructurePassable = true;
     }
-  } else if (canMountedUnitTraverseTerrain(effectiveUnit, cell)) {
+  } else if (mountedTerrainAllowed) {
     terrainOrStructurePassable = true;
-  } else if (effectiveMountedVehicleId) {
-    terrainOrStructurePassable = false;
   } else {
     terrainOrStructurePassable = cell.type !== "water" || isSeasonallyWalkableWaterCell(cell);
   }

@@ -16,6 +16,21 @@
       }
     },
     {
+      "id": "reserve",
+      "cost": 900,
+      "icon": "../assets/techs/reserve.png",
+      "labels": {
+        "fr": "Conservation",
+        "en": "Conservation",
+        "es": "Conservación",
+        "ru": "Консервация"
+      },
+      "prerequisites": {
+        "tech": [ "pottery" ],
+        "events": []
+      }
+    },
+    {
       "id": "hole_digging",
       "cost": 180,
       "icon": "../assets/techs/holes.png",
@@ -47,7 +62,7 @@
     },
     {
       "id": "wheelbarrow",
-      "cost": 180,
+      "cost": 900,
       "icon": "../assets/techs/wheel.png",
       "labels": {
         "fr": "Brouette",
@@ -56,13 +71,13 @@
         "ru": "Тачка"
       },
       "prerequisites": {
-        "tech": [],
+        "tech": ["diy"],
         "events": []
       }
     },
     {
       "id": "planting",
-      "cost": 270,
+      "cost": 900,
       "icon": "../assets/techs/plant.png",
       "labels": {
         "fr": "Plantation",
@@ -77,7 +92,7 @@
     },
     {
       "id": "diving_rod",
-      "cost": 270,
+      "cost": 900,
       "icon": "../assets/techs/diving_rod.png",
       "labels": {
         "fr": "Baguette de sourcier",
@@ -107,7 +122,7 @@
     },
     {
       "id": "diy",
-      "cost": 270,
+      "cost": 180,
       "icon": "../assets/techs/diy.png",
       "labels": {
         "fr": "Bricolage",
@@ -116,13 +131,13 @@
         "ru": "Мастерство"
       },
       "prerequisites": {
-        "tech": ["wheelbarrow"],
+        "tech": [],
         "events": []
       }
     },
     {
       "id": "music",
-      "cost": 360,
+      "cost": 900,
       "icon": "../assets/techs/music.png",
       "labels": {
         "fr": "Musique",
@@ -152,7 +167,7 @@
     },
     {
       "id": "bridge_building",
-      "cost": 360,
+      "cost": 900,
       "icon": "../assets/techs/bridges.png",
       "labels": {
         "fr": "Construction de ponts",
@@ -161,19 +176,34 @@
         "ru": "Строительство мостов"
       },
       "prerequisites": {
-        "tech": ["diy"],
+        "tech": ["diy", "hole_digging"],
         "events": []
       }
     },
     {
       "id": "boating",
-      "cost": 360,
+      "cost": 900,
       "icon": "../assets/techs/boating.png",
       "labels": {
         "fr": "Barque",
         "en": "Boat",
         "es": "Barco",
         "ru": "Лодка"
+      },
+      "prerequisites": {
+        "tech": ["diy"],
+        "events": []
+      }
+    },
+    {
+      "id": "sleigh",
+      "cost": 900,
+      "icon": "../assets/techs/sleigh.png",
+      "labels": {
+        "fr": "Luge",
+        "en": "Sleigh",
+        "es": "Trineo",
+        "ru": "Санки"
       },
       "prerequisites": {
         "tech": ["diy"],

@@ -168,6 +168,7 @@ Supported fields:
 - `footprint`
 - `placementTerrains`
 - `walkable`
+- `mountedSurfaceTerrain`
 - `villageBuilding`
 - `foundationActionAvailable`
 - `constructionCost`
@@ -177,6 +178,7 @@ Supported fields:
 - `constructionVisualThresholds.initialMax`
 - `constructionVisualThresholds.halfMax`
 - `abandonedDecayPerTurn`
+- `happinessPerTurn`
 
 ### `villageBuilding`
 
@@ -187,6 +189,13 @@ existing **complete** village building. The distance is configured in
 `game/rules.js`. A missing `villageBuilding` field defaults to `false`.
 Non-village buildings (such as bridges) neither require a nearby village building
 nor count as one. The editor does not enforce this proximity rule.
+
+### `happinessPerTurn`
+
+Optional happiness change contributed each turn by one complete building. It may
+be positive or negative; incomplete and abandoned buildings do not contribute.
+The value is added to the changes from food, population, and waiting units, then
+clamped to the range in `game/rules.js`.
 
 ### `footprint`
 
@@ -238,6 +247,10 @@ Example:
 ```
 
 This allows a 3-tile bridge-like structure whose middle tile may be on water while both ends must stay on grass.
+
+### `mountedSurfaceTerrain`
+
+Optional terrain id used as an alternative surface for mounted vehicles on a **complete, walkable** building. The tile's actual terrain remains available too. Bridges use `"grass"` so a wheelbarrow can cross their water tiles on the deck, while a boat can still travel through water tiles but not onto grass ends. This affects passability, not movement cost, and has no effect on unfinished buildings or unmounted units.
 
 ### `resourceStorageCapacities`
 

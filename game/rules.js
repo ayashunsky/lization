@@ -61,6 +61,33 @@ window.APP_RULES = {
   buildingPlacement: {
     villageMaxDistance: 3,
   },
+  happiness: {
+    initial: 100,
+    minimum: 0,
+    maximum: 500,
+    foodDaysSteps: [
+      { min: 0, deltaPerTurn: -0.8 },
+      { min: 7, deltaPerTurn: -0.3 },
+      { min: 14, deltaPerTurn: -0.1 },
+      { min: 30, deltaPerTurn: 0 },
+      { min: 90, deltaPerTurn: 0.05 },
+      { min: 180, deltaPerTurn: 0.1 },
+      { min: 360, deltaPerTurn: 0.2 },
+    ],
+    populationSteps: [
+      { min: 0, deltaPerTurn: 0 },
+      { min: 10, deltaPerTurn: -0.1 },
+      { min: 20, deltaPerTurn: -0.2 },
+      { min: 30, deltaPerTurn: -0.4 },
+      { min: 40, deltaPerTurn: -0.6 },
+      { min: 50, deltaPerTurn: -0.9 },
+      { min: 60, deltaPerTurn: -1.2 },
+      { min: 70, deltaPerTurn: -1.6 },
+      { min: 80, deltaPerTurn: -2 },
+      { min: 90, deltaPerTurn: -2.5 },
+    ],
+    waitPerUnitPerTurn: 0.1,
+  },
   vehicles: {
     default: {
       width: 1,

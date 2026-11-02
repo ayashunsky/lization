@@ -118,6 +118,10 @@ export function createConstructiblesApi(deps) {
       if (Number.isFinite(set.abandonedDecayPerTurn)) {
         resolved.abandonedDecayPerTurn = set.abandonedDecayPerTurn;
       }
+
+      if (Number.isFinite(set.happinessPerTurn)) {
+        resolved.happinessPerTurn = set.happinessPerTurn;
+      }
     }
 
     return resolved;

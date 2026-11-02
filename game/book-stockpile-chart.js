@@ -5,8 +5,9 @@ const resourceColors = {
   food: "#ad4b37",
 };
 const populationColor = "#784177";
+const happinessColor = "#c18419";
 const resourceTypes = Object.keys(resourceColors);
-const seriesTypes = [...resourceTypes, "population"];
+const seriesTypes = [...resourceTypes, "population", "happiness"];
 const periodOptions = [100, 365, 1000, "all"];
 const plot = { top: 10, height: 182 };
 
@@ -74,6 +75,8 @@ export function createBookStockpileChartApi({
     const samples = getHistory().filter((entry) => entry.turn >= startTurn && entry.turn <= turn);
     const activeTypes = resourceTypes.filter((type) => state.visible.has(type));
     const showPopulation = state.visible.has("population");
+    const showHappiness = state.visible.has("happiness");
+    const happinessSamples = showHappiness ? samples.filter((entry) => Number.isFinite(entry.happiness)) : [];
     const populationPoints = showPopulation
       ? reconstructPopulationSeries(getPopulationEvents(), getPopulation(), startTurn, turn)
       : [];
@@ -86,14 +89,19 @@ export function createBookStockpileChartApi({
     const yMaximum = niceMaximum(highestValue);
     const highestPopulation = populationPoints.reduce((highest, point) => Math.max(highest, point.value), 0);
     const populationMaximum = Math.max(4, Math.ceil(highestPopulation / 4) * 4);
+    const highestHappiness = happinessSamples.reduce((highest, point) => Math.max(highest, point.happiness), 0);
+    const happinessMaximum = niceMaximum(highestHappiness);
     const language = getLanguage();
     const formatNumber = new Intl.NumberFormat(language, { maximumFractionDigits: 2 });
     const left = activeTypes.length > 0 ? Math.max(36, formatNumber.format(yMaximum).length * 6 + 9) : 12;
-    const right = showPopulation ? Math.max(30, formatNumber.format(populationMaximum).length * 6 + 12) : 10;
+    const populationAxisWidth = showPopulation ? Math.max(30, formatNumber.format(populationMaximum).length * 6 + 12) : 0;
+    const happinessAxisWidth = showHappiness ? Math.max(30, formatNumber.format(happinessMaximum).length * 6 + 12) : 0;
+    const right = populationAxisWidth + happinessAxisWidth || 10;
     const width = 320 - left - right;
     const x = (sampleTurn) => left + (sampleTurn - startTurn) / (endTurn - startTurn) * width;
     const y = (value) => plot.top + plot.height - value / yMaximum * plot.height;
     const populationY = (value) => plot.top + plot.height - value / populationMaximum * plot.height;
+    const happinessY = (value) => plot.top + plot.height - value / happinessMaximum * plot.height;
     const svg = createSvgElement("svg", {
       viewBox: "0 0 320 220",
       role: "img",
@@ -121,6 +129,14 @@ export function createBookStockpileChartApi({
         label.textContent = formatNumber.format(populationMaximum * index / 4);
         svg.append(label);
       }
+      if (showHappiness) {
+        const label = createSvgElement("text", {
+          x: left + width + populationAxisWidth + 5, y: position + 3,
+          class: "book-stockpile-tick book-stockpile-happiness-tick",
+        });
+        label.textContent = formatNumber.format(happinessMaximum * index / 4);
+        svg.append(label);
+      }
     }
 
     if (activeTypes.length > 0) {
@@ -133,6 +149,13 @@ export function createBookStockpileChartApi({
       svg.append(createSvgElement("line", {
         x1: left + width, y1: plot.top, x2: left + width, y2: plot.top + plot.height,
         class: "book-stockpile-population-axis",
+      }));
+    }
+    if (showHappiness) {
+      svg.append(createSvgElement("line", {
+        x1: left + width + populationAxisWidth, y1: plot.top,
+        x2: left + width + populationAxisWidth, y2: plot.top + plot.height,
+        class: "book-stockpile-happiness-axis",
       }));
     }
 
@@ -197,12 +220,33 @@ export function createBookStockpileChartApi({
       }
     }
 
-    if ((samples.length === 0 && !showPopulation) || (activeTypes.length === 0 && !showPopulation)) {
+    if (happinessSamples.length > 0) {
+      svg.append(createSvgElement("path", {
+        d: happinessSamples.map((entry, index) =>
+          `${index === 0 ? "M" : "L"}${x(entry.turn).toFixed(2)} ${happinessY(entry.happiness).toFixed(2)}`).join(" "),
+        stroke: happinessColor,
+        class: "book-stockpile-series",
+      }));
+      if (happinessSamples.length <= 40) {
+        for (const entry of happinessSamples) {
+          const marker = createSvgElement("circle", {
+            cx: x(entry.turn), cy: happinessY(entry.happiness), r: 2.4,
+            fill: happinessColor, class: "book-stockpile-point",
+          });
+          const title = createSvgElement("title");
+          title.textContent = `${widget.dataset.happinessLabel || ""}: ${formatNumber.format(entry.happiness)}% (${formatTurnDate(entry.turn)})`;
+          marker.append(title);
+          svg.append(marker);
+        }
+      }
+    }
+
+    if ((samples.length === 0 && !showPopulation) || (activeTypes.length === 0 && !showPopulation && happinessSamples.length === 0)) {
       const emptyMessage = createSvgElement("text", {
         x: left + width / 2, y: plot.top + plot.height / 2,
         "text-anchor": "middle", class: "book-stockpile-empty",
       });
-      emptyMessage.textContent = activeTypes.length === 0 ? widget.dataset.noSeriesLabel || "" : widget.dataset.noDataLabel || "";
+      emptyMessage.textContent = state.visible.size === 0 ? widget.dataset.noSeriesLabel || "" : widget.dataset.noDataLabel || "";
       svg.append(emptyMessage);
     }
 
@@ -248,7 +292,7 @@ export function createBookStockpileChartApi({
     for (const type of seriesTypes) {
       const label = document.createElement("label");
       label.className = "book-stockpile-series-toggle";
-      label.style.setProperty("--series-color", resourceColors[type] || populationColor);
+      label.style.setProperty("--series-color", resourceColors[type] || (type === "happiness" ? happinessColor : populationColor));
       const input = document.createElement("input");
       input.type = "checkbox";
       input.value = type;
@@ -259,7 +303,9 @@ export function createBookStockpileChartApi({
         refreshCharts();
       });
       const name = document.createElement("span");
-      name.textContent = type === "population" ? widget.dataset.populationLabel || "" : getResourceLabel(type);
+      name.textContent = type === "population"
+        ? widget.dataset.populationLabel || ""
+        : type === "happiness" ? widget.dataset.happinessLabel || "" : getResourceLabel(type);
       label.append(input, name);
       toggles.append(label);
     }

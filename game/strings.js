@@ -178,6 +178,7 @@ window.APP_LOCALIZATION = {
         mapSize: (width, height) => `${width} x ${height}`,
         turn: (turnNumber, dateLabel = "") =>
           dateLabel ? `Tour : ${turnNumber} | ${dateLabel}` : `Tour : ${turnNumber}`,
+        happiness: (value) => `Bonheur : ${value} %`,
         file: (fileName) => `Nom de partie : ${fileName}`,
         fileNone: "Nom de partie : aucun",
         tileNone: "Case : aucune",
@@ -407,6 +408,7 @@ window.APP_LOCALIZATION = {
         mapSize: (width, height) => `${width} x ${height}`,
         turn: (turnNumber, dateLabel = "") =>
           dateLabel ? `Turn: ${turnNumber} | ${dateLabel}` : `Turn: ${turnNumber}`,
+        happiness: (value) => `Happiness: ${value}%`,
         file: (fileName) => `Game name: ${fileName}`,
         fileNone: "Game name: none",
         tileNone: "Tile: none",
@@ -636,6 +638,7 @@ window.APP_LOCALIZATION = {
         mapSize: (width, height) => `${width} x ${height}`,
         turn: (turnNumber, dateLabel = "") =>
           dateLabel ? `Turno: ${turnNumber} | ${dateLabel}` : `Turno: ${turnNumber}`,
+        happiness: (value) => `Felicidad: ${value}%`,
         file: (fileName) => `Nombre de partida: ${fileName}`,
         fileNone: "Nombre de partida: ninguno",
         tileNone: "Casilla: ninguna",
@@ -865,6 +868,7 @@ window.APP_LOCALIZATION = {
         mapSize: (width, height) => `${width} x ${height}`,
         turn: (turnNumber, dateLabel = "") =>
           dateLabel ? `Ход: ${turnNumber} | ${dateLabel}` : `Ход: ${turnNumber}`,
+        happiness: (value) => `Счастье: ${value}%`,
         file: (fileName) => `Имя игры: ${fileName}`,
         fileNone: "Имя игры: нет",
         tileNone: "Клетка: нет",

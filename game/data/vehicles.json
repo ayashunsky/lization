@@ -77,6 +77,78 @@
         ]
       }
     },
+    "sleigh": {
+      "labels": {
+        "fr": "Luge",
+        "en": "Sleigh",
+        "es": "Trineo",
+        "ru": "Санки"
+      },
+      "ui": {
+        "icon": "🛷"
+      },
+      "availability" : {
+        "requiredTechs" : [ "sleigh" ]
+      },
+      "rules": {
+        "width": 1,
+        "height": 1,
+        "placementTerrains": [["grass"]],
+        "walkable": true,
+        "foundationActionAvailable": true,
+        "mounted": {
+          "allowedActions": ["walk", "gatherFood", "gatherMaterials"],
+          "movementTerrains": [["water", "winter2"], ["grass", "winter2"], 
+                               ["forest", "winter2"], ["mountain", "winter2"]],
+          "multipliers": {
+            "moveCost": 0.5
+          }
+        },
+        "constructionCost": 120,
+        "buildCost": {
+          "stone": 0,
+          "lumber": 60
+        }
+      },
+      "visual": {
+        "renderMode": "singleTile",
+        "abandonedImage": "../assets/vehicles/sleigh_d.png",
+        "constructionImages": {
+          "initial": "../assets/vehicles/sleigh_init.png",
+          "half": "../assets/vehicles/sleigh_half.png"
+        },
+        "mountedRenders": {
+          "default": {
+            "unit": {
+              "moveSource": "idle",
+              "offsetX": 0,
+              "offsetY": -4
+            },
+            "vehicle": {
+              "sources": {
+                "idle": {
+                  "W": "../assets/vehicles/sleigh_d.png",
+                  "N": "../assets/vehicles/sleigh_b.png",
+                  "S": "../assets/vehicles/sleigh_f.png"
+                },
+                "move": {
+                  "W": ["../assets/vehicles/sleigh_h.png"],
+                  "N": ["../assets/vehicles/sleigh_b.png"],
+                  "S": ["../assets/vehicles/sleigh_f.png"]
+                }
+              },
+              "moveFrameSequence": [0],
+              "anchorX": 27,
+              "anchorY": 34
+            }
+          }
+        },
+
+        "subtypes": [
+          { "id": "boat_01", "image": "../assets/vehicles/sleigh_d.png" }
+        ]
+      }
+    },
     "wbarrow": {
       "labels": {
         "fr": "Brouette",
@@ -103,8 +175,8 @@
           "multipliers": {
             "moveCost": 2,
             "workPointsPerTurn": {
-              "gatherFood": 2,
-              "gatherMaterials": 2
+              "gatherFood": 1.5,
+              "gatherMaterials": 1.5
             }
           }
         },

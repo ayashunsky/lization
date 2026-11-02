@@ -17,7 +17,7 @@
       "limits": {
         "countByBuilding": {
           "building": "well",
-          "base": 15,
+          "base": 10,
           "perBuilding": 15
         }
       },
@@ -150,6 +150,7 @@
         "walkable": false,
         "foundationActionAvailable": true,
         "constructionCost": 1680,
+        "happinessPerTurn": 0.25,
         "buildCost": {
           "stone": 0,
           "lumber": 1500
@@ -208,6 +209,7 @@
         ],
         "villageBuilding": false,
         "walkable": true,
+        "mountedSurfaceTerrain": "grass",
         "foundationActionAvailable": true,
         "constructionCost": 1920,
         "buildCost": {
@@ -279,6 +281,7 @@
         ],
         "villageBuilding": false,
         "walkable": true,
+        "mountedSurfaceTerrain": "grass",
         "foundationActionAvailable": true,
         "constructionCost": 1920,
         "buildCost": {
@@ -352,11 +355,12 @@
         ],
         "villageBuilding": false,
         "walkable": true,
+        "mountedSurfaceTerrain": "grass",
         "foundationActionAvailable": true,
-        "constructionCost": 43800,
+        "constructionCost": 20000,
         "buildCost": {
-          "stone": 350,
-          "lumber": 3000
+          "stone": 170,
+          "lumber": 1500
         },
         "constructionVisualThresholds": {
           "initialMax": 0.34,
@@ -367,15 +371,15 @@
       "visual": {
         "renderMode": "footprintImageNative",
         "constructionRenderMode": "footprintImageNative",
-        "nativeScaleAt100Zoom": 0.8,
+        "nativeScaleAt100Zoom": 0.5,
         "nativeOffsetYAt100Zoom": 23,
         "subtypes": [
-          { "id": "bridge_01", "image": "../assets/buildings/small_bridge_nw_se.png" }
+          { "id": "bridge_01", "image": "../assets/buildings/bridge_nw_se.png" }
         ],
         "abandonedImage": "../assets/buildings/house_abandoned.png",
         "constructionImages": {
           "initial": "../assets/buildings/house_construct.png",
-          "half": "../assets/buildings/small_bridge_nw_se_half.png"
+          "half": "../assets/buildings/bridge_nw_se_half.png"
         },
         "constructionStages": {
           "initial": {
@@ -391,9 +395,9 @@
         },
         "unitRenderOffsets": [
           { "x": 0, "y": -20 },
-          { "x": 12, "y": -20 },
-          { "x": 12, "y": -20 },
-          { "x": 0, "y": 0 }
+          { "x": 0, "y": -20 },
+          { "x": 0, "y": -20 },
+          { "x": 0, "y": -20 }
         ]
       }
     },
@@ -427,11 +431,12 @@
         ],
         "villageBuilding": false,
         "walkable": true,
+        "mountedSurfaceTerrain": "grass",
         "foundationActionAvailable": true,
-        "constructionCost": 43800,
+        "constructionCost": 20000,
         "buildCost": {
-          "stone": 350,
-          "lumber": 3000
+          "stone": 170,
+          "lumber": 1500
         },
         "constructionVisualThresholds": {
           "initialMax": 0.34,
@@ -442,15 +447,15 @@
       "visual": {
         "renderMode": "footprintImageNative",
         "constructionRenderMode": "footprintImageNative",
-        "nativeScaleAt100Zoom": 0.67,
+        "nativeScaleAt100Zoom": 0.5,
         "nativeOffsetYAt100Zoom": 23,
         "subtypes": [
-          { "id": "bridge_01", "image": "../assets/buildings/small_bridge_sw_ne.png" }
+          { "id": "bridge_01", "image": "../assets/buildings/bridge_ne_sw.png" }
         ],
         "abandonedImage": "../assets/buildings/house_abandoned.png",
         "constructionImages": {
           "initial": "../assets/buildings/house_construct.png",
-          "half": "../assets/buildings/small_bridge_sw_ne_half.png"
+          "half": "../assets/buildings/bridge_ne_sw_half.png"
         },
         "constructionStages": {
           "initial": {
@@ -465,16 +470,69 @@
           }
         },
         "unitRenderOffsets": [
-          { "x": 0, "y": 0 },
-          { "x": -12, "y": -20 },
-          { "x": -12, "y": -20 },
+          { "x": 0, "y": -20 },
+          { "x": 0, "y": -20 },
+          { "x": 0, "y": -20 },
           { "x": 0, "y": -20 }
         ]
       }
     },
+    "grange": {
+      "labels": {
+        "fr": "Petite grange",
+        "en": "Small barn",
+        "es": "Granero pequeño",
+        "ru": "Маленький сарай"
+      },
+      "ui": {
+        "icon": "🌾"
+      },
+      "availability" : {
+        "requiredTechs" : [ "pottery" ]
+      },
+      "rules": {
+        "width": 1,
+        "height": 1,
+        "villageBuilding": true,
+        "walkable": false,
+        "foundationActionAvailable": true,
+        "constructionCost": 560,
+        "buildCost": {
+          "lumber": 60
+        },
+        "resourceStorageCapacities": {
+          "food": 96
+        }, 
+        "constructionVisualThresholds": {
+          "initialMax": 0.34,
+          "halfMax": 0.79
+        },
+        "abandonedDecayPerTurn": 0.025
+      },
+      "visual": {
+        "renderMode": "footprintImageNative",
+        "constructionRenderMode": "footprintImageNative",
+        "nativeScaleAt100Zoom": 0.25,
+        "nativeOffsetYAt100Zoom": 0,
+        "subtypes": [
+          { "id": "grange_01", "image": "../assets/buildings/grange.png" }
+        ],
+        "abandonedImage": "../assets/buildings/house_abandoned.png",
+        "constructionImages": {
+          "initial": "../assets/buildings/house_construct.png",
+          "half": "../assets/buildings/grange_half.png"
+        },
+        "constructionStages": {
+          "initial": {
+            "renderMode": "perTile",
+            "yOffsetFactor": 0.2
+          }
+        }
+      }
+    },
     "granary": {
       "labels": {
-        "fr": "Grenier",
+        "fr": "Réserve",
         "en": "Granary",
         "es": "Granero",
         "ru": "Амбар"
@@ -483,7 +541,7 @@
         "icon": "🌾"
       },
       "availability" : {
-        "requiredTechs" : [ "pottery" ]
+        "requiredTechs" : [ "reserve" ]
       },
       "rules": {
         "width": 2,
@@ -503,7 +561,7 @@
           "lumber": 130
         },
         "resourceStorageCapacities": {
-          "food": 500
+          "food": 600
         }, 
         "constructionVisualThresholds": {
           "initialMax": 0.34,

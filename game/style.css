@@ -793,6 +793,13 @@ p {
   text-align: center;
 }
 
+.play-inspector-happiness {
+  color: #f2d48d;
+  font-size: calc(0.86rem * var(--ui-font-scale));
+  line-height: 1.2;
+  text-align: center;
+}
+
 .play-inspector-population-goal[hidden] {
   display: none;
 }
@@ -1183,10 +1190,11 @@ p {
 
 .book-transient-hint {
   position: absolute;
-  bottom: 81px;
-  right: 100px;
+  top: 4px;
+  left: 50%;
   z-index: 11;
-  width: min(360px, calc(100% - 36px));
+  width: min(700px, calc(100% - 24px));
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
@@ -1194,9 +1202,78 @@ p {
   display: none;
 }
 
-@media (max-width: 760px) {
-  .book-transient-hint {
-    right: 18px;
+.app-shell:has(.book-overlay:not([hidden])) .blocking-message-dialog {
+  top: 4px;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: min(700px, calc(100% - 24px));
+  max-height: 48px;
+  transform: translateX(-50%);
+}
+
+.book-transient-hint .message-dialog,
+.app-shell:has(.book-overlay:not([hidden])) .blocking-message-dialog {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+}
+
+.book-transient-hint .message-dialog-text,
+.app-shell:has(.book-overlay:not([hidden])) .blocking-message-dialog .message-dialog-text {
+  flex: 1;
+  min-width: 0;
+  font-size: calc(0.82rem * var(--ui-font-scale));
+  line-height: 1.15;
+}
+
+.app-shell:has(.book-overlay:not([hidden])) .blocking-message-date {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-size: calc(0.72rem * var(--ui-font-scale));
+}
+
+.book-transient-hint .message-dialog-footer,
+.app-shell:has(.book-overlay:not([hidden])) .blocking-message-dialog .message-dialog-footer {
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.book-transient-hint .message-dialog-portrait,
+.app-shell:has(.book-overlay:not([hidden])) .blocking-message-dialog .message-dialog-portrait {
+  width: 32px;
+  height: 32px;
+}
+
+.app-shell:has(.book-overlay:not([hidden])) .blocking-message-dialog .menu-button {
+  min-width: 56px;
+  min-height: 32px;
+  padding: 0 8px;
+}
+
+@media (max-width: 520px) {
+  .app-shell:has(.book-overlay:not([hidden])) .blocking-message-dialog {
+    max-height: 52px;
+  }
+
+  .book-transient-hint .message-dialog,
+  .app-shell:has(.book-overlay:not([hidden])) .blocking-message-dialog {
+    gap: 8px;
+    padding: 4px 8px;
+  }
+
+  .book-transient-hint .message-dialog-text,
+  .app-shell:has(.book-overlay:not([hidden])) .blocking-message-dialog .message-dialog-text {
+    font-size: calc(0.7rem * var(--ui-font-scale));
+    line-height: 1.1;
+  }
+
+  .book-transient-hint .message-dialog-footer,
+  .app-shell:has(.book-overlay:not([hidden])) .blocking-message-date,
+  .app-shell:has(.book-overlay:not([hidden])) .blocking-message-dialog .message-dialog-portrait {
+    display: none;
   }
 }
 
@@ -1647,6 +1724,15 @@ p {
 
 .book-stockpile-population-tick {
   fill: #784177;
+}
+
+.book-stockpile-happiness-axis {
+  stroke: #c18419;
+  stroke-width: 1;
+}
+
+.book-stockpile-happiness-tick {
+  fill: #9a630e;
 }
 
 .book-stockpile-tick {

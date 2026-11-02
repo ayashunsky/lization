@@ -256,6 +256,7 @@
 
       <aside id="playInspector" class="play-inspector" hidden>
         <span class="play-inspector-turn" data-role="turn-readout"></span>
+        <span class="play-inspector-happiness" data-role="happiness-readout"></span>
         <span class="play-inspector-population-goal" data-role="population-goal-readout" hidden></span>
         <section class="play-inspector-section">
           <p class="play-inspector-title" data-role="stores-title"></p>
@@ -448,16 +449,16 @@
                 </button>
               </div>
             </div>
-            <div id="bookTransientHint" class="book-transient-hint" aria-live="polite" hidden>
-              <div class="message-dialog">
-                <p class="message-dialog-text" data-role="book-transient-hint-text"></p>
-                <div class="message-dialog-footer">
-                  <img class="message-dialog-portrait" src="assets/ui/lunettes_head.png" alt="">
-                </div>
-              </div>
-            </div>
           </div>
         </section>
+        <div id="bookTransientHint" class="book-transient-hint" aria-live="polite" hidden>
+          <div class="message-dialog">
+            <p class="message-dialog-text" data-role="book-transient-hint-text"></p>
+            <div class="message-dialog-footer">
+              <img class="message-dialog-portrait" src="assets/ui/lunettes_head.png" alt="">
+            </div>
+          </div>
+        </div>
       </div>
 
       <div id="gameActionMenu" class="game-action-menu" role="menu" hidden>
