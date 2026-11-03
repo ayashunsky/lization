@@ -1,4 +1,8 @@
-import { createConstructiblesApi } from "./constructibles.js";
+import {
+  createConstructiblesApi,
+  getCountByBuildingAllowedCount,
+  getReachedCountByBuildingProvider,
+} from "./constructibles.js";
 import { createBookContentApi } from "./book-content.js";
 import { normalizePopulationEvents } from "./population-events.js";
 import { createBookRuntimeApi } from "./book-runtime.js";
@@ -647,6 +651,7 @@ let replayPauseTimeoutId = 0;
 let turnReplayQueue = [];
 let turnReplayHadWork = false;
 let turnReplayHadMove = false;
+let completedBuildingTypesThisTurn = new Set();
 let turnReplayStartStates = new Map();
 let turnReplayFinalStates = new Map();
 let turnReplayVehicleStartStates = new Map();
@@ -1206,6 +1211,7 @@ const {
     startIntroMusicSegmentPlayback,
     stopIntroMusicSegmentPlayback,
     isPlayMode,
+    onBookOverlayVisibilityChanged: handleBookOverlayVisibilityChanged,
     getCurrentLanguage: () => currentLanguage,
     getBookPageDefinition,
     getBookPageNumberById,
@@ -3016,6 +3022,14 @@ function createSituationMessageEntry(kind, data = {}, turn = currentTurn) {
     entry.technologyId = data.technologyId.trim();
   }
 
+  if (typeof data.buildingType === "string" && data.buildingType.trim()) {
+    entry.buildingType = data.buildingType.trim();
+  }
+
+  if (typeof data.requiredBuildingType === "string" && data.requiredBuildingType.trim()) {
+    entry.requiredBuildingType = data.requiredBuildingType.trim();
+  }
+
   if (Number.isFinite(data.current)) {
     entry.current = Math.max(0, clampInteger(data.current, 0, 999999, 0));
   }
@@ -3045,6 +3059,15 @@ function getSituationMessageText(entry) {
   if (entry.kind === "houseCompleted") {
     return typeof template.houseCompleted === "function"
       ? template.houseCompleted(getDefaultUnitName(entry.unitType))
+      : "";
+  }
+
+  if (entry.kind === "buildingLimitReached") {
+    return typeof template.buildingLimitReached === "function"
+      ? template.buildingLimitReached(
+          getBuildingLabel(entry.buildingType),
+          getBuildingLabel(entry.requiredBuildingType),
+        )
       : "";
   }
 
@@ -5653,19 +5676,12 @@ function evaluateCountLimits(limits, subjectType, context = getRuleContext(), { 
     return false;
   }
 
-  const countByBuilding = normalizedLimits.countByBuilding && typeof normalizedLimits.countByBuilding === "object"
-    ? normalizedLimits.countByBuilding
-    : null;
+  const countByBuilding = normalizedLimits.countByBuilding;
+  const providerCount = getCountForRuleMap(context.completeBuildingCountsByType, countByBuilding?.building);
+  const allowedCount = getCountByBuildingAllowedCount(countByBuilding, providerCount);
 
-  if (countByBuilding?.building) {
-    const providerCount = getCountForRuleMap(context.completeBuildingCountsByType, countByBuilding.building);
-    const base = Math.max(0, Math.floor(Number(countByBuilding.base) || 0));
-    const perBuilding = Math.max(0, Math.floor(Number(countByBuilding.perBuilding) || 0));
-    const allowedCount = base + providerCount * perBuilding;
-
-    if (subjectCount >= allowedCount) {
-      return false;
-    }
+  if (allowedCount !== null && subjectCount >= allowedCount) {
+    return false;
   }
 
   return true;
@@ -6755,6 +6771,8 @@ function serializeSituationMessage(entry) {
     {
       unitType: entry.unitType,
       technologyId: entry.technologyId,
+      buildingType: entry.buildingType,
+      requiredBuildingType: entry.requiredBuildingType,
       current: entry.current,
       threshold: entry.threshold,
     },
@@ -8885,7 +8903,7 @@ function normalizeSituationMessage(entry) {
     throw new Error("Missing situation message entry.");
   }
 
-  if (!["intro", "houseStarted", "houseCompleted", "foodShortage", "foodRecovered", "unitLeft", "researchGoalMissing", "technologyDiscovered", "populationCapReached", "victory", "defeat"].includes(entry.kind)) {
+  if (!["intro", "houseStarted", "houseCompleted", "buildingLimitReached", "foodShortage", "foodRecovered", "unitLeft", "researchGoalMissing", "technologyDiscovered", "populationCapReached", "victory", "defeat"].includes(entry.kind)) {
     throw new Error(`Unsupported situation message kind: ${entry.kind}`);
   }
   if (
@@ -8894,12 +8912,21 @@ function normalizeSituationMessage(entry) {
   ) {
     throw new Error("Missing unit type in situation message.");
   }
+  if (
+    entry.kind === "buildingLimitReached" &&
+    (typeof entry.buildingType !== "string" || !entry.buildingType.trim() ||
+      typeof entry.requiredBuildingType !== "string" || !entry.requiredBuildingType.trim())
+  ) {
+    throw new Error("Missing building types in situation message.");
+  }
 
   return createSituationMessageEntry(
     entry.kind,
     {
       unitType: entry.unitType,
       technologyId: entry.technologyId,
+      buildingType: entry.buildingType,
+      requiredBuildingType: entry.requiredBuildingType,
       current: entry.current,
       threshold: entry.threshold,
     },
@@ -9510,9 +9537,21 @@ function everyUnitHasOngoingTask() {
   return units.length > 0 && units.every((currentUnit) => hasAssignedTask(currentUnit));
 }
 
+function handleBookOverlayVisibilityChanged(isOpen, { resumeTurns = true } = {}) {
+  if (isOpen) {
+    clearQueuedAutoAdvanceFrame();
+  }
+
+  updateTurnControls();
+  if (!isOpen && resumeTurns) {
+    maybeAutoAdvanceTurn();
+  }
+}
+
 function canAdvanceTurn() {
   return (
     !mainMenuOpen &&
+    bookOverlay?.hidden !== false &&
     !bookOverlayIntroMode &&
     !bookOverlayRestoreState &&
     isPlayMode() &&
@@ -10362,6 +10401,9 @@ function resolveBuildHouseTask(currentUnit) {
   }
 
   if (nextCompleteness >= 1) {
+    if (structure.riderUnitId === undefined) {
+      completedBuildingTypesThisTurn.add(structure.type);
+    }
     clearCompletedTask(currentUnit);
   }
 }
@@ -11089,10 +11131,31 @@ function updateGameEndingAfterTurn() {
   }
 }
 
+function announceReachedBuildingLimits() {
+  if (completedBuildingTypesThisTurn.size === 0 || gameOutcome) return;
+
+  const context = getRuleContext();
+
+  for (const buildingType of completedBuildingTypesThisTurn) {
+    if (buildingType === "house" && isPopulationAtCapacity()) continue;
+
+    const limits = getConstructibleLimits("building", buildingType);
+    const providerType = limits.countByBuilding?.building;
+    const providerCount = getCountForRuleMap(context.completeBuildingCountsByType, providerType);
+    const subjectCount = getCountForRuleMap(context.completeBuildingCountsByType, buildingType);
+    const requiredBuildingType = getReachedCountByBuildingProvider(limits, subjectCount, providerCount);
+
+    if (requiredBuildingType) {
+      addSituationMessage("buildingLimitReached", { buildingType, requiredBuildingType });
+    }
+  }
+}
+
 function resolveTurn() {
   turnReplayQueue = [];
   turnReplayHadWork = false;
   turnReplayHadMove = false;
+  completedBuildingTypesThisTurn = new Set();
   turnReplayStartStates = captureReplayUnitStates();
   turnReplayVehicleStartStates = captureReplayVehicleStates();
   turnReplayMoveTargets = captureReplayMoveTargets();
@@ -11109,6 +11172,7 @@ function resolveTurn() {
   applyVillageEconomyForTurn();
   updateHappinessForTurn();
   updateGameEndingAfterTurn();
+  announceReachedBuildingLimits();
   stopHouseConstructionTasksAtPopulationCap();
   recordStockpileHistoryForCurrentTurn();
   turnReplayFinalStates = captureReplayUnitStates();

@@ -5,6 +5,31 @@ import {
   clampNonNegativeNumber,
 } from "./number-utils.js";
 
+export function getCountByBuildingAllowedCount(rule, providerCount) {
+  if (!rule?.building) return null;
+
+  const base = Math.max(0, Math.floor(Number(rule.base) || 0));
+  const perBuilding = Math.max(0, Math.floor(Number(rule.perBuilding) || 0));
+  return base + Math.max(0, providerCount) * perBuilding;
+}
+
+export function getReachedCountByBuildingProvider(limits, subjectCount, providerCount) {
+  const rule = limits?.countByBuilding;
+  const allowedCount = getCountByBuildingAllowedCount(rule, providerCount);
+  const maxCount = Number(limits?.maxCount);
+
+  if (
+    allowedCount === null ||
+    Number(rule.perBuilding) <= 0 ||
+    subjectCount !== allowedCount ||
+    (Number.isFinite(maxCount) && subjectCount >= maxCount)
+  ) {
+    return null;
+  }
+
+  return rule.building;
+}
+
 export function createConstructiblesApi(deps) {
   const {
     rules,

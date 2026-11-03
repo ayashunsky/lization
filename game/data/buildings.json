@@ -225,8 +225,8 @@
       "visual": {
         "renderMode": "footprintImageNative",
         "constructionRenderMode": "footprintImageNative",
-        "nativeScaleAt100Zoom": 0.6,
-        "nativeOffsetYAt100Zoom": 23,
+        "nativeScaleAt100Zoom": 0.35,
+        "nativeOffsetYAt100Zoom": 10,
         "subtypes": [
           { "id": "small_bridge_01", "image": "../assets/buildings/small_bridge_nw_se.png" }
         ],
@@ -247,8 +247,8 @@
           }
         },
         "unitRenderOffsets": [
-          { "x": 0, "y": -20 },
-          { "x": 12, "y": -20 },
+          { "x": 0, "y": -10 },
+          { "x": 12, "y": -10 },
           { "x": 0, "y": 0 }
         ]
       }
@@ -297,8 +297,8 @@
       "visual": {
         "renderMode": "footprintImageNative",
         "constructionRenderMode": "footprintImageNative",
-        "nativeScaleAt100Zoom": 0.5,
-        "nativeOffsetYAt100Zoom": 23,
+        "nativeScaleAt100Zoom": 0.35,
+        "nativeOffsetYAt100Zoom": 10,
         "subtypes": [
           { "id": "small_bridge_01", "image": "../assets/buildings/small_bridge_sw_ne.png" }
         ],
@@ -320,8 +320,8 @@
         },
         "unitRenderOffsets": [
           { "x": 0, "y": 0 },
-          { "x": -12, "y": -20 },
-          { "x": 0, "y": -20 }
+          { "x": -12, "y": -10 },
+          { "x": 0, "y": -10 }
         ]
       }
     },

@@ -79,6 +79,7 @@ export function createBookRuntimeApi({
     startIntroMusicSegmentPlayback,
     stopIntroMusicSegmentPlayback,
     isPlayMode,
+    onBookOverlayVisibilityChanged,
     getCurrentLanguage,
     getBookPageDefinition,
     getBookPageNumberById,
@@ -125,6 +126,7 @@ export function createBookRuntimeApi({
   }
 
   function closeBookOverlay({ restoreFocus = false, restoreState = true } = {}) {
+    const wasVisible = Boolean(bookOverlay && !bookOverlay.hidden);
     cancelBookSequencePlayback();
     cancelBookPageTurnAnimation();
     setBookOverlayIntroMode(false);
@@ -149,6 +151,10 @@ export function createBookRuntimeApi({
       updateInteractionModeUi();
     } else {
       updateInteractionModeUi();
+    }
+
+    if (wasVisible) {
+      onBookOverlayVisibilityChanged(false, { resumeTurns: restoreState });
     }
 
     const bookOverlayTriggerButton = getBookOverlayTriggerButton();
@@ -1346,7 +1352,11 @@ export function createBookRuntimeApi({
     setBookOverlayTriggerButton(triggerButton);
     initializeBookPageContent();
     updateBookPageStack(getBookState());
+    const wasHidden = bookOverlay.hidden;
     bookOverlay.hidden = false;
+    if (wasHidden) {
+      onBookOverlayVisibilityChanged(true);
+    }
     bookOverlay.querySelector('[data-action="close-book-overlay"]')?.focus({ preventScroll: true });
     await Promise.all([
       ensureBookContentLoaded(),
